@@ -13,6 +13,21 @@ While I am interested in bug reports and willing to help out, I urge you not to 
 
 Beware that bugs & feature requests can be "beyond scope".
 
+## Third party
+SqrMelon is written with Python2.7 (64 bit) and PyQt4, it also depends on some third party python packages.
+It comes with an install.txt with the right download links to help you get started.
+The C++ Player project has some other dependencies, listed below:
+
+We include 64klang for music, but adding different synths should be trivial:
+https://github.com/hzdgopher/64klang
+Get .h and .cpp files from
+https://github.com/hzdgopher/64klang/tree/master/Player/Player
+And add them to SqrMelon/Player/64klang2/
+
+In Release it also calls a post-build step which gives the .exe to kkrunchy to get the compressed final binary.
+http://www.farbrausch.de/~fg/kkrunchy/
+Get the "a" version and put it in SqrMelon/Player/
+
 ## Success stories
 SqrMelon has been used for the following productions:
 
