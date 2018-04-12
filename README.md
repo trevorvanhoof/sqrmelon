@@ -1,5 +1,5 @@
 # SqrMelon
-Tool for keyframe animation &amp; raymarching for 64k executables.
+A tool for keyframe animation & fragment shader management for 64k executables.
 
 ## Manual
 An extensive write-up can be found at:
