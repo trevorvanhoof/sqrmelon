@@ -16,11 +16,11 @@ Beware that bugs & feature requests can be "beyond scope".
 ## Success stories
 SqrMelon has been used for the following productions:
 
-Once upon a Time at TDF 2017:
+Once upon a Time (2nd) at TDF 2017:
 
 http://www.pouet.net/prod.php?which=68971
 
-Eidolon at Revision 2017:
+Eidolon (1st) at Revision 2017:
 
 http://www.pouet.net/prod.php?which=69669
 
@@ -28,7 +28,7 @@ Yermom at Evoke 2017:
 
 http://www.pouet.net/prod.php?which=71570
 
-YIQI at Trsac 2017:
+YIQI (2nd) at Trsac 2017:
 
 http://www.pouet.net/prod.php?which=71977
 
@@ -36,8 +36,13 @@ http://www.pouet.net/prod.php?which=71977
 
 https://www.youtube.com/watch?v=xPzl1-UGky8
 
-Party Gipfeler at Revision 2018:
+Party Gipfeler (3rd) at Revision 2018:
 
 http://www.pouet.net/prod.php?which=75739
+
+Transphosphorylation (2nd) at Revision 2018:
+
+http://www.pouet.net/prod.php?which=75728
+
 
 \* Star = final product did not use the player code, only the tool (& possibly frame by frame renderer).
