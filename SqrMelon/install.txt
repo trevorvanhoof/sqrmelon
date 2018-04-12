@@ -1,0 +1,12 @@
+1. Download & run with default settings:
+   https://www.python.org/ftp/python/2.7.12/python-2.7.12.amd64.msi
+
+2. Download & run with default settings:
+   https://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.11.4/PyQt4-4.11.4-gpl-Py2.7-Qt4.8.7-x64.exe/download
+
+3. Run install.bat
+
+[optional mp3 support] 4. Download & run with default settings:
+   https://github.com/downloads/AVbin/AVbin/AVbin10-win64.exe
+
+5. Run 65+.bat

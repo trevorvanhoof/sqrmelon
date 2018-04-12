@@ -1,0 +1,102 @@
+<template>
+    <pass buffer="0" static="1" name="Lensdirt texture">
+        <global path="header.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="lensdirt.glsl"/>
+	</pass>
+
+    <pass buffer="1" factor="8" name="Prepass">
+		<global path="header.glsl"/>
+		<section path="settings.glsl"/>
+		<global path="noiselib.glsl"/>
+		<shared path="shared.glsl"/>
+		<section path="content.glsl"/>
+        <global path="tracer.glsl"/>
+        <global path="prepass.glsl"/>
+	</pass>
+
+	<!-- 0: shaded pixel, distance in alpha, 1: world point, packed normal in alpha, 2: specular color, roughness in alpha -->
+    <pass buffer="2" outputs="3" input0="1" name="Trace and shade main">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <shared path="shared.glsl"/>
+        <section path="content.glsl"/>
+        <global path="tracer.glsl"/>
+        <global path="main.glsl"/>
+	</pass>
+    <pass buffer="3" input0="2.0" input1="2.1" input2="2.2" name="Trace and shade reflection">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <shared path="shared.glsl"/>
+        <section path="content.glsl"/>
+        <global path="tracer.glsl"/>
+        <global path="rpass.glsl"/>
+	</pass>
+
+    <!-- Blur reflections here -->
+	<pass buffer="4" input0="3" name="Blur refl X 1">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="1"/>
+		</global>
+	</pass>
+	<pass buffer="3" input0="4" name="Blur refl Y 1">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="1"/>
+		</global>
+	</pass>
+	<pass buffer="4" input0="3" name="Blur refl X 2">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="1"/>
+		</global>
+	</pass>
+	<pass buffer="3" input0="4" name="Blur refl Y 2">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="1"/>
+		</global>
+	</pass>
+
+    <pass buffer="4" input0="2" input1="3" name="Merge reflection into result">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <shared path="shared.glsl"/>
+        <section path="content.glsl"/>
+        <!--<global path="tracer.glsl"/>-->
+		<global path="merge.glsl"/>
+	</pass>
+    <pass buffer="2" input0="4" name="Overlays">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <shared path="shared.glsl"/>
+        <section path="prefxoverlay.glsl"/>
+	</pass>
+    <pass buffer="4" input0="2" name="FXAA3">
+        <global path="fxaa3.glsl"/>
+	</pass>
+	<pass buffer="3" input0="4" name="Bokeh DoF first pass">
+		<global path="bokehheader.glsl"/>
+		<global path="bokehfirst.glsl"/>
+	</pass>
+	<pass buffer="2" input0="3" name="Bokeh DoF second pass">
+		<global path="bokehheader.glsl"/>
+		<global path="bokehsecond.glsl"/>
+	</pass>
+
+	<!-- #include bloom.ixml -->
+
+	<pass input0="3" name="sRgb conversion">
+		<global path="present.glsl"/>
+	</pass>
+
+</template>

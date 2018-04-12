@@ -1,0 +1,1 @@
+void main(){vec2 uv=gl_FragCoord.xy/uResolution;oc=texelFetch(uImages[0],ivec2(gl_FragCoord.xy),0)+texture(uImages[1],uv)*vec4(1,1,1,0);}
