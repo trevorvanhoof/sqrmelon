@@ -9,4 +9,5 @@
 [optional mp3 support] 4. Download & run with default settings:
    https://github.com/downloads/AVbin/AVbin/AVbin10-win64.exe
 
-5. Run 65+.bat
+5. Run SqrMelon.exe
+	(This is just a wrapper around SqrMelon.bat that hides the command prompt)
