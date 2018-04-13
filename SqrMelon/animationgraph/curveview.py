@@ -670,7 +670,7 @@ class CurveEditor(QWidget):
         self.__relative = CheckBox()
         tools.addWidget(QLabel('Relative:'))
         tools.addWidget(self.__relative)
-        self.__relative.setValue((Qt.Unchecked, Qt.Checked)[int(gSettings.value('RelativeKeyInput', 0))])
+        self.__relative.setValue((Qt.Unchecked, Qt.Checked, Qt.Checked)[int(gSettings.value('RelativeKeyInput', 0))])
         self.__relative.valueChanged.connect(functools.partial(gSettings.setValue, 'RelativeKeyInput'))
 
         self.__time = DoubleSpinBox()
@@ -822,16 +822,13 @@ class CurveEditor(QWidget):
     def __onShiftSelectedKeyTimeOrValue(self, widget, isTime=True):
         keys = self.__view.selectedKeys()
         if self.__relative.value():
-            delta = widget.value() - self.__unshiftedKeyValue[0]
+            delta = widget.value()
             if not delta:
                 return
-
             values = []
             for key in keys:
                 values.append((key.time() if isTime else key.value()) + delta)
-
-            # editingFinished appears to emit twice, so let's make sure we don't get double translations
-            self.__unshiftedKeyValue[0] += delta
+            widget.setValueSilent(0.0)
         else:
             values = [widget.value()] * len(keys)
 

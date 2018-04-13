@@ -4,6 +4,7 @@ import sys
 import shutil
 import ctypes
 import functools
+import traceback
 
 from camerawidget import Camera
 from overlays import Overlays
@@ -466,4 +467,4 @@ if __name__ == '__main__':
     try:
         run()
     except Exception as e:
-        QMessageBox.critical(None, 'Unhandled exception', e.message)
+        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))
