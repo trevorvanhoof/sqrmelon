@@ -533,7 +533,7 @@ class TimeSlider(QWidget):
         currentTime.setMinimumWidth(70)
         currentTime.setDecimals(2)
         currentTime.valueChanged.connect(timer.setTime)
-        timer.timeChanged.connect(currentTime.setValue)
+        timer.timeChanged.connect(currentTime.setValueSilent)
         layout.addWidget(currentTime)
 
         currentSeconds = TimestampDisplay(timer)

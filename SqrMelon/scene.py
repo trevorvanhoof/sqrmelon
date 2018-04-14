@@ -244,7 +244,6 @@ class Scene(object):
     @classmethod
     def drawColorBufferToScreen(cls, colorBuffer, viewport, color=(1.0, 1.0, 1.0, 1.0)):
         FrameBuffer.clear()
-        glClear(GL_DEPTH_BUFFER_BIT)
 
         passThrough = Scene.usePassThroughProgram(color)
         glActiveTexture(GL_TEXTURE0)
