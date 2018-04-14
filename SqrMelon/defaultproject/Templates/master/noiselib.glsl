@@ -38,9 +38,9 @@ float snoise(vec3 v){vec3 f=floor(v);v-=f;v=v*v*(3-2*v);return mix(mix(mix(h1(f)
 //float _wrap(vec3 v,float s){return mix(mod(v,s),v+s,max(0,-sign(v)));}
 vec2 _wrap(vec2 v,vec2 s){return mix(mod(v,s),v+s,max(vec2(0),-sign(v)));}
 vec3 _wrap(vec3 v,vec3 s){return mix(mod(v,s),v+s,max(vec3(0),-sign(v)));}
-vec2 worley(vec3 v,vec3 s)
+vec4 worley(vec3 v,vec3 s)
 {
-	vec3 g,q,o,r,n=floor(v*s),
+	vec3 g,z,q,o,r,n=floor(v*s),
 	f=fract(v*s);
 	float d,m=8;
 	int i,j,k;
@@ -54,15 +54,15 @@ vec2 worley(vec3 v,vec3 s)
 		r=g-f+o;
 		d=dot(r,r);
 		if(d<m)
-			m=d;
+		{m=d;z=q;}
 	}
-	return vec2(m,q);
+	return vec4(m,q);
 }
-vec2 worley(vec3 v,float s){return worley(v,vec3(s));}
-vec2 worley(vec2 v,vec2 s)
+vec4 worley(vec3 v,float s){return worley(v,vec3(s));}
+vec3 worley(vec2 v,vec2 s)
 {
-	vec2 g,q,o,r,n=floor(v*s),
-	f=fract(v*s);
+	vec2 g,z,q,o,r,n=floor(v*s),
+	f=fract(v);
 	float d,m=8;
 	int i,j;
 	for(j=-1;j<=1;j++)
@@ -74,12 +74,13 @@ vec2 worley(vec2 v,vec2 s)
 		r=g-f+o;
 		d=dot(r,r);
 		if(d<m)
-			m=d;
+		{m=d;z=q;}
 	}
-	return vec2(m,q);
+	return vec3(m,z.x,z.y);
 }
-vec2 worley(vec2 v,float s){return worley(v,vec2(s));}
-vec2 worley(vec3 v)
+vec3 worley(vec2 v,float s){return worley(v,vec2(s));}
+// Non-tiled worley noise
+vec4 worley(vec3 v)
 {
 	vec3 g,q,o,r,n=floor(v),
 	f=fract(v);
@@ -97,9 +98,9 @@ vec2 worley(vec3 v)
 		if(d<m)
 			m=d;
 	}
-	return vec2(m,q);
+	return vec4(m,q);
 }
-vec2 worley(vec2 v)
+vec3 worley(vec2 v)
 {
 	vec2 g,z,q,o,r,n=floor(v),
 	f=fract(v);
@@ -116,22 +117,7 @@ vec2 worley(vec2 v)
 		if(d<m)
 		{m=d;z=q;}
 	}
-	return vec2(m,z);
-}
-vec2 worley(float v)
-{
-	float z,q,o,r,n=floor(v),d,m=8,
-	f=fract(v);
-	for(int i=-1;i<=1;i++)
-	{
-		q=n+i;
-		o=h1(q);
-		r=i-f+o;
-		d=dot(r,r);
-		if(d<m)
-		{m=d;z=q;}
-	}
-	return vec2(m,z);
+	return vec3(m,z.x,z.y);
 }
 
 // procedural fbm noise, useable by texture functions
