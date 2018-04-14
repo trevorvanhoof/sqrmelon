@@ -77,6 +77,14 @@ class Timer(object):
 
     def __init__(self):
         self.__osc = OSCClient()
+
+        self.__start = 0.0
+        self.__end = 10.0
+        self.__minTime = 0.0
+        self.__maxTime = 100.0
+        self.__BPS = 60.0
+        self.__time = 0.0
+
         self.timeChanged.connect(self.__osc.setPosition)
         self.startChanged.connect(self.__oscSetLoopRange)
         self.endChanged.connect(self.__oscSetLoopRange)
@@ -119,9 +127,9 @@ class Timer(object):
         self.timeChanged.emit(self.time)
 
     def projectOpened(self):
-        self.__start = float(gSettings.value('TimerStartTime', 0.0))
-        self.__end = float(gSettings.value('TimerEndTime', 4.0))
-        self.__time = float(gSettings.value('TimerTime', 0.0))
+        self.start = float(gSettings.value('TimerStartTime', 0.0))
+        self.end = float(gSettings.value('TimerEndTime', 4.0))
+        self.time = float(gSettings.value('TimerTime', 0.0))
 
         project = ProjectFile()
         if project and os.path.exists(project):
@@ -132,19 +140,21 @@ class Timer(object):
             except:
                 root = None
             if root is not None:
-                self.__minTime = float(root.attrib.get('TimerMinTime', 0.0))
-                self.__maxTime = float(root.attrib.get('TimerMaxTime', 10.0))
-                self.__BPS = float(root.attrib.get('TimerBPS', 2.0))
+                self.minTime = float(root.attrib.get('TimerMinTime', 0.0))
+                self.maxTime = float(root.attrib.get('TimerMaxTime', 10.0))
 
+                self.__BPS = float(root.attrib.get('TimerBPS', 2.0))
                 self.__osc.setBpm(int(round(self.__BPS * 60)))
+                self.bpmChanged.emit(self.__BPS * 60.0)
                 return
 
         # legacy project or no project open
-        self.__minTime = float(gSettings.value('TimerMinTime', 0.0))
-        self.__maxTime = float(gSettings.value('TimerMaxTime', 10.0))
-        self.__BPS = float(gSettings.value('TimerBPS', 2.0))
+        self.minTime = float(gSettings.value('TimerMinTime', 0.0))
+        self.maxTime = float(gSettings.value('TimerMaxTime', 10.0))
 
+        self.__BPS = float(gSettings.value('TimerBPS', 2.0))
         self.__osc.setBpm(int(round(self.__BPS * 60)))
+        self.bpmChanged.emit(self.__BPS * 60.0)
 
     def saveState(self):
         gSettings.setValue('TimerStartTime', self.__start)
@@ -501,6 +511,10 @@ class BPMInput(QWidget):
     def spinBox(self):
         return self._spinBox
 
+    def setValueSilent(self, bpm):
+        self._spinBox.setValueSilent(bpm)
+        self._label.setText('%s BPM' % bpm)
+
     def disable(self):
         self._label.show()
         self._label.setText('%s BPM' % self._spinBox.value())
@@ -548,6 +562,7 @@ class TimeSlider(QWidget):
         bpm.setStatusTip('Beats per minute, determines playback speed')
         bpm.spinBox().setMinimum(1)
         bpm.spinBox().valueChanged.connect(timer.setBpm)
+        timer.bpmChanged.connect(bpm.setValueSilent)
         layout.addWidget(bpm)
 
         goToStart = QPushButton(icons.get('Rewind'), '')
