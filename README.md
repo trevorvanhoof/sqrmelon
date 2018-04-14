@@ -60,3 +60,12 @@ http://www.pouet.net/prod.php?which=75728
 
 
 \* Star = final product did not use the player code, only the tool (& possibly frame by frame renderer).
+
+## Credits
+
+This tool was largely developed by:
+Trevor van Hoof (Tropical Trevor) http://trevorius.com/
+
+Various additions, bugfixes and ideas were contributed by Glow, Andro, Wurstgetrank amongst others.
+
+The template project uses snippets from various sources, credited in comments in the source.
