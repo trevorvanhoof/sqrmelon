@@ -16,7 +16,7 @@ from scenelist import SceneList
 from sceneview3d import SceneView
 from shots import ShotManager
 from timeslider import Timer, TimeSlider
-from util import PROJ_EXT, SCENE_EXT, gSettings, ScenesPath
+from util import PROJ_EXT, SCENE_EXT, gSettings, ScenesPath, ProjectDir
 import fileutil
 from qtutil import *
 import icons
@@ -283,7 +283,7 @@ class App(QMainWindowState):
             self.__sceneView._cameraInput.setData(*(uniforms['uOrigin'] + uniforms['uAngles']))  # feed animation into camera so animationprocessor can read it again
             cameraData = self.__sceneView._cameraInput.data()
 
-            modifier = os.path.join(util.ProjectDir(), 'animationprocessor.py')
+            modifier = os.path.join(ProjectDir(), 'animationprocessor.py')
             if os.path.exists(modifier):
                 execfile(modifier, globals(), locals())
 

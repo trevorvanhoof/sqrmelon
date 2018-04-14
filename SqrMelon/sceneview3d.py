@@ -1,11 +1,11 @@
+from qtutil import *
 import time
 import os
-import util
 from overlays import loadImage
-from util import gSettings
+from util import gSettings, ProjectDir
 from scene import Scene
-from qtutil import *
 from OpenGL.GL import glEnable, glDisable, glBlendFunc, glDepthFunc, GL_LEQUAL, GL_DEPTH_TEST, GL_BLEND, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
+from mididevices import MidiProcessor
 
 
 class SceneView(QGLWidget):
@@ -30,6 +30,11 @@ class SceneView(QGLWidget):
         """
         super(SceneView, self).__init__()
 
+        # work in process midi input
+        self.__midiProcessor = MidiProcessor()
+        self.__midiProcessor.midiInput.connect(self.repaint)
+        self.__midiProcessor.sceneShotChanged.connect(self.midiSetSceneShot)
+
         self._timer = timer
         self._animator = shotManager
         self.__overlays = overlays
@@ -42,6 +47,11 @@ class SceneView(QGLWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self._textures = {}
         self._prevTime = time.time()
+
+    def midiSetSceneShot(self, sceneIndex, shotIndex):
+        # TODO: hard coded shots per scene for now
+        index = sceneIndex * 4 + shotIndex
+        self._animator.shotView().onPinShot(index)
 
     def setPreviewRes(self, widthOverride, heightOverride, scale):
         if widthOverride is not None:
@@ -151,13 +161,15 @@ class SceneView(QGLWidget):
 
             cameraData = self._cameraData
             scene = self._scene
-            modifier = os.path.join(util.ProjectDir(), 'animationprocessor.py')
+            modifier = os.path.join(ProjectDir(), 'animationprocessor.py')
             if os.path.exists(modifier):
                 beats = self._timer.time
                 execfile(modifier, globals(), locals())
 
             for name in self._textures:
                 uniforms[name] = self._textures[name]._id
+
+            uniforms.update(self.__midiProcessor.uniforms)
 
             self._scene.drawToScreen(self._timer.beatsToSeconds(self._timer.time), self._timer.time, uniforms, viewport, additionalTextureUniforms=textureUniforms)
 

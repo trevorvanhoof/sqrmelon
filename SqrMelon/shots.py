@@ -1,10 +1,12 @@
+from qtutil import *
 import icons
 import fileutil
 from textures import TextureManager
-from util import *
-from animationgraph.curvedata import Curve, Key
+from animationgraph.curvedata import Curve
 from collections import OrderedDict
 from scene import Scene
+from xml.etree import cElementTree
+from util import randomColor, ScenesPath, ParseXMLWithIncludes, toPrettyXml, SCENE_EXT, ProjectFile, Scenes
 
 
 class Shot(object):

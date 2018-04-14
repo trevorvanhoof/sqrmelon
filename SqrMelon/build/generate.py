@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from build.codeoptimize import optimizeText
 import fileutil
-import util
+from util import ParseXMLWithIncludes, ScenesPath, SCENE_EXT
 
 gAnimEntriesMax = 0.0
 
@@ -354,7 +354,7 @@ def Template(templatePath):
     try:
         return _templates[key]
     except:
-        xTemplate = util.ParseXMLWithIncludes(templatePath)
+        xTemplate = ParseXMLWithIncludes(templatePath)
         if _templates:
             raise RuntimeError('Found multiple templates in project, this is currently not supported by the player code.')
         _templates[key] = xTemplate
@@ -364,14 +364,14 @@ def Template(templatePath):
 def run():
     shots = []
     scenes = []
-    scenesDir = util.ScenesPath()
+    scenesDir = ScenesPath()
 
     for scene in os.listdir(scenesDir):
-        if not scene.endswith(util.SCENE_EXT):
+        if not scene.endswith(SCENE_EXT):
             continue
         scenePath = os.path.join(scenesDir, scene)
         sceneDir = os.path.splitext(scenePath)[0]
-        xScene = util.ParseXMLWithIncludes(scenePath)
+        xScene = ParseXMLWithIncludes(scenePath)
 
         templatePath = os.path.join(scenesDir, xScene.attrib['template'])
         templateDir = os.path.splitext(templatePath)[0]

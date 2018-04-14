@@ -1,15 +1,15 @@
-import functools
-import fileutil
 from qtutil import *
-import icons
-from math import floor
+import os
 import time
-from util import gSettings, toPrettyXml
+from math import floor
 from xml.etree import cElementTree
-import OSC
+
 import pyglet
-import util
-import os.path
+import OSC
+
+import fileutil
+import icons
+from util import gSettings, toPrettyXml, ProjectDir, ProjectFile
 
 
 class OSCClient(object):
@@ -123,7 +123,7 @@ class Timer(object):
         self.__end = float(gSettings.value('TimerEndTime', 4.0))
         self.__time = float(gSettings.value('TimerTime', 0.0))
 
-        project = util.ProjectFile()
+        project = ProjectFile()
         if project and os.path.exists(project):
             with open(project) as fh:
                 text = fh.read()
@@ -151,7 +151,7 @@ class Timer(object):
         gSettings.setValue('TimerEndTime', self.__end)
         gSettings.setValue('TimerTime', self.__time)
 
-        project = util.ProjectFile()
+        project = ProjectFile()
         if not project or not os.path.exists(project):
             # legacy project or no project open
             gSettings.setValue('TimerMinTime', self.__minTime)
@@ -687,10 +687,10 @@ class TimeSlider(QWidget):
         path = None
         song = None
         for ext in ('.wav', '.mp3'):
-            for fname in os.listdir(util.ProjectDir()):
+            for fname in os.listdir(ProjectDir()):
                 if fname.lower().endswith(ext):
                     try:
-                        path = os.path.join(util.ProjectDir(), fname)
+                        path = os.path.join(ProjectDir(), fname)
                         song = pyglet.media.load(path)
                     except Exception, e:
                         print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
