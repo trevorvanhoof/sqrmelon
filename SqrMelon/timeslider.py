@@ -128,7 +128,7 @@ class Timer(object):
 
     def projectOpened(self):
         self.start = float(gSettings.value('TimerStartTime', 0.0))
-        self.end = float(gSettings.value('TimerEndTime', 4.0))
+        endTime = float(gSettings.value('TimerEndTime', 8.0))
         self.time = float(gSettings.value('TimerTime', 0.0))
 
         project = ProjectFile()
@@ -141,16 +141,18 @@ class Timer(object):
                 root = None
             if root is not None:
                 self.minTime = float(root.attrib.get('TimerMinTime', 0.0))
-                self.maxTime = float(root.attrib.get('TimerMaxTime', 10.0))
+                self.maxTime = float(root.attrib.get('TimerMaxTime', 8.0))
+                self.end = min(endTime, self.maxTime)
 
                 self.__BPS = float(root.attrib.get('TimerBPS', 2.0))
                 self.__osc.setBpm(int(round(self.__BPS * 60)))
                 self.bpmChanged.emit(self.__BPS * 60.0)
                 return
 
-        # legacy project or no project open
-        self.minTime = float(gSettings.value('TimerMinTime', 0.0))
-        self.maxTime = float(gSettings.value('TimerMaxTime', 10.0))
+        # legacy project / creating new project
+        self.minTime = 0.0
+        self.maxTime = 4.0
+        self.end = min(endTime, self.maxTime)
 
         self.__BPS = float(gSettings.value('TimerBPS', 2.0))
         self.__osc.setBpm(int(round(self.__BPS * 60)))

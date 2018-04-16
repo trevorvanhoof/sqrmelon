@@ -21,6 +21,7 @@ class CurveViewCamera(object):
     """
     Camera used by the CurveView renderer & interaction
     """
+
     def __init__(self, x, y, w, h):
         self.regionChanged = Signal()
         self.__visibleRegion = [x, y, w, h]
@@ -44,6 +45,7 @@ class RemappedEvent(object):
     """
     Utility to store event data in camera-space instead of pixel-space
     """
+
     def __init__(self, pos, event):
         self.__pos = pos
         self.__event = event
@@ -604,11 +606,12 @@ class TangentMode(QWidget):
             btn.clicked.connect(functools.partial(self.__update, i))
             self.__btns.append(btn)
 
-        self.__broken = QPushButton(icons.get('tangent-broken'), '')
-        self.__broken.setIconSize(QSize(24, 24))
-        self.__broken.setCheckable(True)
-        self.layout().addWidget(self.__broken)
-        self.tangentBrokenChanged = self.__broken.clicked
+        # remove this button until we can actually drag tangents
+        # self.__broken = QPushButton(icons.get('tangent-broken'), '')
+        # self.__broken.setIconSize(QSize(24, 24))
+        # self.__broken.setCheckable(True)
+        # self.layout().addWidget(self.__broken)
+        # self.tangentBrokenChanged = self.__broken.clicked
 
     def updateDisplayForKeys(self, keys):
         TRI_STATE = False  # we may opt for a tri-state checkbox or tool icon later on, for now ambiguous-state is just displayed as 'off'
@@ -624,11 +627,11 @@ class TangentMode(QWidget):
         for i in mode[:-1]:
             self.__btns[i].setChecked(True)
 
-        broken = list(set([key.tangentBroken for key in keys]))
-        if not broken:
-            self.__broken.setChecked(False)
-        else:
-            self.__broken.setChecked(broken[0] if len(broken) == 1 else TRI_STATE)
+        # broken = list(set([key.tangentBroken for key in keys]))
+        # if not broken:
+        #    self.__broken.setChecked(False)
+        # else:
+        #    self.__broken.setChecked(broken[0] if len(broken) == 1 else TRI_STATE)
 
     def __update(self, index):
         for i, btn in enumerate(self.__btns):
@@ -641,6 +644,7 @@ class CurveEditor(QWidget):
     Curve editor widget.
     Creates and connects all components related to selecting and editing channel animation curves and keys.
     """
+
     def __init__(self, timer=None, parent=None):
         super(CurveEditor, self).__init__(parent)
         self.setWindowTitle('CurveEditor')
@@ -702,7 +706,7 @@ class CurveEditor(QWidget):
         self.__tangentMode = TangentMode()
         tools.addWidget(self.__tangentMode)
         self.__tangentMode.valueChanged.connect(self.__setSelectedKeyTangents)
-        self.__tangentMode.tangentBrokenChanged.connect(self.__toggleBreakSelectedKeyTangents)
+        # self.__tangentMode.tangentBrokenChanged.connect(self.__toggleBreakSelectedKeyTangents)
 
         positionKey = QPushButton(icons.get('Move'), '', self)
         positionKey.setToolTip('Key camera position into selection')
@@ -753,7 +757,7 @@ class CurveEditor(QWidget):
         widget.setStretchFactor(1, 1)
         widget.addWidget(self.__view.createUndoView())
         widget.addWidget(self.__view.createCameraUndoView())
-        widget.setSizes([128,128,0,0])
+        widget.setSizes([128, 128, 0, 0])
 
         layout = vlayout()
         self.setLayout(layout)

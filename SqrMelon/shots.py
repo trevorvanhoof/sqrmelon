@@ -579,7 +579,7 @@ class ShotManager(QWidget):
         # TODO use scenes.currentText() to find the scene object & query it's programs for available uniforms
         # TODO add an exclusion mechanism for uniforms controlled by animationprocessor.py
 
-        shot = Shot(name.text(), scenes.currentText(), start, start + 1.0, curves)
+        shot = Shot(name.text(), scenes.currentText(), start, start + 8.0, curves)
         self.__model.appendRow(shot.items)
 
     def __duplicateSelectedShots(self):

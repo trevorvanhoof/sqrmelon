@@ -6,6 +6,8 @@ from util import gSettings, ProjectDir
 from scene import Scene
 from OpenGL.GL import glEnable, glDisable, glBlendFunc, glDepthFunc, GL_LEQUAL, GL_DEPTH_TEST, GL_BLEND, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
 
+_noSignalImage = None
+
 
 class SceneView(QGLWidget):
     """
@@ -23,6 +25,7 @@ class SceneView(QGLWidget):
     Last it can be connected to a camera widget (setCamera) to which it fill
     forward left mouse drag and keyboard input (WASDQE).
     """
+
     def __init__(self, shotManager, timer, overlays=None):
         """
         :type overlays: Overlays
@@ -41,7 +44,7 @@ class SceneView(QGLWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self._textures = {}
         self._prevTime = time.time()
-	
+
     def setPreviewRes(self, widthOverride, heightOverride, scale):
         if widthOverride is not None:
             x = self.parent().width() - self.width()
@@ -159,6 +162,18 @@ class SceneView(QGLWidget):
                 uniforms[name] = self._textures[name]._id
 
             self._scene.drawToScreen(self._timer.beatsToSeconds(self._timer.time), self._timer.time, uniforms, viewport, additionalTextureUniforms=textureUniforms)
+
+        else:
+            # no scene active, time cursor outside any enabled shots?
+            global _noSignalImage
+            if _noSignalImage is None:
+                _noSignalImage = loadImage(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons/nosignal.png'))
+            glDisable(GL_DEPTH_TEST)
+            if _noSignalImage:
+                glEnable(GL_BLEND)
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+                Scene.drawColorBufferToScreen(_noSignalImage, viewport)
+                glDisable(GL_BLEND)
 
         if self.__overlays:
             image = self.__overlays.colorBuffer()
