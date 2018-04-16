@@ -722,7 +722,7 @@ class CurveEditor(QWidget):
         tools.addWidget(rotationKey)
         self.requestRotationKey = rotationKey.clicked
 
-        dupe = QPushButton(icons.get('Duplicate-Keys'), '')
+        dupe = QPushButton(icons.get('Duplicate-Keys-24'), '')
         dupe.setToolTip('Duplicate selected keys')
         dupe.setStatusTip('Duplicate selected keys')
         dupe.setIconSize(QSize(24, 24))
