@@ -669,7 +669,7 @@ class Scene(object):
             maxActiveInputs = max(maxActiveInputs, activeInputs)
 
             if self.passes[i].drawCommand is not None:
-                exec (self.passes[i].drawCommand)
+                exec(self.passes[i].drawCommand)
             else:
                 glRecti(-1, -1, 1, 1)
 

@@ -448,7 +448,7 @@ class App(QMainWindowState):
             if os.path.exists(project):
                 currentPath = os.path.dirname(project)
 
-        res = QFileDialog.getOpenFileName(self, 'Create new project', currentPath, 'Project files (*%s)' % PROJ_EXT)
+        res = QFileDialog.getOpenFileName(self, 'Open project', currentPath, 'Project files (*%s)' % PROJ_EXT)
         if not res:
             return
         self.__openProject(res)

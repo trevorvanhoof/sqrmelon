@@ -127,7 +127,7 @@
 		</global>
 	</pass>
 
-	<pass buffer="12" input0="9" factor="32">
+	<pass buffer="12" input0="10" factor="32">
 		<global path="downsample.glsl"/>
 	</pass>
 	<pass buffer="13" input0="12" factor="32">
