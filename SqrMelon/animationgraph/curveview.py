@@ -90,7 +90,6 @@ class CurveView(QWidget):
         self.__snap = [0.0, 0.0]
         self.setAttribute(Qt.WA_OpaquePaintEvent)
         self.paintTime = 0
-        self.__visibleTangents = []
 
     def setSnapX(self, x):
         self.__snap[0] = max(0.0, x)
@@ -513,8 +512,6 @@ class CurveView(QWidget):
                 x += precision
 
     def _drawKeys(self, painter, scalex, scaley, rows):
-        self.__visibleTangents = []
-
         # draw points
         pointWidth = 5.0 / scalex
         pointHeight = 5.0 / scaley
@@ -528,13 +525,20 @@ class CurveView(QWidget):
                 if self.__selection.isKeySelected(row, i):
                     # We're currently selected! Draw our tangent points
                     pointInTangent = self.mapTangentToScreen(key, True)
-                    pointOutTangent = self.mapTangentToScreen(key, False)
-                    self.__visibleTangents.append((pointInTangent, pointOutTangent, curve, i))
+
+                    isStep = key.outTangent.y == float('inf')
+                    if isStep:  # stepped tangent, don't draw because it's hella slow and infinitely far up
+                        pointOutTangent = None
+                    else:
+                        pointOutTangent = self.mapTangentToScreen(key, False)
+
                     painter.fillRect(QRectF(pointInTangent.x - tangentWidth / 2.0, pointInTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
-                    painter.fillRect(QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
+                    if not isStep:
+                        painter.fillRect(QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
                     painter.setPen(Qt.magenta)
                     painter.drawLine(QPointF(pointInTangent.x, pointInTangent.y), QPointF(point.x, point.y))
-                    painter.drawLine(QPointF(pointOutTangent.x, pointOutTangent.y), QPointF(point.x, point.y))
+                    if not isStep:
+                        painter.drawLine(QPointF(pointOutTangent.x, pointOutTangent.y), QPointF(point.x, point.y))
 
                     color = Qt.yellow
                 else:

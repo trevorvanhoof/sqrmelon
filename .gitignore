@@ -1,2 +1,10 @@
 .*/
 *.pyc
+
+SqrMelon/Player/Debug/
+
+SqrMelon/Player/64klang2/64k2Patch\.h
+
+SqrMelon/Player/64klang2/64k2Song\.h
+
+SqrMelon/Player/generated\.hpp

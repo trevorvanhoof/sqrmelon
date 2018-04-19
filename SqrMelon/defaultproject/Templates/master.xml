@@ -74,7 +74,7 @@
         <!--<global path="tracer.glsl"/>-->
 		<global path="merge.glsl"/>
 	</pass>
-    <pass buffer="2" input0="4" name="Overlays">
+    <pass buffer="2" outputs="3" input0="4" name="Overlays">
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
@@ -88,7 +88,7 @@
 		<global path="bokehheader.glsl"/>
 		<global path="bokehfirst.glsl"/>
 	</pass>
-	<pass buffer="2" input0="3" name="Bokeh DoF second pass">
+	<pass buffer="2" outputs="3" input0="3" name="Bokeh DoF second pass">
 		<global path="bokehheader.glsl"/>
 		<global path="bokehsecond.glsl"/>
 	</pass>

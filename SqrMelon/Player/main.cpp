@@ -1,4 +1,5 @@
 #include "settings.h"
+#include <cfloat>
 #include "generated.hpp"
 #include "64klang2/SynthPlayer.h"
 #include "64klang2/SynthAllocator.h"

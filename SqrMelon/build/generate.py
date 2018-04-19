@@ -308,6 +308,9 @@ class PassPool(object):
 
 def roundb(value, bits):
     # Truncation utility from: http://www.ctrl-alt-test.fr/?p=535
+    if value == 'FLT_MAX':
+        # cheat to work around constant used by stepped tangents
+        return value
     if bits >= 32:
         return value
     bits = 32 - bits
@@ -325,7 +328,8 @@ class FloatPool(ShaderPool):
         return offset
 
     def serialize(self):
-        yield 'const float gFloatData[] = {%sf};\n' % 'f, '.join(str(x) for x in self.data)
+        data = [(str(x) + 'f' if x != 'FLT_MAX' else x) for x in self.data]
+        yield 'const float gFloatData[] = {%s};\n' % ', '.join(data)
 
 
 class IntPool(ShaderPool):
@@ -447,6 +451,9 @@ def run():
                         j = i % 8
                         if j == 0 or j == 4 or j > 5:
                             continue
+                        if j == 5: # out tangent y
+                            if v == float('inf'): # stepped tangents are implemented as out tangentY = positive infinity
+                                v = 'FLT_MAX'
                         keyframes.append(v)
                     assert len(keyframes) / 4.0 == int(len(keyframes) / 4), len(keyframes)
                 while len(animations[n]) <= x:
@@ -534,7 +541,9 @@ def run():
 
 \t// Retrieve our spline points
 \tfloat y0 = data[rightKeyIndex - 2];
-\tfloat y1 = data[rightKeyIndex - 1];
+\tfloat y1 = data[rightKeyIndex - 1]; 
+\t// handle stepped tangents
+\tif(y1 == FLT_MAX) return y0;
 \tfloat y2 = data[rightKeyIndex];
 \tfloat y3 = data[rightKeyIndex + 2];
 

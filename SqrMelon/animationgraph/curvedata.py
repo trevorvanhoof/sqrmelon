@@ -12,6 +12,7 @@ class Key(object):
     def __init__(self, time, value, parent):
         self.__point = Vec2(time, value)
         self.__parent = parent
+        # note that tangent X values have been deprecated and is not exported; they were for cubic bezier curves that never got made
         self.inTangent = Vec2(0.0, 0.0)
         self.outTangent = Vec2(0.0, 0.0)
         self.__inTangentType = Key.TYPE_LINEAR
@@ -47,7 +48,12 @@ class Key(object):
         self.updateTangents()
 
     def updateTangents(self):
-        if self.__tangentMode in (Key.TANGENT_USER, Key.TANGENT_STEPPED):
+        if self.__tangentMode == Key.TANGENT_USER:
+            return
+        if self.__tangentMode == Key.TANGENT_STEPPED:
+            # this leave the input tangent as is, so you can go set e.g. "linear" to get the input, then back to "stepped"
+            # TODO: have "output is stepped" as separate state ("in tangent" with "stepped output" control is tedious)
+            self.outTangent = Vec2(0.0, float('inf'))
             return
         if self.__tangentMode == Key.TANGENT_FLAT:
             self.inTangent = Vec2(0.0, 0.0)
@@ -91,6 +97,7 @@ class Curve(object):
     """
     Animation data with Cubic Hermite Spline interpolation.
     """
+
     def __init__(self):
         self.__keys = []
         self.sortKeys()
@@ -116,7 +123,8 @@ class Curve(object):
         if idx != len(self.__keys):
             self.__keys[idx].updateTangents()
 
-    def addKeyWithTangents(self, inTangentX, inTangentY, time, value, outTangentX, outTangentY, tangentBroken, tangentMode):
+    def addKeyWithTangents(self, inTangentX, inTangentY, time, value, outTangentX, outTangentY, tangentBroken,
+                           tangentMode):
         k = Key(time, value, self)
         self.__keys.append(k)
         self.sortKeys()
@@ -206,7 +214,8 @@ class Curve(object):
             def sgn(x):
                 return -1 if x < 1 else 1 if x > 1 else 0
 
-            if first or last or sgn(self.__keys[idx - 1].value() - key.value()) == sgn(self.__keys[idx + 1].value() - key.value()):
+            if first or last or sgn(self.__keys[idx - 1].value() - key.value()) == sgn(
+                    self.__keys[idx + 1].value() - key.value()):
                 key.inTangent = Vec2(0.0, 0.0)
                 key.outTangent = Vec2(0.0, 0.0)
             else:
@@ -216,7 +225,7 @@ class Curve(object):
             finalize()
             return
 
-        elif mode == Key.TANGENT_USER:
+        elif mode in (Key.TANGENT_USER, Key.TANGENT_STEPPED):
             return
 
         assert False, 'Invalid tangent mode for key.'
@@ -289,6 +298,9 @@ class Curve(object):
             if self.__keys[i].time() > time:
                 p0 = self.__keys[i - 1].point()
                 p1 = self.__keys[i - 1].outTangent.y
+                # stepped tangents
+                if p1 == float('inf'):
+                    return p0.y
                 p2 = self.__keys[i].inTangent.y
                 p3 = self.__keys[i].point()
 
