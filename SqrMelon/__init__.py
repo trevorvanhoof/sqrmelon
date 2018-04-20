@@ -322,7 +322,8 @@ class App(QMainWindowState):
         if not sound:
             return
         with fileutil.edit('convertcapture/merge.bat') as fh:
-            fh.write('ffmpeg -i output.mp4 -i "{}" -vcodec copy -shortest merged.mp4'.format(sound))
+            startSeconds = self._timer.beatsToSeconds(self._timer.start)
+            fh.write('ffmpeg -i output.mp4 -itsoffset {} -i "{}" -vcodec copy -shortest merged.mp4'.format(-startSeconds, sound))
 
     def __restoreUiLock(self, action):
         state = True if gSettings.value('lockui', '0') == '1' else False
