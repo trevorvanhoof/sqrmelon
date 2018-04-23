@@ -56,13 +56,13 @@ vec4 worley(vec3 v,vec3 s)
 		if(d<m)
 		{m=d;z=q;}
 	}
-	return vec4(m,q);
+	return vec4(m,z);
 }
 vec4 worley(vec3 v,float s){return worley(v,vec3(s));}
 vec3 worley(vec2 v,vec2 s)
 {
 	vec2 g,z,q,o,r,n=floor(v*s),
-	f=fract(v);
+	f=fract(v*s);
 	float d,m=8;
 	int i,j;
 	for(j=-1;j<=1;j++)
@@ -76,13 +76,13 @@ vec3 worley(vec2 v,vec2 s)
 		if(d<m)
 		{m=d;z=q;}
 	}
-	return vec3(m,z.x,z.y);
+	return vec3(m,z);
 }
 vec3 worley(vec2 v,float s){return worley(v,vec2(s));}
 // Non-tiled worley noise
 vec4 worley(vec3 v)
 {
-	vec3 g,q,o,r,n=floor(v),
+	vec3 g,z,q,o,r,n=floor(v),
 	f=fract(v);
 	float d,m=8;
 	int i,j,k;
@@ -96,9 +96,9 @@ vec4 worley(vec3 v)
 		r=g-f+o;
 		d=dot(r,r);
 		if(d<m)
-			m=d;
+		{m=d;z=q;}
 	}
-	return vec4(m,q);
+	return vec4(m,z);
 }
 vec3 worley(vec2 v)
 {
@@ -117,10 +117,10 @@ vec3 worley(vec2 v)
 		if(d<m)
 		{m=d;z=q;}
 	}
-	return vec3(m,z.x,z.y);
+	return vec3(m,z);
 }
 
-// procedural fbm noise, useable by texture functions
+// procedural fbm noise
 #define FBM(l,c,q) float l(c v,int n,float f, float w){float t=0,a=0,b=1;for(int i=0;i<n;++i){t+=q(v)*b;a+=b;b*=w;v*=f;}return t/a;}
 // procedural tiled fbm noise, useable by texture functions
 #define FBM_TILED(l,c,q) float l(c v,c s,int n,float f, float w){v=mod(v,s);float t=0,a=0,b=1;for(int i=0;i<n;++i){t+=q(v,s)*b;a+=b;b*=w;s*=f;}return t/a;}
@@ -132,10 +132,17 @@ FBM_TILED(perlin,vec2,snoise)
 float perlin(vec2 v,float s,int n,float f, float w){return perlin(v,vec2(s),n,f,w);}
 FBM_TILED(perlin,vec3,snoise)
 float perlin(vec3 v,float s,int n,float f, float w){return perlin(v,vec3(s),n,f,w);}
-FBM_TILED(billows,vec2,worley)
 
+#undef FBM
+#undef FBM_TILED
+
+// procedural fbm noise
+#define FBM(l,c,q) float l(c v,int n,float f, float w){float t=0,a=0,b=1;for(int i=0;i<n;++i){t+=q(v).x*b;a+=b;b*=w;v*=f;}return t/a;}
+// procedural tiled fbm noise, useable by texture functions
+#define FBM_TILED(l,c,q) float l(c v,c s,int n,float f, float w){v=mod(v,s);float t=0,a=0,b=1;for(int i=0;i<n;++i){t+=q(v,s).x*b;a+=b;b*=w;s*=f;}return t/a;}
 FBM(billows,vec2,worley)
 FBM(billows,vec3,worley)
+FBM_TILED(billows,vec2,worley)
 float billows(vec2 v,float s,int n,float f, float w){return billows(v,vec2(s),n,f,w);}
 FBM_TILED(billows,vec3,worley)
 float billows(vec3 v,float s,int n,float f, float w){return billows(v,vec3(s),n,f,w);}

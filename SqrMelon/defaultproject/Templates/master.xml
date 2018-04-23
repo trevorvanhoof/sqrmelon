@@ -2,6 +2,7 @@
     <pass buffer="0" static="1" name="Lensdirt texture">
         <global path="header.glsl"/>
         <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
         <global path="lensdirt.glsl"/>
 	</pass>
 
@@ -9,6 +10,7 @@
 		<global path="header.glsl"/>
 		<section path="settings.glsl"/>
 		<global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
 		<shared path="shared.glsl"/>
 		<section path="content.glsl"/>
         <global path="tracer.glsl"/>
@@ -20,6 +22,7 @@
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
         <shared path="shared.glsl"/>
         <section path="content.glsl"/>
         <global path="tracer.glsl"/>
@@ -29,6 +32,7 @@
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
         <shared path="shared.glsl"/>
         <section path="content.glsl"/>
         <global path="tracer.glsl"/>
@@ -69,6 +73,7 @@
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
         <shared path="shared.glsl"/>
         <section path="content.glsl"/>
         <!--<global path="tracer.glsl"/>-->
@@ -78,6 +83,7 @@
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
         <shared path="shared.glsl"/>
         <section path="prefxoverlay.glsl"/>
 	</pass>

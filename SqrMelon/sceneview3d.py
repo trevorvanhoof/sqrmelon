@@ -182,6 +182,7 @@ class SceneView(QGLWidget):
                          self.__overlays.overlayColor().green() / 255.0,
                          self.__overlays.overlayColor().blue() / 255.0,
                          self.__overlays.overlayColor().alpha() / 255.0)
+                glDisable(GL_DEPTH_TEST)
                 glEnable(GL_BLEND)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
                 Scene.drawColorBufferToScreen(image, viewport, color)
