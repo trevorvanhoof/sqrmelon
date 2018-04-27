@@ -1,3 +1,5 @@
+from OSC import OSCClientError
+
 from qtutil import *
 import os
 import time
@@ -21,49 +23,56 @@ class OSCClient(object):
     def __del__(self):
         self.__client.close()
 
+    def __sendSilent(self, msg):
+        # silently ignore any failure while sending
+        try:
+            self.__client.send(msg)
+        except OSCClientError:
+            return
+
     def setPosition(self, time):
         if self.__isPlaying:
             return
         msg = OSC.OSCMessage()
         msg.setAddress('/position')
         msg.append(time)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
 
     def setBpm(self, bpm):
         msg = OSC.OSCMessage()
         msg.setAddress('/bpm')
         msg.append(bpm)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
 
     def play(self):
         msg = OSC.OSCMessage()
         msg.setAddress('/play')
         msg.append(1)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
         self.__isPlaying = True
 
     def pause(self):
         msg = OSC.OSCMessage()
         msg.setAddress('/play')
         msg.append(0)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
         self.__isPlaying = False
 
     def scrub(self, state):
         msg = OSC.OSCMessage()
         msg.setAddress('/scrub')
         msg.append(state)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
 
     def loop(self, start, end):
         msg = OSC.OSCMessage()
         msg.setAddress('/loopstart')
         msg.append(start)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
         msg = OSC.OSCMessage()
         msg.setAddress('/looplength')
         msg.append(end - start)
-        self.__client.send(msg)
+        self.__sendSilent(msg)
 
 
 class Timer(object):
