@@ -163,7 +163,8 @@ __m128 Cross(const __m128& a, const __m128& b)
 	__m128 tmp2 = _mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 1, 0, 2));
 	tmp1 = _mm_mul_ps(a, tmp1);
 	tmp2 = _mm_mul_ps(b, tmp2);
-	return _mm_sub_ps(tmp1, tmp2);
+	tmp = _mm_sub_ps(tmp1, tmp2);
+	return _MM_SHUFFLE(tmp, tmp, _MM_SHUFFLE(3, 1, 0, 2))
 }
 
 
@@ -187,18 +188,18 @@ __m128 Normalized(const __m128& a)
 const Vector Vector::ZERO = _mm_set_ps1(0);
 const Vector Vector::ONE = _mm_set_ps1(1);
 const Vector Vector::NEG_ONE = _mm_set_ps1(-1);
-const Vector Vector::X = _mm_set_ps(1, 0, 0, 0);
-const Vector Vector::Y = _mm_set_ps(0, 1, 0, 0);
-const Vector Vector::Z = _mm_set_ps(0, 0, 1, 0);
-const Vector Vector::W = _mm_set_ps(0, 0, 0, 1);
-const Vector Vector::NEG_X = _mm_set_ps(-1, 0, 0, 0);
-const Vector Vector::NEG_Y = _mm_set_ps(0, -1, 0, 0);
-const Vector Vector::NEG_Z = _mm_set_ps(0, 0, -1, 0);
-const Vector Vector::NEG_W = _mm_set_ps(0, 0, 0, -1);
-const Vector Vector::NOT_X = _mm_set_ps(0, 1, 1, 1);
-const Vector Vector::NOT_Y = _mm_set_ps(1, 0, 1, 1);
-const Vector Vector::NOT_Z = _mm_set_ps(1, 1, 0, 1);
-const Vector Vector::NOT_W = _mm_set_ps(1, 1, 1, 0);
+const Vector Vector::W = _mm_set_ps(1, 0, 0, 0);
+const Vector Vector::Z = _mm_set_ps(0, 1, 0, 0);
+const Vector Vector::Y = _mm_set_ps(0, 0, 1, 0);
+const Vector Vector::X = _mm_set_ps(0, 0, 0, 1);
+const Vector Vector::NEG_W = _mm_set_ps(-1, 0, 0, 0);
+const Vector Vector::NEG_Z = _mm_set_ps(0, -1, 0, 0);
+const Vector Vector::NEG_Y = _mm_set_ps(0, 0, -1, 0);
+const Vector Vector::NEG_X = _mm_set_ps(0, 0, 0, -1);
+const Vector Vector::NOT_W = _mm_set_ps(0, 1, 1, 1);
+const Vector Vector::NOT_Z = _mm_set_ps(1, 0, 1, 1);
+const Vector Vector::NOT_Y = _mm_set_ps(1, 1, 0, 1);
+const Vector Vector::NOT_X = _mm_set_ps(1, 1, 1, 0);
 
 
 

@@ -452,10 +452,16 @@ Mat44& Mat44::operator*=(const Mat44& other)
 	__m128 y = _mm_shuffle_ps(data.row0, data.row0, _MM_SHUFFLE(1, 1, 1, 1));
 	__m128 z = _mm_shuffle_ps(data.row0, data.row0, _MM_SHUFFLE(2, 2, 2, 2));
 	__m128 w = _mm_shuffle_ps(data.row0, data.row0, _MM_SHUFFLE(3, 3, 3, 3));
-	data.row0 = _mm_add_ps(_mm_add_ps(_mm_mul_ps(x, other.data.row0),
-		_mm_mul_ps(y, other.data.row1)),
-		_mm_add_ps(_mm_mul_ps(z, other.data.row2),
-			_mm_mul_ps(w, other.data.row3)));
+	data.row0 = _mm_add_ps(
+	    _mm_add_ps(
+	        _mm_mul_ps(x, other.data.row0),
+		    _mm_mul_ps(y, other.data.row1)
+		    ),
+		_mm_add_ps(
+		    _mm_mul_ps(z, other.data.row2),
+			_mm_mul_ps(w, other.data.row3)
+			)
+        );
 
 	x = _mm_shuffle_ps(data.row1, data.row1, _MM_SHUFFLE(0, 0, 0, 0));
 	y = _mm_shuffle_ps(data.row1, data.row1, _MM_SHUFFLE(1, 1, 1, 1));
