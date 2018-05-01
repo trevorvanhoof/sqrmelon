@@ -2,6 +2,7 @@ import re
 import os
 import time
 from collections import OrderedDict
+from fileutil import FileSystemWatcher
 from profileui import Profiler
 
 from OpenGL.GL import shaders
@@ -134,7 +135,7 @@ def _deserializePasses(sceneFile):
             # input is filename?
             parentPath = os.path.dirname(ProjectFile())
             fullName = os.path.join(parentPath, xPass.attrib[key])
-            if os.path.exists(fullName):
+            if fileutil.exists(fullName):
                 inputs.append(xPass.attrib[key])
             else:
                 if '.' in xPass.attrib[key]:
@@ -221,7 +222,7 @@ gShaderPool = _ShaderPool()
 def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
     search = re.compile(r'(?![^/\*]*\*/)^[\t ]*(#include "[a-z0-9_]+")[\t ]*$', re.MULTILINE | re.IGNORECASE | re.DOTALL)
     baseDir = os.path.dirname(glslPath)
-    with open(glslPath) as fh:
+    with fileutil.read(glslPath) as fh:
         text = fh.read()
     for res in list(search.finditer(text)):
         inc = res.group(1)
@@ -292,7 +293,7 @@ class Scene(object):
         self.profileInfoChanged = Signal()
 
         self.__filePath = sceneFile
-        self.fileSystemWatcher_scene = QFileSystemWatcher()
+        self.fileSystemWatcher_scene = FileSystemWatcher()
         self.fileSystemWatcher_scene.fileChanged.connect(self._reload)
         templatePath = TemplateForScene(self.__filePath)
         self.fileSystemWatcher_scene.addPath(templatePath)
@@ -321,14 +322,14 @@ class Scene(object):
     def _reload(self, path):
         if path:
             time.sleep(0.01)
-            if not os.path.exists(path):
+            if not fileutil.exists(path):
                 # the scene has been deleted, stop watching it
                 return
             self.fileSystemWatcher_scene.addPath(path)
 
         self.passes = _deserializePasses(self.__filePath)
 
-        self.fileSystemWatcher = QFileSystemWatcher()
+        self.fileSystemWatcher = FileSystemWatcher()
         self.fileSystemWatcher.fileChanged.connect(self._rebuild)
         watched = set()
         for passData in self.passes:
@@ -350,7 +351,7 @@ class Scene(object):
         if self.__cameraData is None:
             userFile = ProjectFile() + '.user'
             xCamera = None
-            if os.path.exists(userFile):
+            if fileutil.exists(userFile):
                 xRoot = ParseXMLWithIncludes(userFile)
                 for xSub in xRoot:
                     if xSub.attrib['name'] == os.path.splitext(os.path.basename(self.__filePath))[0]:
@@ -364,7 +365,7 @@ class Scene(object):
     def _rebuild(self, path, index=None):
         if path:
             time.sleep(0.01)
-            if not os.path.exists(path):
+            if not fileutil.exists(path):
                 # the scene has been deleted, stop watching it
                 return
             self.fileSystemWatcher.addPath(path)

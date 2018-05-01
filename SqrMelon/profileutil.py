@@ -17,6 +17,7 @@ import tempfile
 import pyprof2calltree
 import pstats
 import subprocess
+import fileutil
 
 QCACHEGRIND = r'os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\qcachegrind074-x86\qcachegrind.exe'
 
@@ -26,8 +27,8 @@ def runctx(cmdstr, globals={}, locals={}, outpath=None, executable=None):
     if outpath is not None:
         path = os.path.splitext(outpath)[0] + '.callgrind'
         dirpath = os.path.dirname(path)
-        if not os.path.exists(dirpath):
-            os.makedirs(dirpath)
+        if not fileutil.exists(dirpath):
+            os.makedirs(dirpath.replace('\\', '/'))
 
         cProfile.runctx(cmdstr, globals, locals, filename=tmp)
         pyprof2calltree.convert(pstats.Stats(tmp), path)

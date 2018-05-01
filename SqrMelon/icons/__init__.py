@@ -1,4 +1,5 @@
 from qtutil import *
+import fileutil
 import os
 
 __iconCache = {None: {}}
@@ -22,7 +23,7 @@ def getPath(iconName):
     folder = os.path.dirname(__file__)
     for fmt in FORMATS:
         o = '%s/%s.%s' % (folder, iconName, fmt)
-        if os.path.exists(o):
+        if fileutil.exists(o):
             return o
     raise Exception('Icon not found: %s' % iconName)
 

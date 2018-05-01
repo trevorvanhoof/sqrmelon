@@ -2,6 +2,7 @@ import os
 from xml.etree import cElementTree
 import colorsys
 import xml.dom.minidom
+import fileutil
 from qtutil import *
 import re
 
@@ -12,13 +13,13 @@ SCENE_EXT = '.xml'
 
 
 def ParseXMLWithIncludes(xmlFilePath):
-    with open(xmlFilePath) as fh:
+    with fileutil.read(xmlFilePath) as fh:
         text = fh.read()
 
     subs = []
     for result in re.finditer(r'<!--[ \t]*#[ \t]*include[ \t]+(.+)[ \t]*-->', text):
         inline = result.group(1).strip()
-        with open(os.path.join(os.path.dirname(xmlFilePath), inline)) as fh:
+        with fileutil.read(os.path.join(os.path.dirname(xmlFilePath), inline)) as fh:
             inlineText = fh.read()
         subs.append((result.start(0), result.end(0), inlineText))
 
@@ -32,7 +33,7 @@ def ParseXMLWithIncludes(xmlFilePath):
 def ProjectFile():
     if not gSettings.contains('currentproject'):
         return None
-    return gSettings.value('currentproject')
+    return gSettings.value('currentproject').replace('\\', '/')
 
 
 def ProjectDir(sub=''):
@@ -54,7 +55,7 @@ def TemplateForScene(sceneFile, sub=''):
 
 def Scenes(sub=''):
     scenesPath = ScenesPath(sub)
-    if not os.path.exists(scenesPath):
+    if not fileutil.exists(scenesPath):
         return []
     return [scene for scene in os.listdir(scenesPath) if scene.endswith(SCENE_EXT)]
 
@@ -68,10 +69,10 @@ def Templates(sub=''):
     for sub in os.listdir(templatesPath):
         if not sub.endswith(TEMPLATE_EXT):
             continue
-        if not os.path.isfile(os.path.join(templatesPath, sub)):
+        if not os.path.isfile(os.path.join(templatesPath, sub).replace('\\', '/')):
             continue
         name = os.path.splitext(sub)[0]
-        if os.path.exists(os.path.join(templatesPath, name)):
+        if fileutil.exists(os.path.join(templatesPath, name)):
             yield name
 
 

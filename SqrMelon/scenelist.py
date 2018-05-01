@@ -81,9 +81,9 @@ class SceneList(QWidget):
         if self.__contextMenuItem is None:
             return
         data = self.__contextMenuItem.data()
-        if not data or not os.path.exists(data):
+        if not data or not fileutil.exists(data):
             data = os.path.join(ScenesPath(), self.__contextMenuItem.text())
-        if not data or not os.path.exists(data):
+        if not data or not fileutil.exists(data):
             return
         data = os.path.abspath(data)
         subprocess.Popen('explorer /select,"%s"' % data)
@@ -109,7 +109,7 @@ class SceneList(QWidget):
         if not current.parent().isValid():
             return
         path = self.__model.itemFromIndex(current).data()
-        os.startfile(path)
+        os.startfile(path.replace('\\', '/'))
 
     def __onCurrentChanged(self, current, __):
         if not current.parent().isValid():
@@ -168,15 +168,15 @@ class SceneList(QWidget):
         scenesPath = ScenesPath(self.__subFolder)
         outFile = os.path.join(scenesPath, name[0] + SCENE_EXT)
         outDir = os.path.join(scenesPath, name[0])
-        if os.path.exists(outFile):
+        if fileutil.exists(outFile):
             QMessageBox.critical(self, 'Could not create scene', 'A scene with name "%s" already exists. No scene was created.' % name[0])
             return
 
-        if os.path.exists(outDir):
+        if fileutil.exists(outDir):
             if QMessageBox.warning(self, 'Scene not empty', 'A folder with name "%s" already exists. Create scene anyways?' % name[0], QMessageBox.Ok | QMessageBox.Cancel) == QMessageBox.Cancel:
                 return
         else:
-            os.makedirs(outDir)
+            os.makedirs(outDir.replace('\\', '/'))
 
         with fileutil.edit(outFile) as fh:
             fh.write('<scene camera="0,1,-10,0,0,0" template="%s"/>' % os.path.relpath(templatePath, scenesPath))
@@ -191,8 +191,8 @@ class SceneList(QWidget):
                 resource = os.path.join(templateDir, xElement.attrib['path'])
                 text = ''
                 # copy template data if there is any
-                if os.path.exists(resource):
-                    with open(resource) as fh:
+                if fileutil.exists(resource):
+                    with fileutil.read(resource) as fh:
                         text = fh.read()
                 with fileutil.edit(os.path.join(outDir, xElement.attrib['path'])) as fh:
                     fh.write(text)

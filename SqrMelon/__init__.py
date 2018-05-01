@@ -257,7 +257,7 @@ class App(QMainWindowState):
         data = (ctypes.c_ubyte * (WIDTH * HEIGHT * 3))()  # alloc buffer once
         flooredStart = self._timer.secondsToBeats(int(self._timer.beatsToSeconds(self._timer.start) * FPS) / float(FPS))
         duration = self._timer.beatsToSeconds(self._timer.end - flooredStart)
-        if not os.path.exists('capture'):
+        if not fileutil.exists('capture'):
             os.makedirs('capture')
         progress = QProgressDialog(self)
         progress.setMaximum(int(duration * FPS))
@@ -284,7 +284,7 @@ class App(QMainWindowState):
             cameraData = self.__sceneView._cameraInput.data()
 
             modifier = os.path.join(ProjectDir(), 'animationprocessor.py')
-            if os.path.exists(modifier):
+            if fileutil.exists(modifier):
                 execfile(modifier, globals(), locals())
 
             for name in self.__sceneView._textures:
@@ -299,7 +299,7 @@ class App(QMainWindowState):
             QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save('capture/dump_%s_%05d.jpg' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame))
         progress.close()
 
-        if not os.path.exists('convertcapture'):
+        if not fileutil.exists('convertcapture'):
             os.makedirs('convertcapture')
         with fileutil.edit('convertcapture/convert.bat') as fh:
             start = ''
@@ -409,7 +409,7 @@ class App(QMainWindowState):
     def __initializeProject(self):
         if gSettings.contains('currentproject'):
             project = str(gSettings.value('currentproject'))
-            if os.path.exists(project):
+            if fileutil.exists(project):
                 self.__openProject(project)
                 return
         project = [x for x in list(os.listdir(os.getcwd())) if x.endswith(PROJ_EXT)]
@@ -426,7 +426,7 @@ class App(QMainWindowState):
         currentPath = os.getcwd()
         if gSettings.contains('currentproject'):
             project = str(gSettings.value('currentproject'))
-            if os.path.exists(project):
+            if fileutil.exists(project):
                 currentPath = os.path.dirname(project)
 
         res = QFileDialog.getSaveFileName(self, 'Create new project', currentPath, 'Project folder')
@@ -446,7 +446,7 @@ class App(QMainWindowState):
         currentPath = os.getcwd()
         if gSettings.contains('currentproject'):
             project = str(gSettings.value('currentproject'))
-            if os.path.exists(project):
+            if fileutil.exists(project):
                 currentPath = os.path.dirname(project)
 
         res = QFileDialog.getOpenFileName(self, 'Open project', currentPath, 'Project files (*%s)' % PROJ_EXT)

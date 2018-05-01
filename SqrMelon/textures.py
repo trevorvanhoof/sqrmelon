@@ -1,3 +1,4 @@
+import fileutil
 import os
 from util import ProjectDir
 from qtutil import *
@@ -61,7 +62,7 @@ class TextureManager(QDialog):
         uniformName = uniformName[0]
 
         imagePath = QFileDialog.getOpenFileName(self, ProjectDir(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')
-        if imagePath and os.path.exists(imagePath):
+        if imagePath and fileutil.exists(imagePath):
             relPath = os.path.relpath(imagePath, ProjectDir())
             self.__target.textures[uniformName] = relPath
 

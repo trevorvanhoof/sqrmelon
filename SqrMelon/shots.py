@@ -227,7 +227,7 @@ def _saveSceneShots(sceneName, shots):
 
     # save user camera position per scene
     userFile = ProjectFile() + '.user'
-    if os.path.exists(userFile):
+    if fileutil.exists(userFile):
         xUser = ParseXMLWithIncludes(userFile)
     else:
         xUser = cElementTree.Element('user')

@@ -11,6 +11,7 @@ from buffers import Texture
 
 
 def loadHeightfield(filePath):
+    filePath = filePath.replace('\\', '/')
     # data is a single float32 color channel
     # so resolution is sqrt(number of floats)
     resolution = int(sqrt(os.path.getsize(filePath) / 4))

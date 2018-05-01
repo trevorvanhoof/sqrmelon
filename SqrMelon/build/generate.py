@@ -41,7 +41,7 @@ class TextPool(object):
         self.keys = []
 
     def addFile(self, filePath):
-        with open(filePath) as fh:
+        with fileutil.read(filePath) as fh:
             text = fh.read()
         text = optimizeText(text)
         return self.addString(text.replace('\n', '\\n\\\n') + '\\n\\0')

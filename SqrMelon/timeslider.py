@@ -141,8 +141,8 @@ class Timer(object):
         self.time = float(gSettings.value('TimerTime', 0.0))
 
         project = ProjectFile()
-        if project and os.path.exists(project):
-            with open(project) as fh:
+        if project and fileutil.exists(project):
+            with fileutil.read(project) as fh:
                 text = fh.read()
             try:
                 root = cElementTree.fromstring(text)
@@ -173,7 +173,7 @@ class Timer(object):
         gSettings.setValue('TimerTime', self.__time)
 
         project = ProjectFile()
-        if not project or not os.path.exists(project):
+        if not project or not fileutil.exists(project):
             # legacy project or no project open
             gSettings.setValue('TimerMinTime', self.__minTime)
             gSettings.setValue('TimerMaxTime', self.__maxTime)
