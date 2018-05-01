@@ -1,5 +1,5 @@
 import cgmath
-cgmath.prepare()
+
 r = cgmath.Mat44.rotateY(-cameraData.rotate[1]) * cgmath.Mat44.rotateX(cameraData.rotate[0]) * cgmath.Mat44.rotateZ(cameraData.rotate[2])
 uniforms['uV'] = r[:]
 uniforms['uV'][12:15] = cameraData.translate

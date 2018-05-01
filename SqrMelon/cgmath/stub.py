@@ -1,6 +1,9 @@
 from math import sin, cos, tan, sqrt
 
 
+def prepare(): pass  # stub for consistency, avoids breaking old code
+
+
 class Axis(object):
     X = 0
     Y = 1
