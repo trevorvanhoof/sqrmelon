@@ -1,3 +1,4 @@
+import fileutil
 from qtutil import *
 import time
 import os
@@ -30,7 +31,14 @@ class SceneView(QGLWidget):
         """
         :type overlays: Overlays
         """
-        super(SceneView, self).__init__()
+        # We found that not setting a version in Ubunto didn't work
+        # so out of laziness we try to set a very high version
+        # and Qt will fall back to highest available.
+        glFormat = QGLFormat()
+        glFormat.setVersion(100, 100)
+        glFormat.setProfile(QGLFormat.CompatibilityProfile)
+        super(SceneView, self).__init__(glFormat)
+        # print '%s.%s' % (self.format().majorVersion(), self.format().minorVersion())
 
         self._timer = timer
         self._animator = shotManager
@@ -111,8 +119,8 @@ class SceneView(QGLWidget):
 
         IMAGE_EXTENSIONS = '.png', '.bmp', '.tga'
         textureFolder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Textures')
-        if os.path.exists(textureFolder):
-            for texture in os.listdir(textureFolder):
+        if fileutil.exists(textureFolder):
+            for texture in os.listdir(textureFolder.replace('\\', '/')):
                 fname, ext = os.path.splitext(texture)
                 if ext.lower() in IMAGE_EXTENSIONS:
                     self._textures[fname] = loadImage(os.path.join(textureFolder, texture))
@@ -154,7 +162,7 @@ class SceneView(QGLWidget):
             cameraData = self._cameraData
             scene = self._scene
             modifier = os.path.join(ProjectDir(), 'animationprocessor.py')
-            if os.path.exists(modifier):
+            if fileutil.exists(modifier):
                 beats = self._timer.time
                 execfile(modifier, globals(), locals())
 
