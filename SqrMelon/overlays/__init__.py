@@ -2,7 +2,7 @@
 Module to load and manage the textures on this folder.
 Loads all PNG files into GL textures on initialization.
 """
-
+import fileutil
 from util import gSettings
 from qtutil import *
 import os
@@ -14,9 +14,8 @@ def loadImage(filePath, tile=True):
     glBindTexture(GL_TEXTURE_2D, texId)
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL)
 
-    tex = QGLWidget.convertToGLFormat(QImage(filePath))
+    tex = QGLWidget.convertToGLFormat(QImage(filePath.replace('\\', '/')))
 
     return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, ctypes.c_void_p(int(tex.bits())))
 
@@ -52,7 +51,7 @@ class Overlays(QWidget):
         if img:
             return img
         fpath = os.path.join(Overlays._overlayDir, Overlays._overlayNames[idx] + '.png')
-        if not os.path.exists(fpath):
+        if not fileutil.exists(fpath):
             return
         img = loadImage(fpath)
         Overlays._overlayCache[idx] = img
