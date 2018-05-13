@@ -99,8 +99,7 @@
 		<global path="bokehsecond.glsl"/>
 	</pass>
 
-	<!-- #include bloom.ixml -->
-
+	
 	<pass input0="3" name="sRgb conversion">
         <global path="header.glsl"/>
 		<global path="present.glsl"/>
