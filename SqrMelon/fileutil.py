@@ -51,8 +51,12 @@ def create(filePath):
     open(filePath, 'w').close()
 
 
-class FileSystemWatcher(object):
+class FileSystemWatcher(QObject):
+    fileChanged = pyqtSignal(str)
+    directoryChanged = pyqtSignal(str)
+
     def __init__(self, *args):
+        super(FileSystemWatcher, self).__init__()
         initialPaths = tuple()
         if args and hasattr(args[0], '__iter__'):
             initialPaths = args[0]
@@ -62,8 +66,6 @@ class FileSystemWatcher(object):
                 args = tuple()
         self.__internal = QFileSystemWatcher(*args)
         self.addPaths(initialPaths)
-        self.fileChanged = Signal()
-        self.directoryChanged = Signal()
         self.__internal.fileChanged.connect(self.__forwardFileChanged)
         self.__internal.directoryChanged.connect(self.__forwardDirectoryChanged)
 
