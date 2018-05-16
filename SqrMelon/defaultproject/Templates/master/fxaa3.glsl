@@ -1,4 +1,4 @@
-#version 420
+#version 410
 uniform vec2 uResolution;uniform sampler2D uImages[1];out vec4 z;float aa(vec3 a){vec3 b=vec3(.299,.587,.114);return dot(a,b);}
 #define bb(a)texture(uImages[0],a)
 #define cc(a)aa(texture(uImages[0],a).rgb)

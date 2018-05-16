@@ -236,11 +236,14 @@ def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
     return text
 
 
+def drawFullScreenRect():
+    glDrawArrays(GL_TRIANGLE_FAN,0,4)
+
 class Scene(object):
     cache = {}
     passThroughProgram = None
-    STATIC_VERT = '#version 110\nvarying vec2 vUV;void main(){gl_Position=gl_Vertex;vUV=gl_Vertex.xy*.5+.5;}'
-    PASS_THROUGH_FRAG = '#version 450\nin vec2 vUV;uniform vec4 uColor;uniform sampler2D uImages[1];out vec4 outColor0;void main(){outColor0=uColor*texture(uImages[0], vUV);}'
+    STATIC_VERT = '#version 410\nout vec2 vUV;void main(){gl_Position=vec4(step(1,gl_VertexID)*step(-2,-gl_VertexID)*2-1,gl_VertexID-gl_VertexID%2-1,0,1);vUV=gl_Position.xy*.5+.5;}'
+    PASS_THROUGH_FRAG = '#version 410\nin vec2 vUV;uniform vec4 uColor;uniform sampler2D uImages[1];out vec4 outColor0;void main(){outColor0=uColor*texture(uImages[0], vUV);}'
 
     @classmethod
     def drawColorBufferToScreen(cls, colorBuffer, viewport, color=(1.0, 1.0, 1.0, 1.0)):
@@ -253,7 +256,7 @@ class Scene(object):
 
         glUniform1i(glGetUniformLocation(passThrough, 'uImages[0]'), 0)
         glViewport(*viewport)
-        glRecti(-1, -1, 1, 1)
+        drawFullScreenRect()
 
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, 0)
@@ -593,7 +596,7 @@ class Scene(object):
             Scene.drawColorBufferToScreen(self.colorBuffers[self.passes[-1].targetBufferId][0], viewport)
         else:
             a = self.colorBuffers[self.passes[self._debugPassId[0]].targetBufferId]
-            Scene.drawColorBufferToScreen(a[max(0, min(self._debugPassId[1], len(a)-1))], viewport)
+            Scene.drawColorBufferToScreen(a[max(0, min(self._debugPassId[1], len(a) - 1))], viewport)
         glEnable(GL_DEPTH_TEST)
 
     def draw(self, seconds, beats, uniforms, additionalTextureUniforms=None):
@@ -670,9 +673,9 @@ class Scene(object):
             maxActiveInputs = max(maxActiveInputs, activeInputs)
 
             if self.passes[i].drawCommand is not None:
-                exec(self.passes[i].drawCommand)
+                exec (self.passes[i].drawCommand)
             else:
-                glRecti(-1, -1, 1, 1)
+                drawFullScreenRect()
 
             # duct tape the 2D color buffer(s) into 3D color buffer(s)
             if self.passes[i].is3d:

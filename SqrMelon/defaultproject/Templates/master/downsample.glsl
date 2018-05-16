@@ -1,4 +1,4 @@
-#version 420
+#version 410
 uniform vec2 uResolution;
 uniform sampler2D uImages[1];
 out vec4 outColor0;

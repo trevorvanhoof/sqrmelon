@@ -5,7 +5,7 @@ import os
 from overlays import loadImage
 from util import gSettings, ProjectDir
 from scene import Scene
-from OpenGL.GL import glEnable, glDisable, glBlendFunc, glDepthFunc, GL_LEQUAL, GL_DEPTH_TEST, GL_BLEND, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
+from OpenGL.GL import *
 
 _noSignalImage = None
 
@@ -35,10 +35,9 @@ class SceneView(QGLWidget):
         # so out of laziness we try to set a very high version
         # and Qt will fall back to highest available.
         glFormat = QGLFormat()
-        glFormat.setVersion(100, 100)
-        glFormat.setProfile(QGLFormat.CompatibilityProfile)
-        super(SceneView, self).__init__(glFormat)
-        # print '%s.%s' % (self.format().majorVersion(), self.format().minorVersion())
+        glFormat.setVersion(4, 1)
+        glFormat.setProfile(QGLFormat.CoreProfile)
+        super(SceneView, self).__init__()
 
         self._timer = timer
         self._animator = shotManager
@@ -113,6 +112,8 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def initializeGL(self):
+        print glGetString(GL_VERSION)
+
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
         # glDepthMask(GL_TRUE)

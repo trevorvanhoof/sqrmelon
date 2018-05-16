@@ -74,10 +74,21 @@ class Shot(object):
                 data[name] = value
         for name in data:
             if isinstance(data[name], dict):
-                keys = data[name].keys()
-                keys.sort()
-                value = [data[name][key] for key in keys]
-                data[name] = value
+                v = data[name]
+                if 'w' in v:
+                    data[name] = [v['x'],
+                                  v['y'],
+                                  v['z'],
+                                  v['w']]
+                elif 'z' in v:
+                    data[name] = [v['x'],
+                                  v['y'],
+                                  v['z']]
+                elif 'y' in v:
+                    data[name] = [v['x'],
+                                  v['y']]
+                else:
+                    data[name] = [v['x']]
         return data
 
     def bake(self):

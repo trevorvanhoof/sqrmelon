@@ -1,5 +1,5 @@
 // Ported from https://www.shadertoy.com/view/Xd3GDl
-#version 420
+#version 410
 uniform vec2 uResolution;
 uniform sampler2D uImages[1];
 uniform float uSeconds,uSharpDist,uSharpRange,uBlurFalloff,uMaxBlur;
