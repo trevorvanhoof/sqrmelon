@@ -246,7 +246,7 @@ class Scene(object):
     PASS_THROUGH_FRAG = '#version 410\nin vec2 vUV;uniform vec4 uColor;uniform sampler2D uImages[1];out vec4 outColor0;void main(){outColor0=uColor*texture(uImages[0], vUV);}'
 
     @classmethod
-    def drawColorBufferToScreen(cls, colorBuffer, viewport, color=(1.0, 1.0, 1.0, 1.0)):
+    def drawColorBufferToScreen(cls, vao_id, colorBuffer, viewport, color=(1.0, 1.0, 1.0, 1.0)):
         FrameBuffer.clear()
 
         passThrough = Scene.usePassThroughProgram(color)
@@ -256,6 +256,8 @@ class Scene(object):
 
         glUniform1i(glGetUniformLocation(passThrough, 'uImages[0]'), 0)
         glViewport(*viewport)
+
+        glBindVertexArray(vao_id)
         drawFullScreenRect()
 
         glActiveTexture(GL_TEXTURE0)
@@ -572,7 +574,7 @@ class Scene(object):
             glActiveTexture(GL_TEXTURE0 + j)
             glBindTexture(GL_TEXTURE_2D, 0)
 
-    def drawToScreen(self, seconds, beats, uniforms, viewport, additionalTextureUniforms=None):
+    def drawToScreen(self, vao_id, seconds, beats, uniforms, viewport, additionalTextureUniforms=None):
         if not self.shaders:
             # compiler errors
             return
@@ -588,18 +590,18 @@ class Scene(object):
             self.frameBuffers[i].use()
             glClear(GL_DEPTH_BUFFER_BIT)
 
-        maxActiveInputs = max(1, self.draw(seconds, beats, uniforms, additionalTextureUniforms=additionalTextureUniforms))
+        maxActiveInputs = max(1, self.draw(vao_id, seconds, beats, uniforms, additionalTextureUniforms=additionalTextureUniforms))
         self._unbindInputs(maxActiveInputs)
 
         glDisable(GL_DEPTH_TEST)
         if self._debugPassId is None:
-            Scene.drawColorBufferToScreen(self.colorBuffers[self.passes[-1].targetBufferId][0], viewport)
+            Scene.drawColorBufferToScreen(vao_id, self.colorBuffers[self.passes[-1].targetBufferId][0], viewport)
         else:
             a = self.colorBuffers[self.passes[self._debugPassId[0]].targetBufferId]
-            Scene.drawColorBufferToScreen(a[max(0, min(self._debugPassId[1], len(a) - 1))], viewport)
+            Scene.drawColorBufferToScreen(vao_id, a[max(0, min(self._debugPassId[1], len(a) - 1))], viewport)
         glEnable(GL_DEPTH_TEST)
 
-    def draw(self, seconds, beats, uniforms, additionalTextureUniforms=None):
+    def draw(self, vao_id, seconds, beats, uniforms, additionalTextureUniforms=None):
         if not self.shaders:
             # compiler errors
             return
@@ -675,6 +677,7 @@ class Scene(object):
             if self.passes[i].drawCommand is not None:
                 exec (self.passes[i].drawCommand)
             else:
+                glBindVertexArray(vao_id)
                 drawFullScreenRect()
 
             # duct tape the 2D color buffer(s) into 3D color buffer(s)
