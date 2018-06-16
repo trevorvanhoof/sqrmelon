@@ -1,4 +1,5 @@
 #version 410
+#extension GL_ARB_shading_language_420pack : enable
 
 out vec4 c;
 
