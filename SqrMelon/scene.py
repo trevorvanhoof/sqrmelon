@@ -12,6 +12,7 @@ from heightfield import loadHeightfield
 from buffers import *
 from qtutil import *
 from util import TemplateForScene, ProjectFile, ParseXMLWithIncludes
+from gl_shaders import compileProgram
 
 
 class TexturePool(object):
@@ -211,7 +212,11 @@ class _ShaderPool(object):
         program = self.__cache.get((vertCode, fragCode), None)
         if program:
             return program
-        program = shaders.compileProgram(shaders.compileShader(vertCode, GL_VERTEX_SHADER), shaders.compileShader(fragCode, GL_FRAGMENT_SHADER))
+        program = compileProgram(
+            shaders.compileShader(vertCode, GL_VERTEX_SHADER),
+            shaders.compileShader(fragCode, GL_FRAGMENT_SHADER),
+            validate=False
+        )
         self.__cache[(vertCode, fragCode)] = program
         return program
 
@@ -435,6 +440,9 @@ class Scene(object):
                     code = e.args[1][0].split('\n')
                 except:
                     print e.args
+                    print 'pass: ' + passData.name
+                    print 'fragCode:'
+                    print fragCode
                     return
                 # html escape output
                 errors = [Qt.escape(ln) for ln in errors]
