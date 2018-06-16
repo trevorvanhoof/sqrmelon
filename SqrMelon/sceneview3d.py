@@ -37,6 +37,7 @@ class SceneView(QGLWidget):
         glFormat = QGLFormat()
         glFormat.setVersion(4, 1)
         glFormat.setProfile(QGLFormat.CoreProfile)
+        glFormat.setDefaultFormat(glFormat);
         super(SceneView, self).__init__()
 
         self._timer = timer
