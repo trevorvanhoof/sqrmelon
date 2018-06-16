@@ -155,7 +155,9 @@ struct ShadowArgs
 };
 ShadowArgs shadowArgs(){return ShadowArgs(0.1,100.0,128.0,32);}
 
-float fField(vec3 p);
+float fField(vec3 p, out vec4 m);
+
+float fField(vec3 p){vec4 m;return fField(p,m);}
 
 // Basic soft shadow function from http://www.iquilezles.org/www/articles/rmshadows/rmshadows.htm
 float Shadow(Ray ray, ShadowArgs shadow)

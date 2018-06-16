@@ -1,3 +1,5 @@
+float fField(vec3 p, out vec4 m){return 0.;}
+
 void main()
 {
     vec2 c,b=(gl_FragCoord.xy*2-uResolution)/uResolution.y;
