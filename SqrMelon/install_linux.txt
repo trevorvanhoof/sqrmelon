@@ -8,7 +8,8 @@ Install dependencies
 
 Run the project
 
-    python SqrMelon/__init__.py
+    cd SqrMelon
+    python ./__init__.py
 
 
 Arch Linux
@@ -19,7 +20,9 @@ Install dependencies
     sudo pacman -S python2-pyqt4
     sudo pacman -S python2-sip
     sudo pacman -S python2-opengl
+    pip install -r requirements.txt
 
 Run the project
 
-    python SqrMelon/__init__.py
+    cd SqrMelon
+    python ./__init__.py
