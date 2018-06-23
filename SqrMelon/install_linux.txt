@@ -1,8 +1,25 @@
-1. Install Python 2, Qt 4, OpenGL
+Ubuntu
+======
+
+Install dependencies
+
    sudo apt-get install python-qt4-gl
+   pip install -r requirements.txt
 
-2. Install Python OpenGL binding
-   pip install PyOpenGL==3.1.0
+Run the project
 
-3. Run the project
-   python SqrMelon/__init__.py 
+    python SqrMelon/__init__.py
+
+
+Arch Linux
+==========
+
+Install dependencies
+
+    sudo pacman -S python2-pyqt4
+    sudo pacman -S python2-sip
+    sudo pacman -S python2-opengl
+
+Run the project
+
+    python SqrMelon/__init__.py
