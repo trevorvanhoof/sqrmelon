@@ -1,0 +1,8 @@
+1. Install Python 2, Qt 4, OpenGL
+   sudo apt-get install python-qt4-gl
+
+2. Install Python OpenGL binding
+   pip install PyOpenGL==3.1.0
+
+3. Run the project
+   python SqrMelon/__init__.py 
