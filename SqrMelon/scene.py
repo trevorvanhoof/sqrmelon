@@ -250,7 +250,7 @@ class FullScreenRectSingleton(object):
     def draw(self):
         # I don't bind anything, no single buffer or VAO is generated, there are no geometry shaders and no transform feedback systems
         # according to the docs there is no reason why glDrawArrays wouldn't work.
-        glBindVertexArray(glGenVertexArrays(1))  # glBindVertexArray(0) doesn't work either
+        glBindVertexArray(self._vao)  # glBindVertexArray(0) doesn't work either
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
 
     @classmethod
