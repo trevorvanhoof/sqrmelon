@@ -1,4 +1,4 @@
-
+float fField(vec3 p){vec4 m;return fField(p,m);}
 
 // Main sphere tracing function, taking ideas from:
 // http://erleuchtet.org/~cupe/permanent/enhanced_sphere_tracing.pdf

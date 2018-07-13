@@ -258,7 +258,7 @@ class App(QMainWindowState):
         HEIGHT = int(resolution.currentText())
         WIDTH = (HEIGHT * 16) / 9
         FMT = 'jpg'
-        
+
         data = (ctypes.c_ubyte * (WIDTH * HEIGHT * 3))()  # alloc buffer once
         flooredStart = self._timer.secondsToBeats(int(self._timer.beatsToSeconds(self._timer.start) * FPS) / float(FPS))
         duration = self._timer.beatsToSeconds(self._timer.end - flooredStart)

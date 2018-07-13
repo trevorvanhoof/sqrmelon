@@ -3,8 +3,6 @@ uniform float uLuminance = 1.0;
 uniform float uOffset = 0.0;
 uniform float uGamma = 1.0;
 
-float fField(vec3 p, out vec4 m){return 0.;}
-
 // Good & fast sRgb approximation from http://chilliant.blogspot.com.au/2012/08/srgb-approximations-for-hlsl.html
 vec3 LinearToSRGB (vec3 rgb)
 {
