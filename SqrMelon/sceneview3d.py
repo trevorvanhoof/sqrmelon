@@ -113,8 +113,6 @@ class SceneView(QGLWidget):
     def initializeGL(self):
         print glGetString(GL_VERSION)
 
-        self.vao_id = glGenVertexArrays(1)
-
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
         # glDepthMask(GL_TRUE)
@@ -171,7 +169,7 @@ class SceneView(QGLWidget):
             for name in self._textures:
                 uniforms[name] = self._textures[name]._id
 
-            self._scene.drawToScreen(self.vao_id, self._timer.beatsToSeconds(self._timer.time), self._timer.time, uniforms, viewport, additionalTextureUniforms=textureUniforms)
+            self._scene.drawToScreen(self._timer.beatsToSeconds(self._timer.time), self._timer.time, uniforms, viewport, additionalTextureUniforms=textureUniforms)
 
         else:
             # no scene active, time cursor outside any enabled shots?
@@ -182,7 +180,7 @@ class SceneView(QGLWidget):
             if _noSignalImage:
                 glEnable(GL_BLEND)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                Scene.drawColorBufferToScreen(self.vao_id, _noSignalImage, viewport)
+                Scene.drawColorBufferToScreen(_noSignalImage, viewport)
                 glDisable(GL_BLEND)
 
         if self.__overlays:
@@ -195,7 +193,7 @@ class SceneView(QGLWidget):
                 glDisable(GL_DEPTH_TEST)
                 glEnable(GL_BLEND)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-                Scene.drawColorBufferToScreen(self.vao_id, image, viewport, color)
+                Scene.drawColorBufferToScreen(image, viewport, color)
                 glDisable(GL_BLEND)
 
     def __onResize(self):
