@@ -1,0 +1,196 @@
+	<!-- bloom -->
+	<pass buffer="5" input0="2" factor="2">
+		<global path="downsample.glsl"/>
+	</pass>
+	<pass buffer="6" input0="5" factor="2">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="5" input0="6" factor="2">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="6" input0="5" factor="2">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="5" input0="6" factor="2">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+
+	<pass buffer="7" input0="5" factor="4">
+		<global path="downsample.glsl"/>
+	</pass>
+	<pass buffer="8" input0="7" factor="4">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="7" input0="8" factor="4">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="8" input0="7" factor="4">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="7" input0="8" factor="4">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+
+	<pass buffer="1" input0="7" factor="8">
+		<global path="downsample.glsl"/>
+	</pass>
+	<pass buffer="9" input0="1" factor="8">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="1" input0="9" factor="8">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="9" input0="1" factor="8">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="1" input0="9" factor="8">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+
+	<pass buffer="10" input0="1" factor="16">
+		<global path="downsample.glsl"/>
+	</pass>
+	<pass buffer="11" input0="10" factor="16">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="10" input0="11" factor="16">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="11" input0="10" factor="16">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="10" input0="11" factor="16">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+
+	<pass buffer="12" input0="10" factor="32">
+		<global path="downsample.glsl"/>
+	</pass>
+	<pass buffer="13" input0="12" factor="32">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="12" input0="13" factor="32">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="13" input0="12" factor="32">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="12" input0="13" factor="32">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+
+	<pass buffer="14" input0="12" factor="64">
+		<global path="downsample.glsl"/>
+	</pass>
+	<pass buffer="15" input0="14" factor="64">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="14" input0="15" factor="64">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="2"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="15" input0="14" factor="64">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="1,0"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+	<pass buffer="14" input0="15" factor="64">
+		<global path="directionalblurrefl.glsl">
+			<uniform name="uDirection" value="0,1"/>
+			<uniform name="uBlurSize" value="3"/>
+			<uniform name="g" value="0"/>
+		</global>
+	</pass>
+
+	<pass buffer="3" input0="2" input1="5" input2="7" input3="1" input4="10" input5="12" input6="14" input7="0">
+		<global path="bloom.glsl"/>
+	</pass>
