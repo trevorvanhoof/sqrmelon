@@ -97,7 +97,6 @@ class Curve(object):
     """
     Animation data with Cubic Hermite Spline interpolation.
     """
-
     def __init__(self):
         self.__keys = []
         self.sortKeys()
@@ -123,8 +122,7 @@ class Curve(object):
         if idx != len(self.__keys):
             self.__keys[idx].updateTangents()
 
-    def addKeyWithTangents(self, inTangentX, inTangentY, time, value, outTangentX, outTangentY, tangentBroken,
-                           tangentMode):
+    def addKeyWithTangents(self, inTangentX, inTangentY, time, value, outTangentX, outTangentY, tangentBroken, tangentMode):
         k = Key(time, value, self)
         self.__keys.append(k)
         self.sortKeys()
