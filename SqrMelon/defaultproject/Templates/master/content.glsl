@@ -25,7 +25,6 @@ float fField(vec3 p, out vec4 m)
 
 // Material based on traced point, Normal, distance & materialId derived from fField above.
 /*
-
 struct Material
 {
     vec3 albedo;                // surface color

@@ -32,11 +32,10 @@ class SceneView(QGLWidget):
         :type overlays: Overlays
         """
         # We found that not setting a version in Ubunto didn't work
-        # so out of laziness we try to set a very high version
-        # and Qt will fall back to highest available.
         glFormat = QGLFormat()
         glFormat.setVersion(4, 1)
         glFormat.setProfile(QGLFormat.CoreProfile)
+        glFormat.setDefaultFormat(glFormat);
         super(SceneView, self).__init__()
 
         self._timer = timer

@@ -1,3 +1,11 @@
 <?xml version="1.0" ?>
 <scene camera="0,1,-10,0,0,0" template="..\Templates\master.xml">
+	<Shot enabled="True" end="8.0" name="Examples" preroll="0.0" scene="Examples" speed="1.0" start="0.0">
+		<Channel mode="hermite" name="uOrigin.x"/>
+		<Channel mode="hermite" name="uOrigin.y"/>
+		<Channel mode="hermite" name="uOrigin.z"/>
+		<Channel mode="hermite" name="uAngles.x"/>
+		<Channel mode="hermite" name="uAngles.y"/>
+		<Channel mode="hermite" name="uAngles.z"/>
+	</Shot>
 </scene>

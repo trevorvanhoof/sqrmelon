@@ -12,6 +12,7 @@ from heightfield import loadHeightfield
 from buffers import *
 from qtutil import *
 from util import TemplateForScene, ProjectFile, ParseXMLWithIncludes
+from gl_shaders import compileProgram
 
 
 class TexturePool(object):
@@ -211,7 +212,11 @@ class _ShaderPool(object):
         program = self.__cache.get((vertCode, fragCode), None)
         if program:
             return program
-        program = shaders.compileProgram(shaders.compileShader(vertCode, GL_VERTEX_SHADER), shaders.compileShader(fragCode, GL_FRAGMENT_SHADER))
+        program = compileProgram(
+            shaders.compileShader(vertCode, GL_VERTEX_SHADER),
+            shaders.compileShader(fragCode, GL_FRAGMENT_SHADER),
+            validate=False
+        )
         self.__cache[(vertCode, fragCode)] = program
         return program
 
@@ -236,8 +241,24 @@ def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
     return text
 
 
-def drawFullScreenRect():
-    glDrawArrays(GL_TRIANGLE_FAN,0,4)
+class FullScreenRectSingleton(object):
+    _instance = None
+
+    def __init__(self):
+        self._vao = glGenVertexArrays(1)
+
+    def draw(self):
+        # I don't bind anything, no single buffer or VAO is generated, there are no geometry shaders and no transform feedback systems
+        # according to the docs there is no reason why glDrawArrays wouldn't work.
+        glBindVertexArray(self._vao)  # glBindVertexArray(0) doesn't work either
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
 
 class Scene(object):
     cache = {}
@@ -256,7 +277,8 @@ class Scene(object):
 
         glUniform1i(glGetUniformLocation(passThrough, 'uImages[0]'), 0)
         glViewport(*viewport)
-        drawFullScreenRect()
+
+        FullScreenRectSingleton.instance().draw()
 
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, 0)
@@ -433,6 +455,9 @@ class Scene(object):
                     code = e.args[1][0].split('\n')
                 except:
                     print e.args
+                    print 'pass: ' + passData.name
+                    print 'fragCode:'
+                    print fragCode
                     return
                 # html escape output
                 errors = [Qt.escape(ln) for ln in errors]
@@ -675,7 +700,7 @@ class Scene(object):
             if self.passes[i].drawCommand is not None:
                 exec (self.passes[i].drawCommand)
             else:
-                drawFullScreenRect()
+                FullScreenRectSingleton.instance().draw()
 
             # duct tape the 2D color buffer(s) into 3D color buffer(s)
             if self.passes[i].is3d:

@@ -189,7 +189,7 @@ float Bump(vec3 offset, Hit hit)
     // the hit.materialId can be used to not bump all objects the same
     int objectId = int(hit.materialId.w);
     if(objectId%2==1)
-        return 0;
+        return 0.;
 
     // enhance the checkers pattern by introducing bumped tiles
     // scale uvs to match material

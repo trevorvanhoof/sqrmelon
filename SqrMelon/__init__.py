@@ -51,7 +51,10 @@ class App(QMainWindowState):
     def __init__(self):
         super(App, self).__init__(gSettings)
         self.setAnimated(False)
-        month, day, year = time.strftime('%x').split('/')
+        if 'linux' in sys.platform.lower():
+            month, day, year = time.strftime('%x').split('-')
+        else:
+            month, day, year = time.strftime('%x').split('/')
         if month == '12':
             self.setWindowIcon(icons.get('Candy Cane'))
         else:
@@ -177,7 +180,7 @@ class App(QMainWindowState):
         self.__previewMenu = toolsMenu.addMenu('Preview resolution')
         previewRadioGroup = QActionGroup(self)
         # add action & connect it to the setPreviewRes with right parameters
-        hd = self.__previewMenu.addAction('1070p (HD)')
+        hd = self.__previewMenu.addAction('1080p (HD)')
         hd.triggered.connect(functools.partial(self.__sceneView.setPreviewRes, 1920, 1080, 1.0))
         hd.setCheckable(True)
         hd.setActionGroup(previewRadioGroup)
@@ -254,6 +257,8 @@ class App(QMainWindowState):
         FPS = int(fps.currentText())
         HEIGHT = int(resolution.currentText())
         WIDTH = (HEIGHT * 16) / 9
+        FMT = 'jpg'
+
         data = (ctypes.c_ubyte * (WIDTH * HEIGHT * 3))()  # alloc buffer once
         flooredStart = self._timer.secondsToBeats(int(self._timer.beatsToSeconds(self._timer.start) * FPS) / float(FPS))
         duration = self._timer.beatsToSeconds(self._timer.end - flooredStart)
@@ -296,7 +301,7 @@ class App(QMainWindowState):
             from OpenGL.GL import glGetTexImage, GL_TEXTURE_2D, GL_RGB, GL_UNSIGNED_BYTE
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
 
-            QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save('capture/dump_%s_%05d.jpg' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame))
+            QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save('capture/dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT))
         progress.close()
 
         if not fileutil.exists('convertcapture'):
@@ -306,17 +311,16 @@ class App(QMainWindowState):
             start2 = ''
             if int(self._timer.start * FPS) > 0:
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
-                start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
-            fh.write('cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.jpg {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FPS, start, FPS,
-                                                                                                                                                                                        start2, FPS))
+                start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
+            fh.write('cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FPS, start, FPS, FMT, start2, FPS))
 
         with fileutil.edit('convertcapture/convertGif.bat') as fh:
             start = ''
             start2 = ''
             if int(self._timer.start * FPS) > 0:
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
-                start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
-            fh.write('cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.jpg {}-r {} "../convertcapture/output.gif"'.format(FPS, start, FPS, start2, FPS))
+                start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
+            fh.write('cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.{} {}-r {} "../convertcapture/output.gif"'.format(FPS, start, FPS, FMT, start2, FPS))
 
         sound = self.timeSlider.soundtrackPath()
         if not sound:

@@ -509,12 +509,13 @@ class TimestampDisplay(QLabel):
 
 
 class BPMInput(QWidget):
-    def __init__(self, value):
+    def __init__(self, bpm):
         super(BPMInput, self).__init__()
-        self._spinBox = SpinBox(value)
+        bpm = round(bpm, 2)
+        self._spinBox = DoubleSpinBox(bpm)
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self._spinBox)
-        self._label = QLabel('%s BPM' % value)
+        self._label = QLabel('%s BPM' % bpm)
         self.layout().addWidget(self._label)
         self._spinBox.hide()
         self._spinBox.editingFinished.connect(self.disable)
@@ -523,6 +524,7 @@ class BPMInput(QWidget):
         return self._spinBox
 
     def setValueSilent(self, bpm):
+        bpm = round(bpm, 2)
         self._spinBox.setValueSilent(bpm)
         self._label.setText('%s BPM' % bpm)
 
