@@ -1,5 +1,5 @@
+import sys
 import re
-import os
 import time
 from collections import OrderedDict
 from fileutil import FileSystemWatcher
@@ -212,10 +212,13 @@ class _ShaderPool(object):
         program = self.__cache.get((vertCode, fragCode), None)
         if program:
             return program
+        # skip shader validation step on linux
+        validate = 'linux' not in sys.platform.lower()
+
         program = compileProgram(
             shaders.compileShader(vertCode, GL_VERTEX_SHADER),
             shaders.compileShader(fragCode, GL_FRAGMENT_SHADER),
-            validate=False
+            validate=validate
         )
         self.__cache[(vertCode, fragCode)] = program
         return program
