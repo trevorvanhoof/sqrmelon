@@ -1,8 +1,16 @@
-import icons
-from animationgraph.curvedata import Curve, Key
 from qtutil import *
 from collections import OrderedDict
 from util import randomColor
+
+
+class HermiteKey(object):
+    def __init__(self):
+        pass
+
+
+class HermiteCurve(object):
+    def __init__(self):
+        pass
 
 
 class ItemRow(object):
@@ -18,10 +26,10 @@ class ItemRow(object):
             self.items.append(QStandardItem(str(value)))
             # implicitly cast simple types when getting their values
             # allows direct UI editing as well
-            if isinstance(value, (float, int, bool, basestring)):
+            if isinstance(value, (float, int, bool, basestring, Enum)):
                 value = type(value)
-            else:
-                items[-1].setEditable(False)
+            # else:
+            #    items[-1].setEditable(False)
             items[-1].setData(value)
 
     @property
@@ -36,7 +44,6 @@ class ItemRow(object):
         data = item.data()
 
         if isinstance(data, type):
-            if self.items[0].row() == 0 and index == 4: print item.text(), data
             return data(item.text())
 
         return data
@@ -70,7 +77,6 @@ class ItemRow(object):
         return self[i]
 
     def __setattr__(self, attr, value):
-        print attr, value
         try:
             i = self.__class__.properties().index(attr)
         except ValueError:
@@ -89,9 +95,19 @@ class Clip(ItemRow):
         return ClipManager.columnNames()
 
 
+class Label(object):
+    """ Utiliy to display a non-editable string in the ItemRow system. """
+
+    def __init__(self, text):
+        self.text = text
+
+    def __str__(self):
+        return self.text
+
+
 class Event(ItemRow):
     def __init__(self, name, clip, start=0.0, end=1.0, speed=1.0, roll=0.0):
-        super(Event, self).__init__(name, '', clip, start, end, end - start, speed, roll)
+        super(Event, self).__init__(name, Label(''), clip, start, end, end - start, speed, roll)
 
     def propertyChanged(self, index):
         START_INDEX = 3
@@ -113,29 +129,146 @@ class Event(ItemRow):
 class Shot(Event):
     def __init__(self, name, sceneName, clip, start=0.0, end=1.0, speed=1.0, roll=0.0):
         # intentionally calling super of base
-        super(Event, self).__init__(name, sceneName, clip, start, end, end - start, speed, roll)
+        super(Event, self).__init__(name, Label(sceneName), clip, start, end, end - start, speed, roll)
 
 
-class ClipManager(QTableView):
+class LineEdit(QLineEdit):
+    def value(self):
+        return self.text()
+
+    def setValue(self, text):
+        self.setText(text)
+
+
+class EnumEdit(QComboBox):
+    def __init__(self, enum, parent=None):
+        super(EnumEdit, self).__init__(parent)
+        self.__enum = enum
+        self.addItems(enum.options())
+        self.editingFinished = self.currentIndexChanged
+
+    def focusInEvent(self, evt):
+        # we get multiple focus in events while spawning the item delegate
+        # the last one is a popupFocusReason, but this popup is immediately cancelled again
+        # so we delay the popup to skip over the lose-focus event while trying to gain focus
+        if evt.reason() == 7:
+            self.__t = QTimer()
+            self.__t.timeout.connect(self.showPopup)
+            self.__t.setSingleShot(True)
+            self.__t.start(100)
+
+    def value(self):
+        return self.currentText()
+
+    def setValue(self, text):
+        # cast back and forth to ensure label is valid
+        if isinstance(text, Enum):
+            text = str(text)
+        try:
+            value = self.__enum(text)
+        except AssertionError:
+            # invalid text, don't change
+            return
+        self.setCurrentIndex(value.index())
+
+
+class Enum(object):
+    def __init__(self, label):
+        assert label in self.options()
+        self.__label = label
+
+    def __str__(self):
+        return self.__label
+
+    def index(self):
+        return self.options().index(self.__label)
+
+    @staticmethod
+    def options():
+        raise NotImplementedError()
+
+
+class ELoopMode(Enum):
+
+    @staticmethod
+    def options():
+        return 'Clamp', 'Loop'
+
+
+class AtomDelegate(QItemDelegate):
+    def setEditorData(self, editorWidget, index):
+        editorWidget.setValue(self.__typ(index.data(Qt.EditRole)))
+
+    def setModelData(self, editorWidget, model, index):
+        model.setData(index, str(editorWidget.value()))
+
+    def createEditor(self, parentWidget, styleOption, index):
+        if index.column() == 0:
+            # special case for self-referencing item
+            self.__typ = str
+            self.__editor = LineEdit()
+        else:
+            self.__typ = index.data(Qt.UserRole + 1)
+            if not isinstance(self.__typ, type):
+                return
+            if self.__typ == float:
+                self.__editor = DoubleSpinBox()
+            elif self.__typ == basestring or issubclass(self.__typ, basestring):
+                self.__editor = LineEdit()
+            elif issubclass(self.__typ, Enum):
+                self.__editor = EnumEdit(self.__typ)
+            else:
+                return
+        self.__editor.setParent(parentWidget)
+        self.__editor.editingFinished.connect(self.__commitAndCloseEditor)
+        return self.__editor
+
+    def __commitAndCloseEditor(self):
+        self.commitData.emit(self.__editor)
+        self.closeEditor.emit(self.__editor, QAbstractItemDelegate.NoHint)
+
+
+class NamedColums(QTableView):
     def __init__(self, parent=None):
-        super(ClipManager, self).__init__(parent)
-        self.setModel(QStandardItemModel())
+        super(NamedColums, self).__init__(parent)
+        self.setSelectionMode(QTableView.ExtendedSelection)
+        self.setSelectionBehavior(QTableView.SelectRows)
+        mdl = QStandardItemModel()
+        self.setModel(mdl)
+        names = self.columnNames()
+        mdl.setHorizontalHeaderLabels(names)
+        self.verticalHeader().hide()
+        self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
+        self.horizontalHeader().setResizeMode(0, QHeaderView.Interactive)
+        for i in xrange(1, len(names) - 1):
+            self.horizontalHeader().setResizeMode(i, QHeaderView.ResizeToContents)
+        self.horizontalHeader().setResizeMode(len(names) - 1, QHeaderView.Stretch)
+        self.setItemDelegate(AtomDelegate())
 
+    @staticmethod
+    def columnNames():
+        raise NotImplementedError()
+
+
+class ClipManager(NamedColums):
     @staticmethod
     def columnNames():
         return 'name', 'loopMode'
 
 
-class ShotManager(QTableView):
+class ShotManager(NamedColums):
     def __init__(self, parent=None):
         super(ShotManager, self).__init__(parent)
-        self.setModel(QStandardItemModel())
+        self.model().itemChanged.connect(self.__fwdItemChanged)
 
-    def dataChanged(self, tl, br):
-        for y in xrange(tl.row(), br.row() + 1):
-            rowObj = self.model().item(y).data()
-            for x in xrange(tl.column(), br.column() + 1):
-                rowObj.propertyChanged(x)
+    # def dataChanged(self, tl, br):
+    #    for y in xrange(tl.row(), br.row() + 1):
+    #        rowObj = self.model().item(y).data()
+    #        for x in xrange(tl.column(), br.column() + 1):
+    #            rowObj.propertyChanged(x)
+
+    def __fwdItemChanged(self, item):
+        self.model().item(item.row()).data().propertyChanged(item.column())
 
     @staticmethod
     def columnNames():
@@ -163,6 +296,7 @@ class EventTimeline(QWidget):
     def __init__(self, model):
         super(EventTimeline, self).__init__()
         self.model = model
+        model.dataChanged.connect(self.repaint)
         self.cameraStart = 0.0
         self.cameraEnd = 10.0
 
@@ -196,7 +330,7 @@ def run():
     s = QSplitter(Qt.Vertical)
 
     w = ClipManager()
-    clip0 = Clip('New Clip', 'Clamped')
+    clip0 = Clip('New Clip', ELoopMode('Clamp'))
     w.model().appendRow(clip0.items)
     s.addWidget(w)
 
