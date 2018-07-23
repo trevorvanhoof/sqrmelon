@@ -65,10 +65,9 @@ class HermiteCurve(object):
                 h01t * next.y)
 
 
-class KeySelection(object):
-    def __init__(self):
-        # dict of HermiteKey objects and bitmask of (point, intangent, outtangent)
-        self.selection = {}
+class KeySelection(dict):
+    # dict of HermiteKey objects and bitmask of (point, intangent, outtangent)
+    pass
 
 
 class CurveView(QWidget):
@@ -91,11 +90,11 @@ class CurveView(QWidget):
         self.testCurve.keys.append(HermiteKey(12.0, 1.0, 1.0, 0.0))
 
         self.selectionModel = KeySelection()
-        self.selectionModel.selection[k1] = 1  # just point selected
-        self.selectionModel.selection[k2] = 1 << 1  # just in tangent selected
-        self.selectionModel.selection[k3] = 1 << 2 | 1  # out tangent and key selected
-        self.selectionModel.selection[k4] = 1 << 2 | 1 << 1 | 1  # all selected
-        self.selectionModel.selection[k5] = 1 << 1 | 1  # in tangent and key selected
+        self.selectionModel[k1] = 1  # just point selected
+        self.selectionModel[k2] = 1 << 1  # just in tangent selected
+        self.selectionModel[k3] = 1 << 2 | 1  # out tangent and key selected
+        self.selectionModel[k4] = 1 << 2 | 1 << 1 | 1  # all selected
+        self.selectionModel[k5] = 1 << 1 | 1  # in tangent and key selected
 
         self.undoStack = QUndoStack()
         self.undoStack.createUndoAction(self).setShortcut(QKeySequence('Ctrl+Z'))
@@ -127,9 +126,17 @@ class CurveView(QWidget):
     def pxToU(self, x, y):
         return self.xToT(x), self.yToV(y)
 
-    def __drawTangent(self, painter, isSelected, src, dst, wt):
+    def __tangentEndPoint(self, src, dst, wt):
         TANGENT_LENGTH = 20.0
+        x0, y0 = self.uToPx(src.x, src.y)
+        x1, y1 = self.uToPx(dst.x, dst.y)
+        dx = x1 - x0
+        dy = (y1 - y0) * wt
+        f = TANGENT_LENGTH / ((dx * dx + dy * dy) ** 0.5)
+        x1, y1 = x0 + dx * f, y0 + dy * f
+        return x1, y1
 
+    def __drawTangent(self, painter, isSelected, src, dst, wt):
         # selection
         if isSelected:
             painter.setPen(Qt.white)
@@ -137,13 +144,31 @@ class CurveView(QWidget):
             painter.setPen(Qt.magenta)
 
         x0, y0 = self.uToPx(src.x, src.y)
-        x1, y1 = self.uToPx(dst.x, dst.y)
-        dx = x1 - x0
-        dy = (y1 - y0) * wt
-        f = TANGENT_LENGTH / ((dx * dx + dy * dy) ** 0.5)
-        x1, y1 = x0 + dx * f, y0 + dy * f
+        x1, y1 = self.__tangentEndPoint(src, dst, wt)
         painter.drawLine(x0, y0, x1, y1)
         painter.drawRect(x1 - 1, y1 - 1, 2, 2)
+
+    def itemsAt(self, x, y, w, h):
+        for i, key in enumerate(self.testCurve.keys):
+            kx, ky = self.uToPx(key.x, key.y)
+            if x <= kx <= x + w and y < ky <= y + h:
+                yield key, 1
+
+            if key not in self.selectionModel:
+                # key or tangent must be selected for tangents to be visible
+                continue
+
+            # in tangent
+            if i > 0:
+                kx, ky = self.__tangentEndPoint(key, self.testCurve.keys[i - 1], key.inTangentY)
+                if x <= kx <= x + w and y < ky <= y + h:
+                    yield key, 1 << 1
+
+            # out tangent
+            if i < len(self.testCurve.keys) - 1:
+                kx, ky = self.__tangentEndPoint(key, self.testCurve.keys[i + 1], key.outTangentY)
+                if x <= kx <= x + w and y < ky <= y + h:
+                    yield key, 1 << 2
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -152,7 +177,7 @@ class CurveView(QWidget):
         painter.fillRect(QRect(0, 0, self.width(), self.height()), QColor(40, 40, 40, 255))
 
         # paint evaluated data
-        for x in xrange(self.width()):
+        for x in xrange(0, self.width(), 4):
             t = self.xToT(x)
             y = self.vToY(self.testCurve.evaluate(t))
             pt = QPoint(x, y)
@@ -163,7 +188,7 @@ class CurveView(QWidget):
         # paint key points
         for i, key in enumerate(self.testCurve.keys):
             # if key is selected, paint tangents
-            selectionState = self.selectionModel.selection.get(key, 0)
+            selectionState = self.selectionModel.get(key, 0)
 
             # key selected
             if selectionState & 1:
@@ -181,17 +206,17 @@ class CurveView(QWidget):
 
             # in tangent
             if i > 0:
-                self.__drawTangent(painter, selectionState & (1 << 1), self.testCurve.keys[i], self.testCurve.keys[i - 1], key.inTangentY)
+                self.__drawTangent(painter, selectionState & (1 << 1), key, self.testCurve.keys[i - 1], key.inTangentY)
 
             # out tangent
             if i < len(self.testCurve.keys) - 1:
-                self.__drawTangent(painter, selectionState & (1 << 2), self.testCurve.keys[i], self.testCurve.keys[i + 1], key.outTangentY)
+                self.__drawTangent(painter, selectionState & (1 << 2), key, self.testCurve.keys[i + 1], key.outTangentY)
 
         if self.action is not None:
             self.action.draw(painter)
 
     def mousePressEvent(self, event):
-        self.action = MarqueeAction(self.selectionModel)
+        self.action = MarqueeAction(self, self.selectionModel)
         if self.action.mousePressEvent(event):
             self.repaint()
 
@@ -210,9 +235,10 @@ class CurveView(QWidget):
 
 
 class MarqueeAction(QUndoCommand):
-    def __init__(self, selectionModel):
+    def __init__(self, view, selectionDict):
         super(MarqueeAction, self).__init__('Selection change')
-        self.selection = selectionModel.selection
+        self.view = view
+        self.selection = selectionDict
         self.restore = ({}, [])
         self.apply = ({}, [])
 
@@ -229,9 +255,61 @@ class MarqueeAction(QUndoCommand):
     def mousePressEvent(self, event):
         self.start = event.pos()
         self.end = event.pos()
-        self.mode = event.modifiers()
+        self.mode = event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)
+
+    def _rect(self):
+        x0, x1 = self.start.x(), self.end.x()
+        x0, x1 = min(x0, x1), max(x0, x1)
+        y0, y1 = self.start.y(), self.end.y()
+        y0, y1 = min(y0, y1), max(y0, y1)
+        return x0, y0, x1 - x0, y1 - y0
 
     def mouseReleaseEvent(self, undoStack):
+        # TODO: Mimic maya? when mask is tangent, always deselect key; when selecting, first attempt to select keys, if no keys found then attempt to select tangents
+
+        # TODO: Split this up per mode into separate functions, no need to test the modifier for each itemAt, see if we can decouple from the class
+
+        def _addToApply0(apply0, key, existing, mask):
+            apply0[key] = apply0.setdefault(key, existing) | mask
+
+        def _removeFromApply0(apply0, key, existing, mask):
+            apply0[key] = apply0.setdefault(key, existing) & (~mask)
+
+        # build apply state
+        x, y, w, h = self._rect()
+
+        # creating new selection, remove everything
+        if self.mode == Qt.NoModifier:
+            for key in self.selection:
+                self.apply[0][key] = 0
+
+        for key, mask in self.view.itemsAt(x, y, w, h):
+            # creating new selection
+            if self.mode == Qt.NoModifier:
+                # overwrite removed elements with only selected elements
+                _addToApply0(self.apply[0], key, self.selection.get(key, 0), mask)
+
+            # add only
+            if self.mode in (Qt.ControlModifier | Qt.ShiftModifier, Qt.ShiftModifier):
+                # make sure value is new to selection & register for selection
+                if key not in self.selection or not (self.selection[key] & mask):
+                    _addToApply0(self.apply[0], key, self.selection.get(key, 0), mask)
+
+            # remove only
+            if self.mode in (Qt.ControlModifier, Qt.ShiftModifier):
+                # make sure value exists in selection & mask out the element to remove
+                if key in self.selection and self.selection[key] & mask:
+                    _removeFromApply0(self.apply[0], key, self.selection[key], mask)
+
+        # finalize apply state
+        for key, value in self.apply[0].iteritems():
+            if value == 0:
+                # all elements deselected, register for removal
+                self.apply[1].append(key)
+
+        for key in self.apply[1]:
+            del self.apply[0][key]
+
         # cache restore state
         for addOrModify in self.apply[0]:
             if addOrModify in self.selection:
@@ -251,13 +329,10 @@ class MarqueeAction(QUndoCommand):
         return True
 
     def draw(self, painter):
-        x0, x1 = self.start.x(), self.end.x()
-        x0, x1 = min(x0, x1), max(x0, x1)
-        y0, y1 = self.start.y(), self.end.y()
-        y0, y1 = min(y0, y1), max(y0, y1)
-        painter.setPen(QColor(0,160,255,255))
-        painter.setBrush(QColor(0,160,255,64))
-        painter.drawRect(x0, y0, x1 - x0, y1 - y0)
+        x, y, w, h = self._rect()
+        painter.setPen(QColor(0, 160, 255, 255))
+        painter.setBrush(QColor(0, 160, 255, 64))
+        painter.drawRect(x, y, w, h)
 
 
 class ItemRow(object):
