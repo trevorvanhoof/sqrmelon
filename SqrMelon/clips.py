@@ -4,13 +4,260 @@ from util import randomColor
 
 
 class HermiteKey(object):
-    def __init__(self):
-        pass
+    __slots__ = ('x', 'y', 'inTangentY', 'outTangentY')
+
+    def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0):
+        self.x = x
+        self.y = y
+        self.inTangentY = inTangentY
+        self.outTangentY = outTangentY
+
+
+def binarySearch(value, data, key=lambda x: x):
+    # finds value in data, assumes data is sorted small to large
+    a, b = 0, len(data) - 1
+    index = -1
+    while a <= b:
+        index = (a + b) / 2
+        valueAtIndex = key(data[index])
+        if valueAtIndex < value:
+            # target is in right half
+            a = index + 1
+            index += 1  # in case we're done we need to insert right
+        elif valueAtIndex > value:
+            # target is in left half
+            b = index - 1
+        else:
+            return index
+    return index
 
 
 class HermiteCurve(object):
     def __init__(self):
-        pass
+        self.keys = []
+
+    def evaluate(self, x):
+        index = binarySearch(x, self.keys, lambda key: key.x)
+
+        # x before first key, possibly faster to test x explicitly before binary search
+        if index == 0:
+            return self.keys[0].y
+
+        # x after last key, possibly faster to test x explicitly before binary search
+        if index >= len(self.keys):
+            return self.keys[-1].y
+
+        prev = self.keys[index - 1]
+        next = self.keys[index]
+        t = (x - prev.x) / float(next.x - prev.x)
+        tt = t * t
+        ttt = t * tt
+        ttt2 = ttt + ttt
+        tt2 = tt + tt
+        tt3 = tt2 + tt
+        h00t = ttt2 - tt3 + 1.0
+        h10t = ttt - tt2 + t
+        h01t = tt3 - ttt2
+        h11t = ttt - tt
+        return (h00t * prev.y +
+                h10t * prev.outTangentY +
+                h11t * next.inTangentY +
+                h01t * next.y)
+
+
+class KeySelection(object):
+    def __init__(self):
+        # dict of HermiteKey objects and bitmask of (point, intangent, outtangent)
+        self.selection = {}
+
+
+class CurveView(QWidget):
+    def __init__(self, parent=None):
+        super(CurveView, self).__init__(parent)
+
+        self.testCurve = HermiteCurve()
+        self.testCurve.keys.append(HermiteKey(0.0, 0.0, 0.0, 0.0))
+        k1 = HermiteKey(1.0, 1.0, 0.0, 0.0)
+        self.testCurve.keys.append(k1)
+        k2 = HermiteKey(2.0, 0.0, 0.0, 0.0)
+        self.testCurve.keys.append(k2)
+        k3 = HermiteKey(4.0, 1.0, 0.0, 0.0)
+        self.testCurve.keys.append(k3)
+        k4 = HermiteKey(6.0, 0.0, 0.0, 1.0)
+        self.testCurve.keys.append(k4)
+        k5 = HermiteKey(7.0, 1.0, 1.0, -1.0)
+        self.testCurve.keys.append(k5)
+        self.testCurve.keys.append(HermiteKey(8.0, 0.0, -1.0, 1.0))
+        self.testCurve.keys.append(HermiteKey(12.0, 1.0, 1.0, 0.0))
+
+        self.selectionModel = KeySelection()
+        self.selectionModel.selection[k1] = 1  # just point selected
+        self.selectionModel.selection[k2] = 1 << 1  # just in tangent selected
+        self.selectionModel.selection[k3] = 1 << 2 | 1  # out tangent and key selected
+        self.selectionModel.selection[k4] = 1 << 2 | 1 << 1 | 1  # all selected
+        self.selectionModel.selection[k5] = 1 << 1 | 1  # in tangent and key selected
+
+        self.undoStack = QUndoStack()
+        self.undoStack.createUndoAction(self).setShortcut(QKeySequence('Ctrl+Z'))
+
+        self.action = None
+
+        self.left = -1.0
+        self.right = 13.0
+
+        self.top = 2.0
+        self.bottom = -1.0
+
+    # mapping functions
+    def xToT(self, x):
+        return (x / float(self.width())) * (self.right - self.left) + self.left
+
+    def tToX(self, t):
+        return ((t - self.left) / (self.right - self.left)) * self.width()
+
+    def yToV(self, y):
+        return (y / float(self.height())) * (self.bottom - self.top) + self.top
+
+    def vToY(self, v):
+        return ((v - self.top) / (self.bottom - self.top)) * self.height()
+
+    def uToPx(self, t, v):
+        return self.tToX(t), self.vToY(v)
+
+    def pxToU(self, x, y):
+        return self.xToT(x), self.yToV(y)
+
+    def __drawTangent(self, painter, isSelected, src, dst, wt):
+        TANGENT_LENGTH = 20.0
+
+        # selection
+        if isSelected:
+            painter.setPen(Qt.white)
+        else:
+            painter.setPen(Qt.magenta)
+
+        x0, y0 = self.uToPx(src.x, src.y)
+        x1, y1 = self.uToPx(dst.x, dst.y)
+        dx = x1 - x0
+        dy = (y1 - y0) * wt
+        f = TANGENT_LENGTH / ((dx * dx + dy * dy) ** 0.5)
+        x1, y1 = x0 + dx * f, y0 + dy * f
+        painter.drawLine(x0, y0, x1, y1)
+        painter.drawRect(x1 - 1, y1 - 1, 2, 2)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        ppt = None
+
+        painter.fillRect(QRect(0, 0, self.width(), self.height()), QColor(40, 40, 40, 255))
+
+        # paint evaluated data
+        for x in xrange(self.width()):
+            t = self.xToT(x)
+            y = self.vToY(self.testCurve.evaluate(t))
+            pt = QPoint(x, y)
+            if x:
+                painter.drawLine(ppt, pt)
+            ppt = pt
+
+        # paint key points
+        for i, key in enumerate(self.testCurve.keys):
+            # if key is selected, paint tangents
+            selectionState = self.selectionModel.selection.get(key, 0)
+
+            # key selected
+            if selectionState & 1:
+                painter.setPen(Qt.yellow)
+            else:
+                painter.setPen(Qt.black)
+
+            # key
+            x, y = self.uToPx(key.x, key.y)
+            painter.drawRect(x - 2, y - 2, 4, 4)
+
+            # tangents not visible
+            if not selectionState:
+                continue
+
+            # in tangent
+            if i > 0:
+                self.__drawTangent(painter, selectionState & (1 << 1), self.testCurve.keys[i], self.testCurve.keys[i - 1], key.inTangentY)
+
+            # out tangent
+            if i < len(self.testCurve.keys) - 1:
+                self.__drawTangent(painter, selectionState & (1 << 2), self.testCurve.keys[i], self.testCurve.keys[i + 1], key.outTangentY)
+
+        if self.action is not None:
+            self.action.draw(painter)
+
+    def mousePressEvent(self, event):
+        self.action = MarqueeAction(self.selectionModel)
+        if self.action.mousePressEvent(event):
+            self.repaint()
+
+    def mouseReleaseEvent(self, event):
+        if self.action:
+            if self.action.mouseReleaseEvent(self.undoStack):
+                self.action = None
+                self.repaint()
+                return
+            self.action = None
+
+    def mouseMoveEvent(self, event):
+        if self.action:
+            if self.action.mouseMoveEvent(event):
+                self.repaint()
+
+
+class MarqueeAction(QUndoCommand):
+    def __init__(self, selectionModel):
+        super(MarqueeAction, self).__init__('Selection change')
+        self.selection = selectionModel.selection
+        self.restore = ({}, [])
+        self.apply = ({}, [])
+
+    def redo(self):
+        self.selection.update(self.apply[0])
+        for remove in self.apply[1]:
+            del self.selection[remove]
+
+    def undo(self):
+        self.selection.update(self.restore[0])
+        for remove in self.restore[1]:
+            del self.selection[remove]
+
+    def mousePressEvent(self, event):
+        self.start = event.pos()
+        self.end = event.pos()
+        self.mode = event.modifiers()
+
+    def mouseReleaseEvent(self, undoStack):
+        # cache restore state
+        for addOrModify in self.apply[0]:
+            if addOrModify in self.selection:
+                # is modification
+                self.restore[0][addOrModify] = self.selection[addOrModify]
+            else:
+                self.restore[1].append(addOrModify)
+
+        for remove in self.apply[1]:
+            self.restore[0][remove] = self.selection[remove]
+
+        undoStack.push(self)
+        return True
+
+    def mouseMoveEvent(self, event):
+        self.end = event.pos()
+        return True
+
+    def draw(self, painter):
+        x0, x1 = self.start.x(), self.end.x()
+        x0, x1 = min(x0, x1), max(x0, x1)
+        y0, y1 = self.start.y(), self.end.y()
+        y0, y1 = min(y0, y1), max(y0, y1)
+        painter.setPen(QColor(0,160,255,255))
+        painter.setBrush(QColor(0,160,255,64))
+        painter.drawRect(x0, y0, x1 - x0, y1 - y0)
 
 
 class ItemRow(object):
@@ -327,6 +574,12 @@ class EventTimeline(QWidget):
 
 def run():
     a = QApplication([])
+
+    w = CurveView()
+    w.show()
+    a.exec_()
+    return
+
     s = QSplitter(Qt.Vertical)
 
     w = ClipManager()
