@@ -49,25 +49,72 @@ class HermiteCurve(object):
 
         prev = self.keys[index - 1]
         next = self.keys[index]
+
         t = (x - prev.x) / float(next.x - prev.x)
+
         tt = t * t
         ttt = t * tt
-        ttt2 = ttt + ttt
+
         tt2 = tt + tt
         tt3 = tt2 + tt
+        ttt2 = ttt + ttt
+
         h00t = ttt2 - tt3 + 1.0
         h10t = ttt - tt2 + t
         h01t = tt3 - ttt2
         h11t = ttt - tt
+
         return (h00t * prev.y +
                 h10t * prev.outTangentY +
                 h11t * next.inTangentY +
                 h01t * next.y)
 
 
-class KeySelection(dict):
+class KeySelection(QObject):
+    changed = pyqtSignal()
+
     # dict of HermiteKey objects and bitmask of (point, intangent, outtangent)
-    pass
+
+    def __init__(self):
+        super(KeySelection, self).__init__()
+        self.__data = {}
+
+    def __iter__(self):
+        for key in self.__data:
+            yield key
+
+    def get(self, item, fallback):
+        return self.__data.get(item, fallback)
+
+    def setdefault(self, item, fallback):
+        return self.__data.setdefault(item, fallback)
+
+    def iteritems(self):
+        return self.__data.iteritems()
+
+    def iterkeys(self):
+        return self.__data.iterkeys()
+
+    def itervalues(self):
+        return self.__data.itervalues()
+
+    def __contains__(self, item):
+        return item in self.__data
+
+    def __getitem__(self, item):
+        return self.__data[item]
+
+    def __setitem__(self, item, value):
+        self.__data[item] = value
+        self.changed.emit()
+
+    def update(self, other):
+        self.__data.update(other)
+        self.changed.emit()
+
+    def __delitem__(self, item):
+        del self.__data[item]
+        self.changed.emit()
 
 
 class CurveView(QWidget):
@@ -95,6 +142,7 @@ class CurveView(QWidget):
         self.selectionModel[k3] = 1 << 2 | 1  # out tangent and key selected
         self.selectionModel[k4] = 1 << 2 | 1 << 1 | 1  # all selected
         self.selectionModel[k5] = 1 << 1 | 1  # in tangent and key selected
+        self.selectionModel.changed.connect(self.repaint)
 
         self.undoStack = QUndoStack()
         self.undoStack.createUndoAction(self).setShortcut(QKeySequence('Ctrl+Z'))
@@ -131,7 +179,7 @@ class CurveView(QWidget):
         x0, y0 = self.uToPx(src.x, src.y)
         x1, y1 = self.uToPx(dst.x, dst.y)
         dx = x1 - x0
-        dy = (y1 - y0) * wt
+        dy = abs(y1 - y0) * wt
         f = TANGENT_LENGTH / ((dx * dx + dy * dy) ** 0.5)
         x1, y1 = x0 + dx * f, y0 + dy * f
         return x1, y1
@@ -166,7 +214,7 @@ class CurveView(QWidget):
 
             # out tangent
             if i < len(self.testCurve.keys) - 1:
-                kx, ky = self.__tangentEndPoint(key, self.testCurve.keys[i + 1], key.outTangentY)
+                kx, ky = self.__tangentEndPoint(key, self.testCurve.keys[i + 1], -key.outTangentY)
                 if x <= kx <= x + w and y < ky <= y + h:
                     yield key, 1 << 2
 
@@ -210,7 +258,7 @@ class CurveView(QWidget):
 
             # out tangent
             if i < len(self.testCurve.keys) - 1:
-                self.__drawTangent(painter, selectionState & (1 << 2), key, self.testCurve.keys[i + 1], key.outTangentY)
+                self.__drawTangent(painter, selectionState & (1 << 2), key, self.testCurve.keys[i + 1], -key.outTangentY)
 
         if self.action is not None:
             self.action.draw(painter)
@@ -221,17 +269,59 @@ class CurveView(QWidget):
             self.repaint()
 
     def mouseReleaseEvent(self, event):
-        if self.action:
-            if self.action.mouseReleaseEvent(self.undoStack):
-                self.action = None
-                self.repaint()
-                return
-            self.action = None
+        action = self.action
+        self.action = None
+        # make sure self.action is None before calling mouseReleaseEvent so that:
+        # 1. when returning True we will clear any painting done by self.action during mousePress/-Move
+        # 2. when a callback results in a repaint the above holds true
+        if action and action.mouseReleaseEvent(self.undoStack):
+            self.repaint()
 
     def mouseMoveEvent(self, event):
         if self.action:
             if self.action.mouseMoveEvent(event):
                 self.repaint()
+
+
+def _select(change, key, existing, mask):
+    change[key] = change.setdefault(key, existing) | mask
+
+
+def _deselect(change, key, existing, mask):
+    change[key] = change.setdefault(key, existing) & (~mask)
+
+
+def selectNew(selection, change, itemsIter):
+    # creating new selection, first change is to remove everything
+    for key in selection:
+        change[key] = 0
+    for key, mask in itemsIter:
+        # overwrite removed elements with only selected elements
+        _select(change, key, selection.get(key, 0), mask)
+
+
+def selectAdd(selection, change, itemsIter):
+    for key, mask in itemsIter:
+        # make sure value is new to selection & register for selection
+        if key not in selection or not (selection[key] & mask):
+            _select(change, key, selection.get(key, 0), mask)
+
+
+def selectRemove(selection, change, itemsIter):
+    for key, mask in itemsIter:
+        # make sure value exists in selection & mask out the element to remove
+        if key in selection and selection[key] & mask:
+            _deselect(change, key, selection[key], mask)
+
+
+def selectToggle(selection, change, itemsIter):
+    for key, mask in itemsIter:
+        # make sure value is new to selection & register for selection
+        if key not in selection or not (selection[key] & mask):
+            _select(change, key, selection.get(key, 0), mask)
+        # make sure value exists in selection & mask out the element to remove
+        if key in selection and selection[key] & mask:
+            _deselect(change, key, selection[key], mask)
 
 
 class MarqueeAction(QUndoCommand):
@@ -243,14 +333,26 @@ class MarqueeAction(QUndoCommand):
         self.apply = ({}, [])
 
     def redo(self):
+        oldState = self.selection.blockSignals(True)
+
         self.selection.update(self.apply[0])
         for remove in self.apply[1]:
             del self.selection[remove]
 
+        self.selection.blockSignals(oldState)
+        if not oldState:
+            self.selection.changed.emit()
+
     def undo(self):
+        oldState = self.selection.blockSignals(True)
+
         self.selection.update(self.restore[0])
         for remove in self.restore[1]:
             del self.selection[remove]
+
+        self.selection.blockSignals(oldState)
+        if not oldState:
+            self.selection.changed.emit()
 
     def mousePressEvent(self, event):
         self.start = event.pos()
@@ -267,39 +369,17 @@ class MarqueeAction(QUndoCommand):
     def mouseReleaseEvent(self, undoStack):
         # TODO: Mimic maya? when mask is tangent, always deselect key; when selecting, first attempt to select keys, if no keys found then attempt to select tangents
 
-        # TODO: Split this up per mode into separate functions, no need to test the modifier for each itemAt, see if we can decouple from the class
-
-        def _addToApply0(apply0, key, existing, mask):
-            apply0[key] = apply0.setdefault(key, existing) | mask
-
-        def _removeFromApply0(apply0, key, existing, mask):
-            apply0[key] = apply0.setdefault(key, existing) & (~mask)
-
         # build apply state
         x, y, w, h = self._rect()
-
-        # creating new selection, remove everything
+        itemsIter = self.view.itemsAt(x, y, w, h)
         if self.mode == Qt.NoModifier:
-            for key in self.selection:
-                self.apply[0][key] = 0
-
-        for key, mask in self.view.itemsAt(x, y, w, h):
-            # creating new selection
-            if self.mode == Qt.NoModifier:
-                # overwrite removed elements with only selected elements
-                _addToApply0(self.apply[0], key, self.selection.get(key, 0), mask)
-
-            # add only
-            if self.mode in (Qt.ControlModifier | Qt.ShiftModifier, Qt.ShiftModifier):
-                # make sure value is new to selection & register for selection
-                if key not in self.selection or not (self.selection[key] & mask):
-                    _addToApply0(self.apply[0], key, self.selection.get(key, 0), mask)
-
-            # remove only
-            if self.mode in (Qt.ControlModifier, Qt.ShiftModifier):
-                # make sure value exists in selection & mask out the element to remove
-                if key in self.selection and self.selection[key] & mask:
-                    _removeFromApply0(self.apply[0], key, self.selection[key], mask)
+            selectNew(self.selection, self.apply[0], itemsIter)
+        elif self.mode == Qt.ControlModifier | Qt.ShiftModifier:
+            selectAdd(self.selection, self.apply[0], itemsIter)
+        elif self.mode == Qt.ControlModifier:
+            selectRemove(self.selection, self.apply[0], itemsIter)
+        else:  # if self.mode == Qt.ShiftModifier:
+            selectToggle(self.selection, self.apply[0], itemsIter)
 
         # finalize apply state
         for key, value in self.apply[0].iteritems():
@@ -309,6 +389,10 @@ class MarqueeAction(QUndoCommand):
 
         for key in self.apply[1]:
             del self.apply[0][key]
+
+        # if we don't plan to change anything, stop right here and don't submit this undoable action
+        if not (self.apply[0] or self.apply[1]):
+            return True
 
         # cache restore state
         for addOrModify in self.apply[0]:
@@ -321,8 +405,8 @@ class MarqueeAction(QUndoCommand):
         for remove in self.apply[1]:
             self.restore[0][remove] = self.selection[remove]
 
+        # commit self to undo stack
         undoStack.push(self)
-        return True
 
     def mouseMoveEvent(self, event):
         self.end = event.pos()
@@ -649,7 +733,6 @@ class EventTimeline(QWidget):
 
 def run():
     a = QApplication([])
-
     w = CurveView()
     w.show()
     a.exec_()
