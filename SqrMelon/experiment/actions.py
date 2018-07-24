@@ -2,6 +2,26 @@ from experiment.keyselection import selectNew, selectAdd, selectRemove, selectTo
 from qtutil import *
 
 
+def unpackModelIndex(qIndex):
+    x = qIndex.column()
+    y = qIndex.row()
+    p = qIndex.parent()
+    if p.isValid():
+        return x, y, unpackModelIndex(p)
+    return x, y, None
+
+
+def constructModelIndex(model, unpacked):
+    if unpacked[2] is not None:
+        parent = constructModelIndex(model, unpacked[2])
+    else:
+        parent = QModelIndex()
+    return model.index(unpacked[1], unpacked[0], parent)
+
+
+class RecursionError(Exception): pass
+
+
 class SelectionModelEdit(QUndoCommand):
     """
     Very basic selection model edit,
@@ -11,27 +31,41 @@ class SelectionModelEdit(QUndoCommand):
     NOTE: We assume that the selection change has already happened,
     so only after an undo() will redo() do anything.
     """
+    active = False
+
     def __init__(self, model, selected, deselected, parent=None):
+        # we can not create new undo commands during undo or redo
         super(SelectionModelEdit, self).__init__('Selection model change', parent)
         self.__model = model
-        self.__selected = selected.indexes()[:]
-        self.__deselected = deselected.indexes()[:]
+        self.__selected = [unpackModelIndex(idx) for idx in selected.indexes()]
+        self.__deselected = [unpackModelIndex(idx) for idx in deselected.indexes()]
         self.__isApplied = True  # the selection has already happened
 
     def redo(self):
         if self.__isApplied:
             return
+
+        SelectionModelEdit.active = True
+
+        model = self.__model.model()
         for index in self.__selected:
-            self.__model.select(index, QItemSelectionModel.Select)
+            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Select)
         for index in self.__deselected:
-            self.__model.deselect(index, QItemSelectionModel.Deselect)
+            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Deselect)
+
+        SelectionModelEdit.active = False
 
     def undo(self):
+        SelectionModelEdit.active = True
+
         self.__isApplied = False
+        model = self.__model.model()
         for index in self.__deselected:
-            self.__model.select(index, QItemSelectionModel.Select)
+            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Select)
         for index in self.__selected:
-            self.__model.select(index, QItemSelectionModel.Deselect)
+            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Deselect)
+
+        SelectionModelEdit.active = False
 
 
 class KeySelectionEdit(QUndoCommand):

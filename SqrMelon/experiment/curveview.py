@@ -28,10 +28,10 @@ class CurveView(QWidget):
         self.__cache = curves
         self.repaint()
 
-    def createDeselectCurvesCommand(self, deselected, parent=None):
+    def createDeselectCurvesCommand(self, deselectedIndexes, parent=None):
         # when curves are deselected, we must deselect their keys as well
         keyStateChange = {}
-        for index in deselected.indexes():
+        for index in deselectedIndexes:
             curve = index.data(Qt.UserRole + 1)
             for key in curve.keys:
                 if key in self.__selectionModel:
@@ -176,44 +176,65 @@ class CurveView(QWidget):
 class CurveWidget(QSplitter):
     def __init__(self, undoStack, parent=None):
         super(CurveWidget, self).__init__(Qt.Horizontal, parent)
-        ls = QListView()
-        self.addWidget(ls)
+        self.__curveListView = QListView()
+        self.addWidget(self.__curveListView)
 
-        ls.setModel(QStandardItemModel())
-        ls.setSelectionBehavior(QAbstractItemView.SelectRows)
-        ls.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.__model = ls.model()
-        self.__visibleCurvesModel = ls.selectionModel()
+        self.__curveListView.setModel(QStandardItemModel())
+        self.__curveListView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.__curveListView.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.__curveListModel = self.__curveListView.model()
+
+        # track clip curves dict so this widget can add/remove channels
+        # TODO: clip.curves should be a QStandardItemModel as well, so we can directly view it
+        # self.__underlyingData = None
+
+        self.__visibleCurvesModel = self.__curveListView.selectionModel()
         self.__visibleCurvesModel.selectionChanged.connect(self.__visibleCurvesChanged)
 
         self.__view = CurveView(undoStack, self.__visibleCurves())
         self.__undoStack = undoStack
         self.addWidget(self.__view)
 
-    def setCurves(self, curvesDict=None):
-        self.__model.clear()
+        self.__parentUndoCommand = None
 
-        if curvesDict is None:
+    def focusCurves(self, command, curvesDict):
+        # self.__underlyingData = curvesDict
+
+        if not curvesDict:
+            # clear curve selection
+            self.__parentUndoCommand = command
+            self.__visibleCurvesModel.clearSelection()
+            self.__parentUndoCommand = None
+            self.__curveListModel.clear()
             return
 
+        self.__curveListModel.clear()
         for name, curve in curvesDict.iteritems():
             it = QStandardItem(name)
             it.setData(curve)
-            self.__model.appendRow(it)
+            self.__curveListModel.appendRow(it)
+
+        self.__parentUndoCommand = command
+        self.__curveListView.selectAll()
+        self.__parentUndoCommand = None
 
     def __visibleCurves(self):
         return [index.data(Qt.UserRole + 1) for index in self.__visibleCurvesModel.selectedRows()]
 
     def __visibleCurvesChanged(self, selected, deselected):
+        if SelectionModelEdit.active:
+            return
+
+        command = self.__parentUndoCommand or QUndoCommand('Curve selection change')
+
         if deselected.indexes():
             # deselect the keys we can no longer see and
             # make that undoable, together with the curve hiding itself
-            command = QUndoCommand('Curve selection change')
-            self.__view.createDeselectCurvesCommand(deselected, command)
-            SelectionModelEdit(self.__visibleCurvesModel, selected, deselected, command)
-        else:
-            # no keys to deselect, just make the curve selection undable
-            command = SelectionModelEdit(self.__visibleCurvesModel, selected, deselected)
-        self.__undoStack.push(command)
+            self.__view.createDeselectCurvesCommand(deselected.indexes(), command)
+
+        SelectionModelEdit(self.__visibleCurvesModel, selected, deselected, command)
+
+        if not self.__parentUndoCommand:
+            self.__undoStack.push(command)
 
         self.__view.setVisibleCurvesCache(self.__visibleCurves())

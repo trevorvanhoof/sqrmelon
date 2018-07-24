@@ -10,9 +10,15 @@ class KeySelection(QObject):
         super(KeySelection, self).__init__()
         self.__data = {}
 
+    def __repr__(self):
+        return str(self.__data)
+
     def __iter__(self):
         for key in self.__data:
             yield key
+
+    def copy(self):
+        return self.__data.copy()
 
     def clear(self):
         self.__data.clear()

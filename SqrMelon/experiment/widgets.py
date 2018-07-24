@@ -1,3 +1,6 @@
+from collections import OrderedDict
+
+from experiment.actions import SelectionModelEdit
 from qtutil import *
 from experiment.modelbase import Shot, Clip
 
@@ -5,6 +8,27 @@ from experiment.delegates import NamedColums
 
 
 class ClipManager(NamedColums):
+    focusCurves = pyqtSignal(QUndoCommand, OrderedDict)
+
+    def __init__(self, undoStack, parent=None):
+        super(ClipManager, self).__init__(parent)
+        self.__undoStack = undoStack
+        self.selectionModel().selectionChanged.connect(self.__selectionChanged)
+
+    def __selectionChanged(self, selected, deselected):
+        if SelectionModelEdit.active:
+            return
+        command = QUndoCommand('Clip selection change')
+        SelectionModelEdit(self.selectionModel(), selected, deselected, command)
+        rows = self.selectionModel().selectedRows()
+        if rows:
+            pyObj = rows[0].data(Qt.UserRole + 1).curves
+        else:
+            pyObj = OrderedDict()
+        self.focusCurves.emit(command, pyObj)
+
+        self.__undoStack.push(command)
+
     @staticmethod
     def columnNames():
         return Clip.properties()

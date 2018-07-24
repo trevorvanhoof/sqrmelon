@@ -1,9 +1,9 @@
+from experiment.widgets import ClipManager, EventTimeline, ShotManager
 from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.modelbase import Shot, Event, Clip
 from experiment.curveview import CurveWidget
 from experiment.enums import ELoopMode
 from qtutil import *
-from experiment.widgets import ClipManager, EventTimeline, ShotManager
 
 
 def testCurves():
@@ -31,7 +31,7 @@ def run():
     a = QApplication([])
 
     w = QMainWindow()
-    w.setAttribute(Qt.WA_DeleteOnClose) # makes sure qt cleans up & python stops after closing the main window; https://stackoverflow.com/questions/39304366/qobjectstarttimer-qtimer-can-only-be-used-with-threads-started-with-qthread
+    w.setAttribute(Qt.WA_DeleteOnClose)  # makes sure qt cleans up & python stops after closing the main window; https://stackoverflow.com/questions/39304366/qobjectstarttimer-qtimer-can-only-be-used-with-threads-started-with-qthread
 
     m = QMenuBar()
     w.setMenuBar(m)
@@ -40,8 +40,13 @@ def run():
     s = QSplitter(Qt.Vertical)
     w.setCentralWidget(s)
 
-    clipManager = ClipManager()
+    undoStack = QUndoStack()
+    undoView = QUndoView(undoStack)
+    s.addWidget(undoView)
+
+    clipManager = ClipManager(undoStack)
     clip0 = Clip('New Clip', ELoopMode('Clamp'))
+    clip0.curves.update(testCurves())
     clipManager.model().appendRow(clip0.items)
     s.addWidget(clipManager)
 
@@ -55,14 +60,13 @@ def run():
     eventTimeline = EventTimeline(shotManager.model())
     s.addWidget(eventTimeline)
 
-    undoStack = QUndoStack()
     ac = undoStack.createUndoAction(w)
     ac.setShortcut(QKeySequence('Ctrl+Z'))
     editMenu.addAction(ac)
 
     curveView = CurveWidget(undoStack)
     s.addWidget(curveView)
-    curveView.setCurves(testCurves())
+    clipManager.focusCurves.connect(curveView.focusCurves)
 
     w.show()
     a.exec_()
