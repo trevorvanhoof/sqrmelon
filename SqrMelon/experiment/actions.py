@@ -19,10 +19,44 @@ def constructModelIndex(model, unpacked):
     return model.index(unpacked[1], unpacked[0], parent)
 
 
-class RecursionError(Exception): pass
+class RecursiveCommandError(Exception):
+    pass
 
 
-class SelectionModelEdit(QUndoCommand):
+class NestedCommand(QUndoCommand):
+    stack = []
+    isUndo = False
+
+    def __init__(self, label, parent=None):
+        # if signal responses to undo() create additional commands we avoid creation
+        if NestedCommand.isUndo:
+            raise RecursiveCommandError()
+        # if signal responses to redo() create additional commands we group them
+        if NestedCommand.stack and parent is None:
+            parent = NestedCommand.stack[-1]
+        self.canPush = parent is None
+        super(NestedCommand, self).__init__(label, parent)
+
+    def _redoInternal(self):
+        raise NotImplementedError()
+
+    def _undoInternal(self):
+        raise NotImplementedError()
+
+    def redo(self):
+        NestedCommand.stack.append(self)
+        super(NestedCommand, self).redo()
+        self._redoInternal()
+        NestedCommand.stack.pop(-1)
+
+    def undo(self):
+        NestedCommand.isUndo = True
+        self._undoInternal()
+        super(NestedCommand, self).undo()
+        NestedCommand.isUndo = False
+
+
+class SelectionModelEdit(NestedCommand):
     """
     Very basic selection model edit,
     create & push on e.g. QItemSelectionModel.selectionChanged
@@ -32,34 +66,56 @@ class SelectionModelEdit(QUndoCommand):
     so only after an undo() will redo() do anything.
     """
 
-    def __init__(self, model, selected, deselected, parent=None):
+    def __init__(self, model, selected, deselected, emit, parent=None):
         # we can not create new undo commands during undo or redo
         super(SelectionModelEdit, self).__init__('Selection model change', parent)
         self.__model = model
+        self.__emit = emit
         self.__selected = [unpackModelIndex(idx) for idx in selected.indexes()]
         self.__deselected = [unpackModelIndex(idx) for idx in deselected.indexes()]
         self.__isApplied = True  # the selection has already happened
 
-    def redo(self):
-        if self.__isApplied:
-            return
-
+    def _redoInternal(self):
         model = self.__model.model()
-        for index in self.__selected:
-            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Select)
-        for index in self.__deselected:
-            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Deselect)
 
-    def undo(self):
+        added = QItemSelection()
+        for index in self.__selected:
+            mdlIndex = constructModelIndex(model, index)
+            added.select(mdlIndex, mdlIndex)
+
+        removed = QItemSelection()
+        for index in self.__deselected:
+            mdlIndex = constructModelIndex(model, index)
+            removed.select(mdlIndex, mdlIndex)
+
+        if not self.__isApplied:
+            self.__model.select(added, QItemSelectionModel.Select)
+            self.__model.select(removed, QItemSelectionModel.Deselect)
+
+        self.__emit(added, removed)
+
+    def _undoInternal(self):
         self.__isApplied = False
+
         model = self.__model.model()
-        for index in self.__deselected:
-            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Select)
+
+        added = QItemSelection()
         for index in self.__selected:
-            self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Deselect)
+            mdlIndex = constructModelIndex(model, index)
+            added.select(mdlIndex, mdlIndex)
+
+        removed = QItemSelection()
+        for index in self.__deselected:
+            mdlIndex = constructModelIndex(model, index)
+            removed.select(mdlIndex, mdlIndex)
+
+        self.__model.select(removed, QItemSelectionModel.Select)
+        self.__model.select(added, QItemSelectionModel.Deselect)
+
+        self.__emit(removed, added)
 
 
-class KeySelectionEdit(QUndoCommand):
+class KeySelectionEdit(NestedCommand):
     def __init__(self, selectionDict, keyStateDict, parent=None):
         super(KeySelectionEdit, self).__init__('Key selection change', parent)
         self.__selectionModel = selectionDict

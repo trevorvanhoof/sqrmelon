@@ -1,4 +1,6 @@
+from experiment.actions import SelectionModelEdit, RecursiveCommandError
 from experiment.enums import Enum
+from experiment.model import Clip
 from qtutil import *
 
 
@@ -95,3 +97,33 @@ class NamedColums(QTableView):
     @staticmethod
     def columnNames():
         raise NotImplementedError()
+
+
+class UndoableSelectionView(NamedColums):
+    selectionChange = pyqtSignal(QItemSelection, QItemSelection)
+
+    def __init__(self, undoStack, parent=None):
+        super(UndoableSelectionView, self).__init__(parent)
+        self._undoStack = undoStack
+
+    def setModel(self, model):
+        if model is None:
+            # deselect all
+            self.selectionChange.emit(QItemSelection(), self.selectionModel().selection())
+
+        super(UndoableSelectionView, self).setModel(model)
+        self.selectionModel().selectionChanged.connect(self.__selectionChanged)
+
+    def __selectionChanged(self, selected, deselected):
+        try:
+            cmd = SelectionModelEdit(self.selectionModel(), selected, deselected, self.selectionChange.emit)
+            if cmd.canPush:
+                self._undoStack.push(cmd)
+            else:
+                cmd.redo()
+        except RecursiveCommandError:
+            pass
+
+    @staticmethod
+    def columnNames():
+        return Clip.properties()

@@ -1,8 +1,11 @@
+from experiment.modelbase import ItemRow
+
+
 class HermiteKey(object):
     __slots__ = ('x', 'y', 'inTangentY', 'outTangentY')
 
     def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0):
-        # type: (float, float, float, float) -> HermiteKey
+        # type: (float, float, float, float) -> None
         self.x = x
         self.y = y
         self.inTangentY = inTangentY
@@ -28,9 +31,14 @@ def binarySearch(value, data, key=lambda x: x):
     return index
 
 
-class HermiteCurve(object):
-    def __init__(self):
-        self.keys = []
+class HermiteCurve(ItemRow):
+    def __init__(self, name, data=None):
+        super(HermiteCurve, self).__init__(name)
+        self.__dict__['keys'] = data or []
+
+    @classmethod
+    def properties(cls):
+        return 'name',
 
     def evaluate(self, x):
         index = binarySearch(x, self.keys, lambda key: key.x)

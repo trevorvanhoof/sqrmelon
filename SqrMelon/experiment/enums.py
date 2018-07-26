@@ -1,4 +1,3 @@
-
 class Enum(object):
     def __init__(self, label):
         assert label in self.options()
