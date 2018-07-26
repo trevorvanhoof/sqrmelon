@@ -31,7 +31,6 @@ class SelectionModelEdit(QUndoCommand):
     NOTE: We assume that the selection change has already happened,
     so only after an undo() will redo() do anything.
     """
-    active = False
 
     def __init__(self, model, selected, deselected, parent=None):
         # we can not create new undo commands during undo or redo
@@ -45,27 +44,19 @@ class SelectionModelEdit(QUndoCommand):
         if self.__isApplied:
             return
 
-        SelectionModelEdit.active = True
-
         model = self.__model.model()
         for index in self.__selected:
             self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Select)
         for index in self.__deselected:
             self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Deselect)
 
-        SelectionModelEdit.active = False
-
     def undo(self):
-        SelectionModelEdit.active = True
-
         self.__isApplied = False
         model = self.__model.model()
         for index in self.__deselected:
             self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Select)
         for index in self.__selected:
             self.__model.select(constructModelIndex(model, index), QItemSelectionModel.Deselect)
-
-        SelectionModelEdit.active = False
 
 
 class KeySelectionEdit(QUndoCommand):

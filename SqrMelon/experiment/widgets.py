@@ -8,7 +8,7 @@ from experiment.delegates import NamedColums
 
 
 class ClipManager(NamedColums):
-    focusCurves = pyqtSignal(QUndoCommand, OrderedDict)
+    focusCurves = pyqtSignal(OrderedDict)
 
     def __init__(self, undoStack, parent=None):
         super(ClipManager, self).__init__(parent)
@@ -16,18 +16,14 @@ class ClipManager(NamedColums):
         self.selectionModel().selectionChanged.connect(self.__selectionChanged)
 
     def __selectionChanged(self, selected, deselected):
-        if SelectionModelEdit.active:
-            return
-        command = QUndoCommand('Clip selection change')
-        SelectionModelEdit(self.selectionModel(), selected, deselected, command)
+        self.__undoStack.push(SelectionModelEdit(self.selectionModel(), selected, deselected))
+
         rows = self.selectionModel().selectedRows()
         if rows:
             pyObj = rows[0].data(Qt.UserRole + 1).curves
         else:
             pyObj = OrderedDict()
-        self.focusCurves.emit(command, pyObj)
-
-        self.__undoStack.push(command)
+        self.focusCurves.emit(pyObj)
 
     @staticmethod
     def columnNames():

@@ -195,16 +195,11 @@ class CurveWidget(QSplitter):
         self.__undoStack = undoStack
         self.addWidget(self.__view)
 
-        self.__parentUndoCommand = None
 
-    def focusCurves(self, command, curvesDict):
-        # self.__underlyingData = curvesDict
-
+    def focusCurves(self, curvesDict):
         if not curvesDict:
             # clear curve selection
-            self.__parentUndoCommand = command
             self.__visibleCurvesModel.clearSelection()
-            self.__parentUndoCommand = None
             self.__curveListModel.clear()
             return
 
@@ -214,27 +209,17 @@ class CurveWidget(QSplitter):
             it.setData(curve)
             self.__curveListModel.appendRow(it)
 
-        self.__parentUndoCommand = command
         self.__curveListView.selectAll()
-        self.__parentUndoCommand = None
 
     def __visibleCurves(self):
         return [index.data(Qt.UserRole + 1) for index in self.__visibleCurvesModel.selectedRows()]
 
     def __visibleCurvesChanged(self, selected, deselected):
-        if SelectionModelEdit.active:
-            return
-
-        command = self.__parentUndoCommand or QUndoCommand('Curve selection change')
-
         if deselected.indexes():
             # deselect the keys we can no longer see and
             # make that undoable, together with the curve hiding itself
-            self.__view.createDeselectCurvesCommand(deselected.indexes(), command)
+            self.__undoStack.push(self.__view.createDeselectCurvesCommand(deselected.indexes()))
 
-        SelectionModelEdit(self.__visibleCurvesModel, selected, deselected, command)
-
-        if not self.__parentUndoCommand:
-            self.__undoStack.push(command)
+        self.__undoStack.push(SelectionModelEdit(self.__visibleCurvesModel, selected, deselected))
 
         self.__view.setVisibleCurvesCache(self.__visibleCurves())

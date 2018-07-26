@@ -135,7 +135,9 @@ class Signal(object):
                 pass
 
     def suspend(self):
+        oldState = self.__active
         self.__active = False
+        return oldState
 
     def resume(self):
         self.__active = True

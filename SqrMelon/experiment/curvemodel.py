@@ -2,6 +2,7 @@ class HermiteKey(object):
     __slots__ = ('x', 'y', 'inTangentY', 'outTangentY')
 
     def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0):
+        # type: (float, float, float, float) -> HermiteKey
         self.x = x
         self.y = y
         self.inTangentY = inTangentY
