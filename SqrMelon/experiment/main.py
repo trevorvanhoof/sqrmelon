@@ -1,10 +1,8 @@
 from qtutil import *
 from experiment.curvemodel import HermiteCurve, HermiteKey
-from experiment.delegates import UndoableSelectionView
 from experiment.enums import ELoopMode
 from experiment.model import Clip, Shot, Event
-from experiment.widgets import CurveList, ShotManager, CurveView, EventTimeline
-
+from experiment.widgets import CurveList, ShotManager, CurveView, EventTimeline, ClipManager
 
 if __name__ == '__main__':
     a = QApplication([])
@@ -20,7 +18,13 @@ if __name__ == '__main__':
     clip1.curves.appendRow(HermiteCurve('uOrigin.x', [HermiteKey(2.0, 0.0, 0.0, 0.0), HermiteKey(3.0, 1.0, 0.0, 0.0)]).items)
     clip1.curves.appendRow(HermiteCurve('uOrigin.y', [HermiteKey(0.0, 0.0, 1.0, 1.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
 
-    clipManager = UndoableSelectionView(undoStack)
+    shotManager = ShotManager(undoStack)
+    shotManager.model().appendRow(Shot('New Shot', 'Scene 1', clip0, 0.0, 4.0, 1.0, 0.0, 0).items)
+    shotManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0, 1).items)
+    shotManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0, 1).items)
+    shotManager.model().appendRow(Event('New event', clip0, 2.0, 4.0, 0.25, 0.0, 1).items)
+
+    clipManager = ClipManager(shotManager, undoStack)
     clipManager.model().appendRow(clip0.items)
     clipManager.model().appendRow(clip1.items)
 
@@ -28,20 +32,14 @@ if __name__ == '__main__':
 
     curveView = CurveView(curveList, undoStack)
 
-    shotManager = ShotManager()
-    shotManager.model().appendRow(Shot('New Shot', 'Scene 1', clip0, 0.0, 4.0, 1.0, 0.0).items)
-    shotManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0).items)
-    shotManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0).items)
-    shotManager.model().appendRow(Event('New event', clip0, 2.0, 4.0, 0.25, 0.0).items)
-
     eventTimeline = EventTimeline(shotManager.model())
 
     mainContainer = QSplitter(Qt.Vertical)
     mainContainer.addWidget(undoView)
+    mainContainer.addWidget(shotManager)
     mainContainer.addWidget(clipManager)
     mainContainer.addWidget(curveList)
     mainContainer.addWidget(curveView)
-    mainContainer.addWidget(shotManager)
     mainContainer.addWidget(eventTimeline)
 
     mainWindow = QMainWindow()

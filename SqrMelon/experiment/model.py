@@ -24,8 +24,8 @@ class Curve(ItemRow):
 
 
 class Event(ItemRow):
-    def __init__(self, name, clip, start=0.0, end=1.0, speed=1.0, roll=0.0):
-        super(Event, self).__init__(name, Label(''), clip, start, end, end - start, speed, roll)
+    def __init__(self, name, clip, start=0.0, end=1.0, speed=1.0, roll=0.0, track=0):
+        super(Event, self).__init__(name, Label(''), clip, start, end, end - start, speed, roll, track)
 
     def propertyChanged(self, index):
         START_INDEX = 3
@@ -41,10 +41,10 @@ class Event(ItemRow):
 
     @classmethod
     def properties(cls):
-        return 'name', 'scene', 'clip', 'start', 'end', 'duration', 'speed', 'roll'
+        return 'name', 'scene', 'clip', 'start', 'end', 'duration', 'speed', 'roll', 'track'
 
 
 class Shot(Event):
-    def __init__(self, name, sceneName, clip, start=0.0, end=1.0, speed=1.0, roll=0.0):
+    def __init__(self, name, sceneName, clip, start=0.0, end=1.0, speed=1.0, roll=0.0, track=0):
         # intentionally calling super of base
-        super(Event, self).__init__(name, Label(sceneName), clip, start, end, end - start, speed, roll)
+        super(Event, self).__init__(name, Label(sceneName), clip, start, end, end - start, speed, roll, track)

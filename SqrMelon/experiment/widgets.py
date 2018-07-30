@@ -201,9 +201,9 @@ class CurveView(QWidget):
                 self.repaint()
 
 
-class ShotManager(NamedColums):
-    def __init__(self, parent=None):
-        super(ShotManager, self).__init__(parent)
+class ShotManager(UndoableSelectionView):
+    def __init__(self, undoStack, parent=None):
+        super(ShotManager, self).__init__(undoStack, parent)
         self.model().itemChanged.connect(self.__fwdItemChanged)
 
     def __fwdItemChanged(self, item):
@@ -212,6 +212,26 @@ class ShotManager(NamedColums):
     @staticmethod
     def columnNames():
         return Shot.properties()
+
+
+class ClipManager(UndoableSelectionView):
+    def __init__(self, source, undoStack, parent=None):
+        super(ClipManager, self).__init__(undoStack, parent)
+        self._source = source
+        source.selectionChange.connect(self._pull)
+
+    def _pull(self, *args):
+        # get first selected container
+        pyObj = None  # empty stub
+        for container in self._source.selectionModel().selectedRows():
+            pyObj = container.data(Qt.UserRole + 1)
+            break
+        if pyObj is None:
+            return
+        items = self.model().findItems(str(pyObj.clip))
+        if items:
+            index = self.model().indexFromItem(items[0])
+            self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
 
 
 class _TrackManager(object):
@@ -240,25 +260,17 @@ class EventTimeline(QWidget):
         self.cameraEnd = 10.0
 
     def paintEvent(self, event):
+        painter = QPainter(self)
         trackHeight = 16.0
         scaleX = self.width() / (self.cameraEnd - self.cameraStart)
-        eventRects = []
-        # layout items in model
-        shotTracks = _TrackManager()
-        otherTracks = _TrackManager()
         for row in xrange(self.model.rowCount()):
             pyObj = self.model.item(row, 0).data()
             isShot = isinstance(pyObj, Shot)
-            manager = shotTracks if isShot else otherTracks
             x = (pyObj.start - self.cameraStart) * scaleX
             w = (pyObj.end - self.cameraStart) * scaleX - x
-            y = trackHeight * manager.trackForItem(x, x + w)
+            y = trackHeight * pyObj.track
             h = trackHeight
-            eventRects.append((isShot, pyObj.name, pyObj.color, QRect(x, y, w, h)))
-        offsetY = len(shotTracks.tracks) * trackHeight
-        painter = QPainter(self)
-        for isShot, name, color, rect in eventRects:
-            if isShot:
-                rect.moveTop(offsetY)
-            painter.fillRect(rect, color)
-            painter.drawText(rect, 0, name)
+            # if isShot:
+            #    painter.drawIcon()
+            painter.fillRect(QRect(x, y, w, h), pyObj.color)
+            painter.drawText(QRect(x, y, w, h), 0, pyObj.name)
