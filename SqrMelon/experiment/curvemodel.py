@@ -1,3 +1,4 @@
+from experiment.enums import ELoopMode
 from experiment.modelbase import ItemRow
 
 
@@ -32,13 +33,13 @@ def binarySearch(value, data, key=lambda x: x):
 
 
 class HermiteCurve(ItemRow):
-    def __init__(self, name, data=None):
-        super(HermiteCurve, self).__init__(name)
+    def __init__(self, name, loopMode=ELoopMode('Clamp'), data=None):
+        super(HermiteCurve, self).__init__(name, loopMode)
         self.__dict__['keys'] = data or []
 
     @classmethod
     def properties(cls):
-        return 'name',
+        return 'name', 'loopMode'
 
     def evaluate(self, x):
         index = binarySearch(x, self.keys, lambda key: key.x)

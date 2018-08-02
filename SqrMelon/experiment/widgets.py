@@ -213,6 +213,18 @@ class ShotManager(UndoableSelectionView):
     def columnNames():
         return Shot.properties()
 
+class EventManager(UndoableSelectionView):
+    def __init__(self, undoStack, parent=None):
+        super(EventManager, self).__init__(undoStack, parent)
+        self.model().itemChanged.connect(self.__fwdItemChanged)
+
+    def __fwdItemChanged(self, item):
+        self.model().item(item.row()).data().propertyChanged(item.column())
+
+    @staticmethod
+    def columnNames():
+        return Shot.properties()
+
 
 class ClipManager(UndoableSelectionView):
     def __init__(self, source, undoStack, parent=None):
@@ -234,28 +246,13 @@ class ClipManager(UndoableSelectionView):
             self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
 
 
-class _TrackManager(object):
-    def __init__(self):
-        self.tracks = []
-
-    def trackForItem(self, start, end):
-        for i, track in enumerate(self.tracks):
-            for eventStart, eventEnd in track:
-                if eventStart < end and eventEnd > start:
-                    continue
-                # free space found, register event and return where
-                track.append((start, end))
-                return i
-        # new track needed
-        self.tracks.append([(start, end)])
-        return len(self.tracks) - 1
-
-
 class EventTimeline(QWidget):
-    def __init__(self, model):
+    def __init__(self, shotModel, model):
         super(EventTimeline, self).__init__()
         self.model = model
+        self.shotModel = shotModel
         model.dataChanged.connect(self.repaint)
+        shotModel.dataChanged.connect(self.repaint)
         self.cameraStart = 0.0
         self.cameraEnd = 10.0
 
@@ -263,14 +260,21 @@ class EventTimeline(QWidget):
         painter = QPainter(self)
         trackHeight = 16.0
         scaleX = self.width() / (self.cameraEnd - self.cameraStart)
+
         for row in xrange(self.model.rowCount()):
             pyObj = self.model.item(row, 0).data()
-            isShot = isinstance(pyObj, Shot)
             x = (pyObj.start - self.cameraStart) * scaleX
             w = (pyObj.end - self.cameraStart) * scaleX - x
             y = trackHeight * pyObj.track
             h = trackHeight
-            # if isShot:
-            #    painter.drawIcon()
+            painter.fillRect(QRect(x, y, w, h), pyObj.color)
+            painter.drawText(QRect(x, y, w, h), 0, pyObj.name)
+
+        for row in xrange(self.shotModel.rowCount()):
+            pyObj = self.shotModel.item(row, 0).data()
+            x = (pyObj.start - self.cameraStart) * scaleX
+            w = (pyObj.end - self.cameraStart) * scaleX - x
+            y = trackHeight * pyObj.track
+            h = trackHeight
             painter.fillRect(QRect(x, y, w, h), pyObj.color)
             painter.drawText(QRect(x, y, w, h), 0, pyObj.name)

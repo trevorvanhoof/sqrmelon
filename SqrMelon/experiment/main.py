@@ -2,7 +2,7 @@ from qtutil import *
 from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.enums import ELoopMode
 from experiment.model import Clip, Shot, Event
-from experiment.widgets import CurveList, ShotManager, CurveView, EventTimeline, ClipManager
+from experiment.widgets import CurveList, ShotManager, CurveView, EventTimeline, ClipManager, EventManager
 
 if __name__ == '__main__':
     a = QApplication([])
@@ -11,20 +11,23 @@ if __name__ == '__main__':
     undoView = QUndoView(undoStack)
 
     clip0 = Clip('Clip 0', ELoopMode('Clamp'))
-    clip0.curves.appendRow(HermiteCurve('uOrigin.x', [HermiteKey(0.0, 0.0, 0.0, 0.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
-    clip0.curves.appendRow(HermiteCurve('uFlash', [HermiteKey(0.0, 1.0, 1.0, 1.0), HermiteKey(1.0, 0.0, 0.0, 0.0)]).items)
+    clip0.curves.appendRow(HermiteCurve('uOrigin.x', ELoopMode('Clamp'), [HermiteKey(0.0, 0.0, 0.0, 0.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
+    clip0.curves.appendRow(HermiteCurve('uFlash', ELoopMode('Clamp'), [HermiteKey(0.0, 1.0, 1.0, 1.0), HermiteKey(1.0, 0.0, 0.0, 0.0)]).items)
 
     clip1 = Clip('Clip 1', ELoopMode('Loop'))
-    clip1.curves.appendRow(HermiteCurve('uOrigin.x', [HermiteKey(2.0, 0.0, 0.0, 0.0), HermiteKey(3.0, 1.0, 0.0, 0.0)]).items)
-    clip1.curves.appendRow(HermiteCurve('uOrigin.y', [HermiteKey(0.0, 0.0, 1.0, 1.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
+    clip1.curves.appendRow(HermiteCurve('uOrigin.x', ELoopMode('Clamp'), [HermiteKey(2.0, 0.0, 0.0, 0.0), HermiteKey(3.0, 1.0, 0.0, 0.0)]).items)
+    clip1.curves.appendRow(HermiteCurve('uOrigin.y', ELoopMode('Clamp'), [HermiteKey(0.0, 0.0, 1.0, 1.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
 
     shotManager = ShotManager(undoStack)
-    shotManager.model().appendRow(Shot('New Shot', 'Scene 1', clip0, 0.0, 4.0, 1.0, 0.0, 0).items)
-    shotManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0, 1).items)
-    shotManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0, 1).items)
-    shotManager.model().appendRow(Event('New event', clip0, 2.0, 4.0, 0.25, 0.0, 1).items)
+    shotManager.model().appendRow(Shot('New Shot', 'Scene 1', 0.0, 4.0, 0).items)
 
-    clipManager = ClipManager(shotManager, undoStack)
+    eventManager = EventManager(undoStack)
+    eventManager.model().appendRow(Event('New event', clip0, 0.0, 4.0, 1.0, 0.0, 2).items)
+    eventManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0, 1).items)
+    eventManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0, 1).items)
+    eventManager.model().appendRow(Event('New event', clip0, 2.0, 4.0, 0.25, 0.0, 1).items)
+
+    clipManager = ClipManager(eventManager, undoStack)
     clipManager.model().appendRow(clip0.items)
     clipManager.model().appendRow(clip1.items)
 
@@ -32,11 +35,12 @@ if __name__ == '__main__':
 
     curveView = CurveView(curveList, undoStack)
 
-    eventTimeline = EventTimeline(shotManager.model())
+    eventTimeline = EventTimeline(shotManager.model(), eventManager.model())
 
     mainContainer = QSplitter(Qt.Vertical)
     mainContainer.addWidget(undoView)
     mainContainer.addWidget(shotManager)
+    mainContainer.addWidget(eventManager)
     mainContainer.addWidget(clipManager)
     mainContainer.addWidget(curveList)
     mainContainer.addWidget(curveView)
