@@ -213,6 +213,7 @@ class ShotManager(UndoableSelectionView):
     def columnNames():
         return Shot.properties()
 
+
 class EventManager(UndoableSelectionView):
     def __init__(self, undoStack, parent=None):
         super(EventManager, self).__init__(undoStack, parent)
@@ -244,37 +245,3 @@ class ClipManager(UndoableSelectionView):
         if items:
             index = self.model().indexFromItem(items[0])
             self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
-
-
-class EventTimeline(QWidget):
-    def __init__(self, shotModel, model):
-        super(EventTimeline, self).__init__()
-        self.model = model
-        self.shotModel = shotModel
-        model.dataChanged.connect(self.repaint)
-        shotModel.dataChanged.connect(self.repaint)
-        self.cameraStart = 0.0
-        self.cameraEnd = 10.0
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        trackHeight = 16.0
-        scaleX = self.width() / (self.cameraEnd - self.cameraStart)
-
-        for row in xrange(self.model.rowCount()):
-            pyObj = self.model.item(row, 0).data()
-            x = (pyObj.start - self.cameraStart) * scaleX
-            w = (pyObj.end - self.cameraStart) * scaleX - x
-            y = trackHeight * pyObj.track
-            h = trackHeight
-            painter.fillRect(QRect(x, y, w, h), pyObj.color)
-            painter.drawText(QRect(x, y, w, h), 0, pyObj.name)
-
-        for row in xrange(self.shotModel.rowCount()):
-            pyObj = self.shotModel.item(row, 0).data()
-            x = (pyObj.start - self.cameraStart) * scaleX
-            w = (pyObj.end - self.cameraStart) * scaleX - x
-            y = trackHeight * pyObj.track
-            h = trackHeight
-            painter.fillRect(QRect(x, y, w, h), pyObj.color)
-            painter.drawText(QRect(x, y, w, h), 0, pyObj.name)

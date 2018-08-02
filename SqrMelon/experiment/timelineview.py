@@ -71,10 +71,10 @@ class GraphicsItemShot(GraphicsItemEvent):
 
 
 class TimelineView(QWidget):
-    def __init__(self, model):
+    def __init__(self, *models):
         super(TimelineView, self).__init__()
-        self.__model = model
-        model.dataChanged.connect(self.layout)
+        self.__models = models
+        for model in models: model.dataChanged.connect(self.layout)
 
         self.__cameraStart = 0.0
         self.__cameraEnd = 5.0
@@ -83,11 +83,15 @@ class TimelineView(QWidget):
 
         self.layout()
 
+    def __iterAllItemRows(self):
+        for model in self.__models:
+            for row in xrange(model.rowCount()):
+                yield model.item(row, 0).data()
+
     def layout(self):
         del self.__graphicsItems[:]
         scaleX = self.width() / (self.__cameraEnd - self.__cameraStart)
-        for row in xrange(self.__model.rowCount()):
-            pyObj = self.__model.item(row, 0).data()
+        for pyObj in self.__iterAllItemRows():
             x = round((pyObj.start - self.__cameraStart) * scaleX)
             w = round((pyObj.end - self.__cameraStart) * scaleX - x)
             isShot = isinstance(pyObj, Shot)

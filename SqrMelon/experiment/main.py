@@ -1,9 +1,9 @@
-from experiment.timelineview import TimelineView
 from qtutil import *
 from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.enums import ELoopMode
 from experiment.model import Clip, Shot, Event
-from experiment.widgets import CurveList, ShotManager, CurveView, EventTimeline, ClipManager, EventManager
+from experiment.timelineview import TimelineView
+from experiment.widgets import CurveList, ShotManager, CurveView, ClipManager, EventManager
 
 if __name__ == '__main__':
     app = QApplication([])
@@ -37,31 +37,16 @@ if __name__ == '__main__':
 
     curveView = CurveView(curveList, undoStack)
 
-    shotManager = ShotManager()
-    shotManager.model().appendRow(Shot('New Shot', 'Scene 1', clip0, 0.0, 4.0, 1.0, 0.0).items)
-    shotManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0).items)
-    shotManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0).items)
-    shotManager.model().appendRow(Event('New event', clip0, 2.0, 4.0, 0.25, 0.0).items)
-
-    eventTimeline = TimelineView(shotManager.model())
-
-    mainContainer = QSplitter(Qt.Vertical)
-    mainContainer.addWidget(undoView)
-    mainContainer.addWidget(shotManager)
-    mainContainer.addWidget(eventManager)
-    mainContainer.addWidget(clipManager)
-    mainContainer.addWidget(curveList)
-    mainContainer.addWidget(curveView)
-    mainContainer.addWidget(eventTimeline)
+    eventTimeline = TimelineView(shotManager.model(), eventManager.model())
 
     mainWindow = QMainWindowState(settings)
-
     mainWindow.setDockNestingEnabled(True)
     mainWindow.createDockWidget(undoView)
     mainWindow.createDockWidget(clipManager)
     mainWindow.createDockWidget(curveList)
     mainWindow.createDockWidget(curveView)
     mainWindow.createDockWidget(shotManager)
+    mainWindow.createDockWidget(eventManager)
     mainWindow.createDockWidget(eventTimeline)
 
     mainWindow.show()
