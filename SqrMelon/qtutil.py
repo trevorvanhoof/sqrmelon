@@ -64,7 +64,7 @@ class QMainWindowState(QMainWindow):
     def hideEvent(self, event):
         self._store()
 
-    def _addDockWidget(self, widget, name=None, where=Qt.RightDockWidgetArea, direction=Qt.Horizontal):
+    def createDockWidget(self, widget, name=None, where=Qt.RightDockWidgetArea, direction=Qt.Horizontal):
         if name is None:
             name = widget.__class__.__name__
         d = QDockWidget(self)

@@ -107,19 +107,19 @@ class App(QMainWindowState):
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
         self.__shotsManager.shotChanged.connect(self.timeSlider.repaint)
 
-        self._addDockWidget(self.__sceneList, where=Qt.TopDockWidgetArea)
-        self._addDockWidget(self.__shotsManager, where=Qt.TopDockWidgetArea)
-        viewDock = self._addDockWidget(self.__sceneView, '3D View', where=Qt.TopDockWidgetArea)
-        logDock = self._addDockWidget(PyDebugLog.create(), 'Python log', where=Qt.TopDockWidgetArea)
+        self.createDockWidget(self.__sceneList, where=Qt.TopDockWidgetArea)
+        self.createDockWidget(self.__shotsManager, where=Qt.TopDockWidgetArea)
+        viewDock = self.createDockWidget(self.__sceneView, '3D View', where=Qt.TopDockWidgetArea)
+        logDock = self.createDockWidget(PyDebugLog.create(), 'Python log', where=Qt.TopDockWidgetArea)
         self.tabifyDockWidget(logDock, viewDock)
 
-        self._addDockWidget(self.timeSlider, where=Qt.LeftDockWidgetArea)
-        cameraDock = self._addDockWidget(cameraView, where=Qt.LeftDockWidgetArea)
-        overlayDock = self._addDockWidget(self.__overlays, 'Overlays', Qt.LeftDockWidgetArea)
+        self.createDockWidget(self.timeSlider, where=Qt.LeftDockWidgetArea)
+        cameraDock = self.createDockWidget(cameraView, where=Qt.LeftDockWidgetArea)
+        overlayDock = self.createDockWidget(self.__overlays, 'Overlays', Qt.LeftDockWidgetArea)
         self.tabifyDockWidget(overlayDock, cameraDock)
 
-        self._addDockWidget(self.__graphEditor, where=Qt.BottomDockWidgetArea)
-        self._addDockWidget(self.__profiler, where=Qt.BottomDockWidgetArea, direction=Qt.Vertical)
+        self.createDockWidget(self.__graphEditor, where=Qt.BottomDockWidgetArea)
+        self.createDockWidget(self.__profiler, where=Qt.BottomDockWidgetArea, direction=Qt.Vertical)
 
         self.__initializeProject()
 
@@ -221,8 +221,8 @@ class App(QMainWindowState):
         self.__menuBar.addAction('About').triggered.connect(self.__aboutDialog)
         self.__restoreUiLock(lock)
 
-    def _addDockWidget(self, widget, name=None, where=Qt.RightDockWidgetArea, direction=Qt.Horizontal):
-        dockWidget = super(App, self)._addDockWidget(widget, name, where, direction)
+    def createDockWidget(self, widget, name=None, where=Qt.RightDockWidgetArea, direction=Qt.Horizontal):
+        dockWidget = super(App, self).createDockWidget(widget, name, where, direction)
         self.__dockWidgetMenu.addAction(dockWidget.toggleViewAction())
         return dockWidget
 
@@ -239,7 +239,7 @@ class App(QMainWindowState):
         layout.addWidget(fps, 0, 1)
         layout.addWidget(QLabel('Vertical resolution: '), 1, 0)
         resolution = QComboBox()
-        resolution.addItems(['144', '288', '360', '720', '1080', '2160'])
+        resolution.addItems(['144', '288', '360', '720', '1080', '2160', 'poster'])
         resolution.setCurrentIndex(rId)
         layout.addWidget(resolution, 1, 1)
         ok = QPushButton('Ok')
@@ -255,9 +255,14 @@ class App(QMainWindowState):
         gSettings.setValue('RecordResolution', resolution.currentIndex())
 
         FPS = int(fps.currentText())
-        HEIGHT = int(resolution.currentText())
-        WIDTH = (HEIGHT * 16) / 9
-        FMT = 'jpg'
+        if resolution.currentText() == 'poster':
+            HEIGHT = 1920 * 2
+            WIDTH = 1080 * 2
+            FMT = 'png'
+        else:
+            HEIGHT = int(resolution.currentText())
+            WIDTH = (HEIGHT * 16) / 9
+            FMT = 'jpg'
 
         data = (ctypes.c_ubyte * (WIDTH * HEIGHT * 3))()  # alloc buffer once
         flooredStart = self._timer.secondsToBeats(int(self._timer.beatsToSeconds(self._timer.start) * FPS) / float(FPS))

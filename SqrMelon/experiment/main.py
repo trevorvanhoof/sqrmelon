@@ -1,3 +1,4 @@
+from experiment.timelineview import TimelineView
 from qtutil import *
 from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.enums import ELoopMode
@@ -5,7 +6,8 @@ from experiment.model import Clip, Shot, Event
 from experiment.widgets import CurveList, ShotManager, CurveView, EventTimeline, ClipManager, EventManager
 
 if __name__ == '__main__':
-    a = QApplication([])
+    app = QApplication([])
+    settings = QSettings('PB', 'experimental')
 
     undoStack = QUndoStack()
     undoView = QUndoView(undoStack)
@@ -35,7 +37,13 @@ if __name__ == '__main__':
 
     curveView = CurveView(curveList, undoStack)
 
-    eventTimeline = EventTimeline(shotManager.model(), eventManager.model())
+    shotManager = ShotManager()
+    shotManager.model().appendRow(Shot('New Shot', 'Scene 1', clip0, 0.0, 4.0, 1.0, 0.0).items)
+    shotManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0).items)
+    shotManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0).items)
+    shotManager.model().appendRow(Event('New event', clip0, 2.0, 4.0, 0.25, 0.0).items)
+
+    eventTimeline = TimelineView(shotManager.model())
 
     mainContainer = QSplitter(Qt.Vertical)
     mainContainer.addWidget(undoView)
@@ -46,10 +54,18 @@ if __name__ == '__main__':
     mainContainer.addWidget(curveView)
     mainContainer.addWidget(eventTimeline)
 
-    mainWindow = QMainWindow()
-    mainWindow.setCentralWidget(mainContainer)
+    mainWindow = QMainWindowState(settings)
+
+    mainWindow.setDockNestingEnabled(True)
+    mainWindow.createDockWidget(undoView)
+    mainWindow.createDockWidget(clipManager)
+    mainWindow.createDockWidget(curveList)
+    mainWindow.createDockWidget(curveView)
+    mainWindow.createDockWidget(shotManager)
+    mainWindow.createDockWidget(eventTimeline)
+
     mainWindow.show()
     # makes sure qt cleans up & python stops after closing the main window; https://stackoverflow.com/questions/39304366/qobjectstarttimer-qtimer-can-only-be-used-with-threads-started-with-qthread
     mainWindow.setAttribute(Qt.WA_DeleteOnClose)
 
-    a.exec_()
+    app.exec_()
