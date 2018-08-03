@@ -1,7 +1,8 @@
 from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction
-from experiment.delegates import UndoableSelectionView, NamedColums
+from experiment.curvemodel import HermiteCurve
+from experiment.delegates import UndoableSelectionView
 from experiment.keyselection import KeySelection
-from experiment.model import Shot
+from experiment.model import Shot, Clip, Event
 from qtutil import *
 
 
@@ -10,6 +11,10 @@ class CurveList(UndoableSelectionView):
         super(CurveList, self).__init__(undoStack, parent)
         self._source = source
         source.selectionChange.connect(self._pull)
+
+    @staticmethod
+    def columnNames():
+        return HermiteCurve.properties()
 
     def _pull(self, *args):
         # get first selected container
@@ -22,6 +27,7 @@ class CurveList(UndoableSelectionView):
         if curves is None:
             self.clearSelection()
         self.setModel(curves)
+        self._updateNames()
         self.selectAll()
 
 
@@ -224,7 +230,7 @@ class EventManager(UndoableSelectionView):
 
     @staticmethod
     def columnNames():
-        return Shot.properties()
+        return Event.properties()
 
 
 class ClipManager(UndoableSelectionView):
@@ -245,3 +251,7 @@ class ClipManager(UndoableSelectionView):
         if items:
             index = self.model().indexFromItem(items[0])
             self.selectionModel().select(index, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
+
+    @staticmethod
+    def columnNames():
+        return Clip.properties()

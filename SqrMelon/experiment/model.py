@@ -4,14 +4,14 @@ from experiment.modelbase import ItemRow, Label
 
 
 class Clip(ItemRow):
-    def __init__(self, name, loopMode):
-        super(Clip, self).__init__(name, loopMode)
+    def __init__(self, name):
+        super(Clip, self).__init__(name)
         self.__dict__['curves'] = QStandardItemModel()
         self.__dict__['textures'] = OrderedDict()
 
     @classmethod
     def properties(cls):
-        return 'name', 'loopMode'
+        return 'name',
 
 
 class Event(ItemRow):

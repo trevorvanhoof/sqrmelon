@@ -84,15 +84,18 @@ class NamedColums(QTableView):
         self.setSelectionBehavior(QTableView.SelectRows)
         mdl = QStandardItemModel()
         self.setModel(mdl)
-        names = self.columnNames()
-        mdl.setHorizontalHeaderLabels(names)
         self.verticalHeader().hide()
+        self._updateNames()
+        self.setItemDelegate(AtomDelegate())
+
+    def _updateNames(self):
+        names = self.columnNames()
+        self.model().setHorizontalHeaderLabels(names)
         self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
         self.horizontalHeader().setResizeMode(0, QHeaderView.Interactive)
         for i in xrange(1, len(names) - 1):
             self.horizontalHeader().setResizeMode(i, QHeaderView.ResizeToContents)
         self.horizontalHeader().setResizeMode(len(names) - 1, QHeaderView.Stretch)
-        self.setItemDelegate(AtomDelegate())
 
     @staticmethod
     def columnNames():
@@ -123,7 +126,3 @@ class UndoableSelectionView(NamedColums):
                 cmd.redo()
         except RecursiveCommandError:
             pass
-
-    @staticmethod
-    def columnNames():
-        return Clip.properties()
