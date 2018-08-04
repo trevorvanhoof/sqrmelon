@@ -6,6 +6,12 @@ class HermiteKey(object):
     __slots__ = ('x', 'y', 'inTangentY', 'outTangentY')
 
     def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0):
+        self.setData(x, y, inTangentY, outTangentY)
+
+    def copyData(self):
+        return self.x, self.y, self.inTangentY, self.outTangentY
+
+    def setData(self, x, y, inTangentY, outTangentY):
         # type: (float, float, float, float) -> None
         self.x = x
         self.y = y
@@ -33,7 +39,7 @@ def binarySearch(value, data, key=lambda x: x):
 
 
 class HermiteCurve(ItemRow):
-    def __init__(self, name, loopMode=ELoopMode('Clamp'), data=None):
+    def __init__(self, name, loopMode=ELoopMode.Clamp, data=None):
         super(HermiteCurve, self).__init__(name, loopMode)
         self.__dict__['keys'] = data or []
 
@@ -42,16 +48,29 @@ class HermiteCurve(ItemRow):
         return 'name', 'loopMode'
 
     def evaluate(self, x):
+        # apply loop mode
+        loopMode = self[1]
+        if loopMode == ELoopMode.Clamp:
+            # clamp it
+            if x <= self.keys[0].x:
+                return self.keys[0].y
+            if x >= self.keys[-1].x:
+                return self.keys[-1].y
+        elif loopMode == ELoopMode.Loop:
+            x = (x - self.keys[0].x) % (self.keys[-1].x - self.keys[0].x) + self.keys[0].x
+
+        # find keys to interpolate
         index = binarySearch(x, self.keys, lambda key: key.x)
 
-        # x before first key, possibly faster to test x explicitly before binary search
+        # x before or exactly at first key
         if index == 0:
             return self.keys[0].y
 
-        # x after last key, possibly faster to test x explicitly before binary search
+        # x after last key this point should never be hit
         if index >= len(self.keys):
             return self.keys[-1].y
 
+        # cubic hermite splien interpolation
         prev = self.keys[index - 1]
         next = self.keys[index]
 

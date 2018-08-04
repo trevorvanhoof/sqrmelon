@@ -19,9 +19,9 @@ class Event(ItemRow):
         super(Event, self).__init__(name, clip, start, end, end - start, speed, roll, track)
 
     def propertyChanged(self, index):
-        START_INDEX = 3
-        END_INDEX = 4
-        DURATION_INDEX = 5
+        START_INDEX = 2
+        END_INDEX = 3
+        DURATION_INDEX = 4
 
         if index == START_INDEX:
             self.end = self.start + self.duration
@@ -40,9 +40,9 @@ class Shot(ItemRow):
         super(Shot, self).__init__(name, Label(sceneName), start, end, end - start, track)
 
     def propertyChanged(self, index):
-        START_INDEX = 3
-        END_INDEX = 4
-        DURATION_INDEX = 5
+        START_INDEX = 2
+        END_INDEX = 3
+        DURATION_INDEX = 4
 
         if index == START_INDEX:
             self.end = self.start + self.duration

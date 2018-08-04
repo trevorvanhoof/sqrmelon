@@ -1,6 +1,5 @@
 from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction
-from experiment.curvemodel import HermiteCurve
-from experiment.delegates import UndoableSelectionView
+from experiment.delegates import UndoableSelectionView, NamedColums
 from experiment.keyselection import KeySelection
 from experiment.model import Shot, Clip, Event
 from qtutil import *
@@ -31,7 +30,10 @@ class CurveList(UndoableSelectionView):
         self.selectAll()
 
 
+
 class CurveView(QWidget):
+    # TODO: Curve loop mode change should trigger a repaint
+    # TODO: Ability to watch shots instead of clips so shot loop mode and time range can be rendered as well (possibly just have an optional shot field that the painter picks up on)
     def __init__(self, source, undoStack, parent=None):
         super(CurveView, self).__init__(parent)
         self._source = source

@@ -1,4 +1,5 @@
 from experiment.keyselection import selectNew, selectAdd, selectRemove, selectToggle
+from experiment.curvemodel import HermiteKey
 from qtutil import *
 
 
@@ -164,6 +165,103 @@ class KeySelectionEdit(NestedCommand):
         self.__selectionModel.blockSignals(oldState)
         if not oldState:
             self.__selectionModel.changed.emit()
+
+
+class KeyEdit(QUndoCommand):
+    """
+    Assumes the keys are already changed and we are passing in the undo state.
+    Caches current state during construction as redo state.
+
+    first redo() will do nothing
+    undo() will apply given state
+    redo() will apply state chached during construction
+    """
+    def __init__(self, restoreState, parent=None):
+        # type: (dict[HermiteKey, (float, float, float, float)], QUndoCommand) -> None
+        super(KeyEdit, self).__init__('Key edit', parent)
+        self.restoreState = restoreState
+        self.apply = {key: key.copyData() for key in restoreState}
+        self.applied = True
+
+    def redo(self):
+        if self.applied:
+            return
+        self.applied = True
+        for key, value in self.apply.iteritems():
+            key.setData(*value)
+
+    def undo(self):
+        self.applied = False
+        for key, value in self.restore.iteritems():
+            key.setData(*value)
+
+
+class MoveKeyAction(object):
+    def __init__(self, selectedKeys, reproject):
+        self.__reproject = reproject
+        self.__initialState = {key: key.copyData() for key in selectedKeys}
+        self.__dragStart = None
+        self.__mask = 3
+
+    def mousePressEvent(self, event):
+        self.__dragStart = event.pos()
+        if event.modifiers() == Qt.ShiftModifier:
+            self.__mask = 0
+        return False
+
+    def mouseReleaseEvent(self, undoStack):
+        undoStack.push(KeyEdit(self.__initialState))
+        return False
+
+    def mouseMoveEvent(self, event):
+        delta = event.pos() - self.__dragStart
+        dx, dy = self.__reproject(*delta)
+
+        if not self.__mask:
+            if abs(dx) > 4  and abs(dx) > abs(dy):
+                self.__mask = 1
+            if abs(dy) > 4  and abs(dy) > abs(dx):
+                self.__mask = 2
+            return
+
+        for key, value in self.__initialState.iteritems():
+            if self.__mask & 1:
+                key.x = value[0] + dx
+            if self.__mask & 2:
+                key.y = value[1] + dy
+        return True  # repaint
+
+    def draw(self, painter):
+        pass
+
+
+class MoveTangentAction(object):
+    def __init__(self, selectedTangents, reproject):
+        self.__reproject = reproject
+        self.__initialState = {(key, mask): key.copyData() for (key, mask) in selectedTangents}
+        self.__dragStart = None
+
+    def mousePressEvent(self, event):
+        self.__dragStart = event.pos()
+        return False
+
+    def mouseReleaseEvent(self, undoStack):
+        undoStack.push(KeyEdit(self.__initialState))
+        return False
+
+    def mouseMoveEvent(self, event):
+        delta = event.pos() - self.__dragStart
+        dx, dy = self.__reproject(*delta)
+        for key, value in self.__initialState.iteritems():
+            if key[1] & 1:
+                key[0].inTangentY = value[2] + dy
+            if key[1] & 2:
+                key[0].outTangentY = value[3] + dy
+        return True  # repaint
+
+    def draw(self, painter):
+        pass
+
 
 
 class MarqueeAction(object):
