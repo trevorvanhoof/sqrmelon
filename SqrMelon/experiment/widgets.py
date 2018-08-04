@@ -1,5 +1,6 @@
 from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction
-from experiment.delegates import UndoableSelectionView, NamedColums
+from experiment.curvemodel import HermiteCurve
+from experiment.delegates import UndoableSelectionView
 from experiment.keyselection import KeySelection
 from experiment.model import Shot, Clip, Event
 from qtutil import *
