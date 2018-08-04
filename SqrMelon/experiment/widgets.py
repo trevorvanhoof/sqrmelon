@@ -1,4 +1,5 @@
-from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction
+from math import cos, asin
+from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction
 from experiment.curvemodel import HermiteCurve
 from experiment.delegates import UndoableSelectionView
 from experiment.keyselection import KeySelection
@@ -29,7 +30,6 @@ class CurveList(UndoableSelectionView):
         self.setModel(curves)
         self._updateNames()
         self.selectAll()
-
 
 
 class CurveView(QWidget):
@@ -98,27 +98,26 @@ class CurveView(QWidget):
     def pxToU(self, x, y):
         return self.xToT(x), self.yToV(y)
 
-    def _tangentEndPoint(self, src, dst, wt):
+    def _tangentEndPoint(self, wt, dx):
+        # TODO: figure a good formula for this... ergo, what weight is linear and how does that scale?
+        t = cos(asin(wt / 3.0)) * dx
+        dx, dy = self.uToPx(t + self.left, wt + self.top)
         TANGENT_LENGTH = 20.0
-        x0, y0 = self.uToPx(src.x, src.y)
-        x1, y1 = self.uToPx(dst.x, dst.y)
-        dx = x1 - x0
-        dy = abs(y1 - y0) * wt
         f = TANGENT_LENGTH / ((dx * dx + dy * dy) ** 0.5)
-        x1, y1 = x0 + dx * f, y0 + dy * f
-        return x1, y1
+        return dx * f, dy * f
 
-    def _drawTangent(self, painter, isSelected, src, dst, wt):
+    def _drawTangent(self, painter, isSelected, x0, y0, dx, wt, isOut):
         # selection
         if isSelected:
             painter.setPen(Qt.white)
         else:
             painter.setPen(Qt.magenta)
 
-        x0, y0 = self.uToPx(src.x, src.y)
-        x1, y1 = self._tangentEndPoint(src, dst, wt)
-        painter.drawLine(x0, y0, x1, y1)
-        painter.drawRect(x1 - 1, y1 - 1, 2, 2)
+        dx, dy = self._tangentEndPoint(wt, dx)
+        if not isOut:
+            dy = -dy
+        painter.drawLine(x0, y0, x0 + dx, y0 + dy)
+        painter.drawRect(x0 + dx - 1, y0 + dy - 1, 2, 2)
 
     def itemsAt(self, x, y, w, h):
         for curve in self._visibleCurves:
@@ -133,14 +132,16 @@ class CurveView(QWidget):
 
                 # in tangent
                 if i > 0:
-                    kx, ky = self._tangentEndPoint(key, curve.keys[i - 1], key.inTangentY)
-                    if x <= kx <= x + w and y < ky <= y + h:
+                    dx = curve.key(i - 1).x - key.x
+                    tx, ty = self._tangentEndPoint(key.inTangentY, dx)
+                    if x <= kx - tx <= x + w and y < ky - ty <= y + h:
                         yield key, 1 << 1
 
                 # out tangent
-                if i < len(curve.keys) - 1:
-                    kx, ky = self._tangentEndPoint(key, curve.keys[i + 1], -key.outTangentY)
-                    if x <= kx <= x + w and y < ky <= y + h:
+                if i < curve.keyCount() - 1:
+                    dx = curve.key(i + 1).x - key.x
+                    tx, ty = self._tangentEndPoint(key.outTangentY, dx)
+                    if x <= kx + tx <= x + w and y < ky + ty <= y + h:
                         yield key, 1 << 2
 
     def paintEvent(self, event):
@@ -181,17 +182,30 @@ class CurveView(QWidget):
 
                 # in tangent
                 if i > 0:
-                    self._drawTangent(painter, selectionState & (1 << 1), key, curve.keys[i - 1], key.inTangentY)
+                    self._drawTangent(painter, selectionState & (1 << 1), x, y, curve.key(i - 1).x - key.x, key.inTangentY, False)
 
                 # out tangent
-                if i < len(curve.keys) - 1:
-                    self._drawTangent(painter, selectionState & (1 << 2), key, curve.keys[i + 1], -key.outTangentY)
+                if i < curve.keyCount() - 1:
+                    self._drawTangent(painter, selectionState & (1 << 2), x, y, curve.key(i + 1).x - key.x, key.outTangentY, True)
 
         if self.action is not None:
             self.action.draw(painter)
 
     def mousePressEvent(self, event):
-        self.action = MarqueeAction(self, self._selectionModel)
+        for key, mask in self.itemsAt(event.x() - 2, event.y() - 2, 5, 5):
+            if key not in self._selectionModel:
+                continue
+            if not self._selectionModel[key] & mask:
+                continue
+            if mask == 1:
+                self.action = MoveKeyAction(self._selectionModel, self.pxToU, self.repaint)
+                break
+            else:
+                self.action = MoveTangentAction(self._selectionModel, self.pxToU, self.repaint)
+                break
+        else:
+            self.action = MarqueeAction(self, self._selectionModel)
+
         if self.action.mousePressEvent(event):
             self.repaint()
 

@@ -13,7 +13,7 @@ if __name__ == '__main__':
     undoView = QUndoView(undoStack)
 
     clip0 = Clip('Clip 0')
-    clip0.curves.appendRow(HermiteCurve('uOrigin.x', ELoopMode.Clamp, [HermiteKey(0.0, 0.0, 0.0, 0.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
+    clip0.curves.appendRow(HermiteCurve('uOrigin.x', ELoopMode.Clamp, [HermiteKey(0.0, 0.0, 0.0, 0.0), HermiteKey(4.0, 1.0, 1.0, 1.0)]).items)
     clip0.curves.appendRow(HermiteCurve('uFlash', ELoopMode.Clamp, [HermiteKey(0.0, 1.0, 1.0, 1.0), HermiteKey(1.0, 0.0, 0.0, 0.0)]).items)
 
     clip1 = Clip('Clip 1')
@@ -38,12 +38,6 @@ if __name__ == '__main__':
     curveView = CurveView(curveList, undoStack)
 
     eventTimeline = TimelineView(shotManager.model(), eventManager.model())
-
-    # when view loses focus, keep showing selection clearly
-    # shotManager.setStyleSheet('QTableView { selection-background-color: #0078d7; }')
-    eventManager.setStyleSheet('QTableView { selection-background-color: #0078d7; }')
-    clipManager.setStyleSheet('QTableView { selection-background-color: #0078d7; }')
-    curveList.setStyleSheet('QTableView { selection-background-color: #0078d7; }')
 
     mainWindow = QMainWindowState(settings)
     mainWindow.setDockNestingEnabled(True)

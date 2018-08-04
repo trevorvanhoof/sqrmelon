@@ -1,6 +1,5 @@
 from experiment.actions import SelectionModelEdit, RecursiveCommandError
 from experiment.enums import Enum
-from experiment.model import Clip
 from qtutil import *
 
 

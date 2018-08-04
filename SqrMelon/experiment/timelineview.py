@@ -121,6 +121,6 @@ class TimelineView(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(0,0,self.width(),self.height(),QColor(70,70,70))
+        painter.fillRect(QRect(0, 0, self.width(), self.height()), QColor(40, 40, 40, 255))
         for item in self.__graphicsItems:
             item.paint(painter)

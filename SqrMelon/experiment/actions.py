@@ -176,11 +176,13 @@ class KeyEdit(QUndoCommand):
     undo() will apply given state
     redo() will apply state chached during construction
     """
-    def __init__(self, restoreState, parent=None):
+
+    def __init__(self, restore, triggerRepaint, parent=None):
         # type: (dict[HermiteKey, (float, float, float, float)], QUndoCommand) -> None
         super(KeyEdit, self).__init__('Key edit', parent)
-        self.restoreState = restoreState
-        self.apply = {key: key.copyData() for key in restoreState}
+        self.restore = restore
+        self.triggerRepaint = triggerRepaint
+        self.apply = {key: key.copyData() for key in restore}
         self.applied = True
 
     def redo(self):
@@ -188,19 +190,22 @@ class KeyEdit(QUndoCommand):
             return
         self.applied = True
         for key, value in self.apply.iteritems():
-            key.setData(*value)
+            key._setData(*value)
+        self.triggerRepaint()
 
     def undo(self):
         self.applied = False
         for key, value in self.restore.iteritems():
-            key.setData(*value)
+            key._setData(*value)
+        self.triggerRepaint()
 
 
 class MoveKeyAction(object):
-    def __init__(self, selectedKeys, reproject):
+    def __init__(self, selectedKeys, reproject, triggerRepaint):
         self.__reproject = reproject
         self.__initialState = {key: key.copyData() for key in selectedKeys}
         self.__dragStart = None
+        self.__triggerRepaint = triggerRepaint
         self.__mask = 3
 
     def mousePressEvent(self, event):
@@ -210,25 +215,26 @@ class MoveKeyAction(object):
         return False
 
     def mouseReleaseEvent(self, undoStack):
-        undoStack.push(KeyEdit(self.__initialState))
+        undoStack.push(KeyEdit(self.__initialState, self.__triggerRepaint))
         return False
 
     def mouseMoveEvent(self, event):
         delta = event.pos() - self.__dragStart
-        dx, dy = self.__reproject(*delta)
+        dx, dy = self.__reproject(delta.x(), delta.y())
 
         if not self.__mask:
-            if abs(dx) > 4  and abs(dx) > abs(dy):
+            if abs(dx) > 4 and abs(dx) > abs(dy):
                 self.__mask = 1
-            if abs(dy) > 4  and abs(dy) > abs(dx):
+            if abs(dy) > 4 and abs(dy) > abs(dx):
                 self.__mask = 2
             return
 
         for key, value in self.__initialState.iteritems():
             if self.__mask & 1:
-                key.x = value[0] + dx
+                key._setX(value[0] + dx)
             if self.__mask & 2:
-                key.y = value[1] + dy
+                key._setY(value[1] + dy)
+
         return True  # repaint
 
     def draw(self, painter):
@@ -236,32 +242,35 @@ class MoveKeyAction(object):
 
 
 class MoveTangentAction(object):
-    def __init__(self, selectedTangents, reproject):
+    def __init__(self, selectedTangents, reproject, triggerRepaint):
         self.__reproject = reproject
         self.__initialState = {(key, mask): key.copyData() for (key, mask) in selectedTangents}
         self.__dragStart = None
+        self.__triggerRepaint = triggerRepaint
 
     def mousePressEvent(self, event):
         self.__dragStart = event.pos()
         return False
 
     def mouseReleaseEvent(self, undoStack):
-        undoStack.push(KeyEdit(self.__initialState))
+        undoStack.push(KeyEdit(self.__initialState, self.__triggerRepaint))
         return False
 
     def mouseMoveEvent(self, event):
         delta = event.pos() - self.__dragStart
         dx, dy = self.__reproject(*delta)
-        for key, value in self.__initialState.iteritems():
-            if key[1] & 1:
-                key[0].inTangentY = value[2] + dy
-            if key[1] & 2:
-                key[0].outTangentY = value[3] + dy
+
+        for entry, value in self.__initialState.iteritems():
+            key, mask = entry
+            if mask & 1:
+                key._setInTangentY(value[2] + dy)
+            if mask & 2:
+                key._setOutTangentY(value[3] + dy)
+
         return True  # repaint
 
     def draw(self, painter):
         pass
-
 
 
 class MarqueeAction(object):

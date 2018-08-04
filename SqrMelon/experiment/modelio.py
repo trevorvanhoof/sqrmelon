@@ -16,7 +16,6 @@ def serializeClip(clip):
         assert isinstance(pyObj, HermiteCurve)
         curves.append(serializeCurve(pyObj))
     return {'name': clip[0],
-            'loopMode': clip[1],
             'curves': curves,
             'textures': {uniformName: filePath for uniformName, filePath in clip.textures.iteritems()}}
 
@@ -67,7 +66,7 @@ def deserialize(data, clipModel, shotModel, eventModel):
 
     clips = {}
     for clip in data['clips']:
-        clip = Clip(clip['name'], clip['loopMode'])
+        clip = Clip(clip['name'])
         for curve in clip['curves']:
             keys = [HermiteKey(key['x'], key['y'], key['inTangentY'], key['outTangentY']) for key in curve['keys']]
             clip.curves.appendRow(HermiteCurve(curve['name'], curve['loopMode'], keys).items)
