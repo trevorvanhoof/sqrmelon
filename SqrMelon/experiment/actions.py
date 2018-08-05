@@ -209,7 +209,7 @@ class MoveKeyAction(object):
         self.__mask = 3
 
     def mousePressEvent(self, event):
-        self.__dragStart = event.pos()
+        self.__dragStart = self.__reproject(event.x(), event.y())
         if event.modifiers() == Qt.ShiftModifier:
             self.__mask = 0
         return False
@@ -219,8 +219,9 @@ class MoveKeyAction(object):
         return False
 
     def mouseMoveEvent(self, event):
-        delta = event.pos() - self.__dragStart
-        dx, dy = self.__reproject(delta.x(), delta.y())
+        dx, dy = self.__reproject(event.x(), event.y())
+        dx -= self.__dragStart[0]
+        dy -= self.__dragStart[1]
 
         if not self.__mask:
             if abs(dx) > 4 and abs(dx) > abs(dy):
@@ -244,12 +245,15 @@ class MoveKeyAction(object):
 class MoveTangentAction(object):
     def __init__(self, selectedTangents, reproject, triggerRepaint):
         self.__reproject = reproject
-        self.__initialState = {(key, mask): key.copyData() for (key, mask) in selectedTangents}
+        self.__initialState = {key: key.copyData() for (key, mask) in selectedTangents.iteritems()}
+        self.__masks = selectedTangents.copy()
         self.__dragStart = None
         self.__triggerRepaint = triggerRepaint
 
     def mousePressEvent(self, event):
-        self.__dragStart = event.pos()
+        self.__dragStart = self.__reproject(event.x(), event.y())
+        if event.modifiers() == Qt.ShiftModifier:
+            self.__mask = 0
         return False
 
     def mouseReleaseEvent(self, undoStack):
@@ -257,11 +261,12 @@ class MoveTangentAction(object):
         return False
 
     def mouseMoveEvent(self, event):
-        delta = event.pos() - self.__dragStart
-        dx, dy = self.__reproject(*delta)
+        dx, dy = self.__reproject(event.x(), event.y())
+        dx -= self.__dragStart[0]
+        dy -= self.__dragStart[1]
 
-        for entry, value in self.__initialState.iteritems():
-            key, mask = entry
+        for key, value in self.__initialState.iteritems():
+            mask = self.__masks[key]
             if mask & 1:
                 key._setInTangentY(value[2] + dy)
             if mask & 2:
@@ -292,8 +297,11 @@ class MarqueeAction(object):
         return x0, y0, x1 - x0, y1 - y0
 
     def mouseReleaseEvent(self, undoStack):
+        if self.__end == self.__start:
+            x, y, w, h = self.__start.x() - 5, self.__start.y() - 5, 10, 10
+        else:
+           x, y, w, h = self._rect()
         # build apply state
-        x, y, w, h = self._rect()
         itemsIter = self.__view.itemsAt(x, y, w, h)
         if self.__mode == Qt.NoModifier:
             selectNew(self.__selection, self.__delta, itemsIter)

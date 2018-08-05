@@ -98,26 +98,35 @@ class CurveView(QWidget):
     def pxToU(self, x, y):
         return self.xToT(x), self.yToV(y)
 
-    def _tangentEndPoint(self, wt, dx):
-        # TODO: figure a good formula for this... ergo, what weight is linear and how does that scale?
+    def _tangentEndPoint2(self, curve, i, isOut):
+        key = curve.key(i)
+        if not isOut:
+            dx = curve.key(i - 1).x - key.x
+            wt = key.inTangentY
+        else:
+            dx = curve.key(i + 1).x - key.x
+            wt = key.outTangentY
+
         t = cos(asin(wt / 3.0)) * dx
         dx, dy = self.uToPx(t + self.left, wt + self.top)
         TANGENT_LENGTH = 20.0
-        f = TANGENT_LENGTH / ((dx * dx + dy * dy) ** 0.5)
-        return dx * f, dy * f
+        a = (dx * dx + dy * dy)
+        if a == 0.0:
+            return (TANGENT_LENGTH, 0.0)
+        f = TANGENT_LENGTH / (a ** 0.5)
+        return dx * f, dy * f * (1 if isOut else -1)
 
-    def _drawTangent(self, painter, isSelected, x0, y0, dx, wt, isOut):
+    def _drawTangent2(self, painter, isSelected, xpx, ypx, curve, i, isOut):
         # selection
         if isSelected:
             painter.setPen(Qt.white)
         else:
             painter.setPen(Qt.magenta)
 
-        dx, dy = self._tangentEndPoint(wt, dx)
-        if not isOut:
-            dy = -dy
-        painter.drawLine(x0, y0, x0 + dx, y0 + dy)
-        painter.drawRect(x0 + dx - 1, y0 + dy - 1, 2, 2)
+        dx, dy = self._tangentEndPoint2(curve, i, isOut)
+
+        painter.drawLine(xpx, ypx, xpx + dx, ypx + dy)
+        painter.drawRect(xpx + dx - 1, ypx + dy - 1, 2, 2)
 
     def itemsAt(self, x, y, w, h):
         for curve in self._visibleCurves:
@@ -132,15 +141,13 @@ class CurveView(QWidget):
 
                 # in tangent
                 if i > 0:
-                    dx = curve.key(i - 1).x - key.x
-                    tx, ty = self._tangentEndPoint(key.inTangentY, dx)
-                    if x <= kx - tx <= x + w and y < ky - ty <= y + h:
+                    tx, ty = self._tangentEndPoint2(curve, i, False)
+                    if x <= kx + tx <= x + w and y < ky + ty <= y + h:
                         yield key, 1 << 1
 
                 # out tangent
                 if i < curve.keyCount() - 1:
-                    dx = curve.key(i + 1).x - key.x
-                    tx, ty = self._tangentEndPoint(key.outTangentY, dx)
+                    tx, ty = self._tangentEndPoint2(curve, i, True)
                     if x <= kx + tx <= x + w and y < ky + ty <= y + h:
                         yield key, 1 << 2
 
@@ -182,17 +189,17 @@ class CurveView(QWidget):
 
                 # in tangent
                 if i > 0:
-                    self._drawTangent(painter, selectionState & (1 << 1), x, y, curve.key(i - 1).x - key.x, key.inTangentY, False)
+                    self._drawTangent2(painter, selectionState & (1 << 1), x, y, curve, i, False)
 
                 # out tangent
                 if i < curve.keyCount() - 1:
-                    self._drawTangent(painter, selectionState & (1 << 2), x, y, curve.key(i + 1).x - key.x, key.outTangentY, True)
+                    self._drawTangent2(painter, selectionState & (1 << 2), x, y, curve, i, True)
 
         if self.action is not None:
             self.action.draw(painter)
 
     def mousePressEvent(self, event):
-        for key, mask in self.itemsAt(event.x() - 2, event.y() - 2, 5, 5):
+        for key, mask in self.itemsAt(event.x() - 5, event.y() - 5, 10, 10):
             if key not in self._selectionModel:
                 continue
             if not self._selectionModel[key] & mask:
