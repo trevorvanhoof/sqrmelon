@@ -183,6 +183,7 @@ class KeyEdit(QUndoCommand):
         self.restore = restore
         self.triggerRepaint = triggerRepaint
         self.apply = {key: key.copyData() for key in restore}
+        self.curves = {key.parent for key in restore}
         self.applied = True
 
     def redo(self):
@@ -190,13 +191,17 @@ class KeyEdit(QUndoCommand):
             return
         self.applied = True
         for key, value in self.apply.iteritems():
-            key._setData(*value)
+            key.setData(*value)
+        for curve in self.curves:
+            curve.sort()
         self.triggerRepaint()
 
     def undo(self):
         self.applied = False
         for key, value in self.restore.iteritems():
-            key._setData(*value)
+            key.setData(*value)
+        for curve in self.curves:
+            curve.sort()
         self.triggerRepaint()
 
 
@@ -204,6 +209,7 @@ class MoveKeyAction(object):
     def __init__(self, selectedKeys, reproject, triggerRepaint):
         self.__reproject = reproject
         self.__initialState = {key: key.copyData() for key in selectedKeys}
+        self.__curves = {key.parent for key in selectedKeys}
         self.__dragStart = None
         self.__triggerRepaint = triggerRepaint
         self.__mask = 3
@@ -232,9 +238,13 @@ class MoveKeyAction(object):
 
         for key, value in self.__initialState.iteritems():
             if self.__mask & 1:
-                key._setX(value[0] + dx)
+                key.x = value[0] + dx
             if self.__mask & 2:
-                key._setY(value[1] + dy)
+                key.y = value[1] + dy
+
+        if self.__mask & 1:
+            for curve in self.__curves:
+                curve.sort()
 
         return True  # repaint
 
@@ -267,10 +277,10 @@ class MoveTangentAction(object):
 
         for key, value in self.__initialState.iteritems():
             mask = self.__masks[key]
-            if mask & 1:
-                key._setInTangentY(value[2] + dy)
-            if mask & 2:
-                key._setOutTangentY(value[3] + dy)
+            if mask & 1 << 1:
+                key.inTangentY(value[2] + dy)
+            if mask & 1 << 2:
+                key.outTangentY(value[3] + dy)
 
         return True  # repaint
 
@@ -300,7 +310,7 @@ class MarqueeAction(object):
         if self.__end == self.__start:
             x, y, w, h = self.__start.x() - 5, self.__start.y() - 5, 10, 10
         else:
-           x, y, w, h = self._rect()
+            x, y, w, h = self._rect()
         # build apply state
         itemsIter = self.__view.itemsAt(x, y, w, h)
         if self.__mode == Qt.NoModifier:

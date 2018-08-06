@@ -4,52 +4,23 @@ from experiment.modelbase import ItemRow
 
 
 class HermiteKey(object):
-    __slots__ = ('_x', '_y', '_inTangentY', '_outTangentY')
+    __slots__ = ('x', 'y', 'inTangentY', 'outTangentY', 'parent')
 
-    def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0):
-        self._setData(x, y, inTangentY, outTangentY)
+    def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0, parent=None):
+        self.x = x
+        self.y = y
+        self.inTangentY = inTangentY
+        self.outTangentY = outTangentY
+        self.parent = parent
+
+    def setData(self, x, y, inTangentY, outTangentY):
+        self.x = x
+        self.y = y
+        self.inTangentY = inTangentY
+        self.outTangentY = outTangentY
 
     def copyData(self):
-        return self._x, self._y, self._inTangentY, self._outTangentY
-
-    def _setData(self, x, y, inTangentY, outTangentY):
-        # type: (float, float, float, float) -> None
-        self._x = x
-        self._y = y
-        self._inTangentY = inTangentY
-        self._outTangentY = outTangentY
-
-    def _setX(self, x):
-        # type: float
-        self._x = x
-
-    def _setY(self, y):
-        # type: float
-        self._y = y
-
-    def _setInTangentY(self, inTangentY):
-        # type: float
-        self._inTangentY = inTangentY
-
-    def _setOutTangentY(self, outTangentY):
-        # type: float
-        self._outTangentY = outTangentY
-
-    @property
-    def x(self):
-        return self._x
-
-    @property
-    def y(self):
-        return self._y
-
-    @property
-    def inTangentY(self):
-        return self._inTangentY
-
-    @property
-    def outTangentY(self):
-        return self._outTangentY
+        return self.x, self.y, self.inTangentY, self.outTangentY
 
 
 def binarySearch(value, data, key=lambda x: x):
@@ -76,6 +47,10 @@ class HermiteCurve(ItemRow):
         super(HermiteCurve, self).__init__(name, loopMode)
         self.__dict__['_keys'] = data or []
         self.__dict__['changed'] = Signal()
+        for key in self._keys: key.parent = self
+
+    def sort(self):
+        self._keys = sorted(self._keys, key=lambda x: x.x)
 
     def key(self, index):
         return self._keys[index]
@@ -87,29 +62,6 @@ class HermiteCurve(ItemRow):
     def keys(self):
         for key in self._keys:
             yield key
-
-    def addKey(self, key):
-        if self._keys:
-            assert self._keys[-1].x <= key.x
-        self._keys.append(key)
-        self.changed.emit()
-
-    def adjustKey(self, key, data):
-        key._setData(*data)
-        self.changed.emit()
-
-    def insertKey(self, index, key):
-        if index < len(self._keys):
-            assert key.x <= self._keys[index].x
-        if 0 <= index - 1 < len(self._keys):
-            assert self._keys[index - 1].x <= key.x
-        self._keys.insert(index, key)
-        self.changed.emit()
-
-    def deleteKeys(self, *keys):
-        for key in keys:
-            self._keys.remove(key)
-        self.changed.emit()
 
     @classmethod
     def properties(cls):
