@@ -2,11 +2,41 @@ from qtutil import *
 import icons
 import fileutil
 from textures import TextureManager
-from animationgraph.curvedata import Curve
+from animationgraph.curvedata import Curve, Key
 from collections import OrderedDict
 from scene import Scene
 from xml.etree import cElementTree
-from util import randomColor, ScenesPath, ParseXMLWithIncludes, toPrettyXml, SCENE_EXT, ProjectFile, Scenes
+from util import randomColor, ScenesPath, ParseXMLWithIncludes, toPrettyXml, SCENE_EXT, ProjectFile, Scenes, TemplatesPath
+
+
+def readChannelTemplates():
+    templatesDir = TemplatesPath()
+    channelTemplates = os.path.join(templatesDir, 'uniforms.xml')
+    result = OrderedDict()
+
+    # legacy fallback
+    if not os.path.exists(channelTemplates):
+        curves = OrderedDict()
+        curves['uOrigin.x'] = Curve()
+        curves['uOrigin.y'] = Curve()
+        curves['uOrigin.z'] = Curve()
+        curves['uAngles.x'] = Curve()
+        curves['uAngles.y'] = Curve()
+        curves['uAngles.z'] = Curve()
+        result['default'] = curves
+        return result
+
+    xRoot = ParseXMLWithIncludes(channelTemplates)
+    for xTemplate in xRoot:
+        name = xTemplate.attrib['name']
+        curves = OrderedDict()
+        result[name] = curves
+        for xChannel in xTemplate:
+            curve = Curve()
+            curves[xChannel.attrib['name']] = curve
+            Key(0.0, float(xChannel.attrib['value']), curve).reInsert()
+
+    return result
 
 
 class Shot(object):
@@ -551,6 +581,20 @@ class ShotManager(QWidget):
         scenes.setEditable(False)
         layout.addWidget(scenes)
 
+        channelTemplates = readChannelTemplates()
+        channelTemplateNames = channelTemplates.keys()
+        templateIndex = 0
+        if 'default' in channelTemplateNames:
+            channelTemplateNames.index('default')
+
+        channelTemplateSelector = None
+        if len(channelTemplateNames) > 1:
+            layout.addWidget(QLabel('Channels:'))
+            channelTemplateSelector = QComboBox()
+            channelTemplateSelector.addItems(channelTemplateNames)
+            channelTemplateSelector.setEditable(False)
+            layout.addWidget(scenes)
+
         create = QPushButton('Create')
         create.clicked.connect(diag.accept)
         cancel = QPushButton('Cancel')
@@ -564,8 +608,15 @@ class ShotManager(QWidget):
 
         if initialSceneName and str(initialSceneName) in sceneNames:
             scenes.setCurrentIndex(sceneNames.index(initialSceneName))
+            # if there is a channel template for this scene, default to it
+            if initialSceneName in channelTemplateNames:
+                templateIndex = channelTemplateNames.index(initialSceneName)
         else:
             scenes.setCurrentIndex(0)
+
+        if channelTemplateSelector is not None:
+            channelTemplateSelector.setCurrentIndex(templateIndex)
+
         diag.exec_()
 
         if diag.result() != QDialog.Accepted:
@@ -579,16 +630,11 @@ class ShotManager(QWidget):
         if selected:
             start = selected[-1].start
 
-        curves = OrderedDict()
-        curves['uOrigin.x'] = Curve()
-        curves['uOrigin.y'] = Curve()
-        curves['uOrigin.z'] = Curve()
-        curves['uAngles.x'] = Curve()
-        curves['uAngles.y'] = Curve()
-        curves['uAngles.z'] = Curve()
-
-        # TODO use scenes.currentText() to find the scene object & query it's programs for available uniforms
-        # TODO add an exclusion mechanism for uniforms controlled by animationprocessor.py
+        if channelTemplateSelector is not None:
+            channelTemplateName = channelTemplateSelector.currentText()
+            curves = channelTemplates[channelTemplateName]
+        else:
+            curves = channelTemplates.values()[0]
 
         shot = Shot(name.text(), scenes.currentText(), start, start + 8.0, curves)
         self.__model.appendRow(shot.items)

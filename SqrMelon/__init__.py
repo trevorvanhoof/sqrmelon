@@ -1,4 +1,4 @@
-import os
+import datetime
 import time
 import sys
 import shutil
@@ -51,11 +51,8 @@ class App(QMainWindowState):
     def __init__(self):
         super(App, self).__init__(gSettings)
         self.setAnimated(False)
-        if 'linux' in sys.platform.lower():
-            month, day, year = time.strftime('%x').split('-')
-        else:
-            month, day, year = time.strftime('%x').split('/')
-        if month == '12':
+        
+        if datetime.datetime.month == '12':
             self.setWindowIcon(icons.get('Candy Cane'))
         else:
             self.setWindowIcon(icons.get('SqrMelon'))
