@@ -90,11 +90,14 @@ class HermiteCurve(ItemRow):
         if index >= len(self._keys):
             return self._keys[-1].y
 
-        # cubic hermite splien interpolation
+        # cubic hermite spline interpolation
         prev = self._keys[index - 1]
         next = self._keys[index]
 
-        t = (x - prev.x) / float(next.x - prev.x)
+        dx = float(next.x - prev.x)
+        dy = float(next.y - prev.y)
+
+        t = (x - prev.x) / dx
 
         tt = t * t
         ttt = t * tt
@@ -109,6 +112,6 @@ class HermiteCurve(ItemRow):
         h11t = ttt - tt
 
         return (h00t * prev.y +
-                h10t * prev.outTangentY +
-                h11t * next.inTangentY +
+                h10t * prev.outTangentY * dy +
+                h11t * next.inTangentY * dy +
                 h01t * next.y)

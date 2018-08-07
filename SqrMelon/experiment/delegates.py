@@ -89,12 +89,13 @@ class NamedColums(QTableView):
 
     def _updateNames(self):
         names = self.columnNames()
-        self.model().setHorizontalHeaderLabels(names)
-        self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
-        self.horizontalHeader().setResizeMode(0, QHeaderView.Interactive)
-        for i in xrange(1, len(names) - 1):
-            self.horizontalHeader().setResizeMode(i, QHeaderView.ResizeToContents)
-        self.horizontalHeader().setResizeMode(len(names) - 1, QHeaderView.Stretch)
+        if self.model():
+            self.model().setHorizontalHeaderLabels(names)
+            self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
+            self.horizontalHeader().setResizeMode(0, QHeaderView.Interactive)
+            for i in xrange(1, len(names) - 1):
+                self.horizontalHeader().setResizeMode(i, QHeaderView.ResizeToContents)
+            self.horizontalHeader().setResizeMode(len(names) - 1, QHeaderView.Stretch)
 
     @staticmethod
     def columnNames():

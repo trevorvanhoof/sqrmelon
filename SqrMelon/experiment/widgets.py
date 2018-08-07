@@ -7,6 +7,9 @@ from experiment.model import Shot, Clip, Event
 from qtutil import *
 
 
+def sign(x): return -1 if x < 0 else 1
+
+
 class CurveList(UndoableSelectionView):
     def __init__(self, source, undoStack, parent=None):
         super(CurveList, self).__init__(undoStack, parent)
@@ -102,10 +105,12 @@ class CurveView(QWidget):
         key = curve.key(i)
         if not isOut:
             dx = curve.key(i - 1).x - key.x
-            wt = key.inTangentY
+            dy = curve.key(i - 1).y - key.y
+            wt = key.inTangentY * -dy
         else:
             dx = curve.key(i + 1).x - key.x
-            wt = key.outTangentY
+            dy = curve.key(i + 1).y - key.y
+            wt = key.outTangentY * dy
 
         t = cos(asin(wt / 3.0)) * dx
         dx, dy = self.uToPx(t + self.left, wt + self.top)
