@@ -110,7 +110,7 @@
         <global path="header.glsl"/>
         <global path="noiselib.glsl"/>
         <global path="sdf.glsl"/>
-		<shared path="present.glsl"/>
+		<global path="present.glsl"/>
 	</pass>
 
     <pass input0="4" name="FXAA3">
