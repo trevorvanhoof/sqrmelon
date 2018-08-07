@@ -9,7 +9,7 @@ uniform vec2 uResolution;
 // Image input as defined in the template.
 // Because this header is included everywhere the array size just matches the max input count in the shader graph.
 // Some passes may not use all indices (or otherwise access inactive texture IDs).
-uniform sampler2D uImages[3];
+uniform sampler2D uImages[4];
 
 // Time from the tool
 uniform float uBeats;
@@ -67,7 +67,46 @@ Ray ScreenRayUV(vec2 uv)
     return Ray(uV[3].xyz, normalize(direction * mat3(uV)));
 }
 // Shoots a ray through the current pixel based on uV and uFrustum
-Ray ScreenRay(){return ScreenRayUV(gl_FragCoord.xy/uResolution);}
+uniform vec3 uShake; // speed, seed, amount
+uniform float uFishEye;
+const float PI=3.1415926535897;
+vec2 FishEyeUV(float amount)
+{
+    //normalized coords with some cheat
+    vec2 uv = gl_FragCoord.xy / uResolution.x;
+	float aspectRatio = uResolution.x / uResolution.y;
+	vec2 center = vec2(0.5, 0.5 / aspectRatio);
+	vec2 direction = uv - center;
+	float radius = length(direction);
+
+	// stick to corners
+	float bind = length(center);
+	float power = PI / bind * amount;
+	/*if (power < 0.0)
+	{
+	    // stick to borders
+	    if (aspectRatio < 1.0) bind = center.x;
+	    else bind = center.y;
+	}*/
+
+	// if (power > 0.0) // fisheye
+    uv = center + (direction / radius) * tan(radius * power) * bind / tan( bind * power);
+	// else if (power < 0.0) // antifisheye
+	//	   uv = center + normalize(direction) * atan(radius * -power * 10.0) * bind / atan(-power * bind * 10.0);
+	// else
+	//     uv = uv;
+
+    return vec2(uv.x, uv.y * aspectRatio);
+}
+Ray ScreenRay()
+{
+    vec2 uv = (uFishEye>0.)?FishEyeUV(uFishEye):(gl_FragCoord.xy/uResolution),
+    suv=vec2(uBeats*uShake.x,uShake.y);
+    Ray ray = ScreenRayUV(uv);
+    ray.origin+=uV[0].xyz*(texture(uImages[3],suv).y-.5)*uShake.z;
+    ray.origin+=uV[1].xyz*(texture(uImages[3],suv+.5).y-.5)*uShake.z;
+    return ray;
+}
 
 /// Utilities ///
 #define sat(x) clamp(x,0.,1.)
@@ -78,11 +117,13 @@ float vmax(vec4 v){return max(vmax(v.xy),vmax(v.zw));}
 float vmin(vec2 v){return min(v.x,v.y);}
 float vmin(vec3 v){return min(v.x,vmin(v.yz));}
 
-const float PI=3.1415926535897;
 const float TAU=PI+PI;
 float sqr(float x){return x*x;}
 float cub(float x){return sqr(x)*x;}
 float quad(float x){return sqr(sqr(x));}
+
+float stepPass(float a,float b){return step(a,b)*b;}
+float stepNormalized(float a,float b){return stepPass(0.,(b-a)/(1.-a));}
 
 /// Color conversions ///
 // https://gist.github.com/sugi-cho/6a01cae436acddd72bdf

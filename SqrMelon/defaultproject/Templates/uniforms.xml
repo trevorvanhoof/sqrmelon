@@ -1,0 +1,16 @@
+<templates>
+    <template name="default">
+        <channel name="uOrigin.x" value="0.0"/>
+        <channel name="uOrigin.y" value="0.0"/>
+        <channel name="uOrigin.z" value="0.0"/>
+        <channel name="uAngles.x" value="0.0"/>
+        <channel name="uAngles.y" value="0.0"/>
+        <channel name="uAngles.z" value="0.0"/>
+        <channel name="uFovBias" value="0.22"/>
+        <channel name="uShake.x" value="0.002"/>
+        <channel name="uShake.y" value="0.5"/>
+        <channel name="uShake.z" value="0.2"/>
+        <channel name="uFishEye" value="0.0"/>
+        <channel name="uChromaticAberrationRadius" value="0.2"/>
+    </template>
+</templates>

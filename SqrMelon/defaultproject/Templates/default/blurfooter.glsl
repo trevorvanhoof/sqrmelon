@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream:SqrMelon/defaultproject/Templates/master/directionalblurrefl.glsl
 #version 410
 
 out vec4 c;
@@ -10,12 +11,18 @@ uniform float uBlurSize;
 
 const float e[7]=float[7](0.0205,.0855,.232,.324,.232,.0855,.0205);
 uniform float g; // use input reflection roughness for blur kernel?
+=======
+const float e[7]=float[7](0.0205,.0855,.232,.324,.232,.0855,.0205);
+>>>>>>> Stashed changes:SqrMelon/defaultproject/Templates/default/blurfooter.glsl
 
 void main()
 {
 vec2 f=gl_FragCoord.xy/uResolution;
-vec2 a=uDirection/uResolution*uBlurSize*mix(1,texture(uImages[0],f).w,g),
-b=f-a*3;
+vec2 a=uDirection/uResolution*uBlurSize
+#ifdef uUseAlpha
+*texture(uImages[0],f).w
+#endif
+,b=f-a*3;
 c=vec4(0);
 for(int d=0;d<7;d++)
 {
