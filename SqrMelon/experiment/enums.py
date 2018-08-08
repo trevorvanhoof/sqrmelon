@@ -38,3 +38,24 @@ class ELoopMode(Enum):
 
 ELoopMode.Clamp = ELoopMode('Clamp')
 ELoopMode.Loop = ELoopMode('Loop')
+
+
+class ETangentMode(Enum):
+    Auto = None
+    Flat = None
+    Linear = None
+    Spline = None
+    Stepped = None
+    Custom = None
+
+    @staticmethod
+    def options():
+        return 'Auto', 'Flat', 'Linear', 'Spline', 'Stepped', 'Custom'
+
+
+ETangentMode.Auto = ETangentMode('Auto')
+ETangentMode.Flat = ETangentMode('Flat')
+ETangentMode.Linear = ETangentMode('Linear')
+ETangentMode.Spline = ETangentMode('Spline')
+ETangentMode.Stepped = ETangentMode('Stepped')
+ETangentMode.Custom = ETangentMode('Custom')

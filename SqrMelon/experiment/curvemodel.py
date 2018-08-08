@@ -1,16 +1,21 @@
 from qtutil import Signal
-from experiment.enums import ELoopMode
+from experiment.enums import ELoopMode, ETangentMode
 from experiment.modelbase import ItemRow
 
 
-class HermiteKey(object):
-    __slots__ = ('x', 'y', 'inTangentY', 'outTangentY', 'parent')
+def sign(x): return -1 if x < 0 else 1
 
-    def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0, parent=None):
+
+class HermiteKey(object):
+    __slots__ = ('x', 'y', 'inTangentY', 'outTangentY', 'inTangentMode', 'outTangentMode', 'parent')
+
+    def __init__(self, x=0.0, y=0.0, inTangentY=0.0, outTangentY=0.0, inTangentMode=ETangentMode.Custom, outTangentMode=ETangentMode.Custom, parent=None):
         self.x = x
         self.y = y
         self.inTangentY = inTangentY
         self.outTangentY = outTangentY
+        self.inTangentMode = inTangentMode
+        self.outTangentMode = outTangentMode
         self.parent = parent
 
     def setData(self, x, y, inTangentY, outTangentY):
@@ -21,6 +26,82 @@ class HermiteKey(object):
 
     def copyData(self):
         return self.x, self.y, self.inTangentY, self.outTangentY
+
+    def computeTangents(self):
+        """
+        Compute tangents based on tangent mode.
+        They're left alone if tangent mode is custom, assuming the user set them to some preferred way.
+
+        Current tangent modes:
+
+        CUSTOM: Tangents are user defined and not computed.
+        FLAT: Tangents are horizontal, causing easing in/out of keys.
+        STEPPED: Special tangent value (infinity), indicating no interpolation should be done. If out- and in-tangents are both stepped for a given curve segment, the previous key value is used.
+        LINEAR: Tangents are pointing to the prev / next key, causing constant velocity between keys.
+        SPLINE: Given the previous and next key points, tangents are parallel to the line between these points, given a continuous feel and smoothing out acceleration. Good for (camera) angular values.
+        AUTO: When velocity does not change direction acts like SPLINE, else it acts like FLAT.
+        """
+        inTangentDone = False
+        if self.inTangentMode == ETangentMode.Custom:
+            inTangentDone = True
+        elif self.inTangentMode == ETangentMode.Flat:
+            self.inTangentY = 0.0
+            inTangentDone = True
+        elif self.inTangentMode == ETangentMode.Stepped:
+            self.inTangentY = float('infinity')
+            inTangentDone = True
+
+        outTangentDone = False
+        if self.outTangentMode == ETangentMode.Custom:
+            outTangentDone = True
+        elif self.outTangentMode == ETangentMode.Flat:
+            self.outTangentY = 0.0
+            outTangentDone = True
+        elif self.outTangentMode == ETangentMode.Stepped:
+            self.outTangentY = float('infinity')
+            outTangentDone = True
+
+        # both were flat, custom or stepped, done
+        if inTangentDone and outTangentDone:
+            return
+
+        keys = self.parent._keys
+        idx = keys.index(self)
+
+        prev = keys[idx - 1]
+        next = keys[idx + 1]
+
+        prevToMeDY = (self.y - prev.y) / (self.x - prev.x)
+        meToNextDY = (next.y - self.y) / (next.x - self.x)
+
+        if not inTangentDone and self.inTangentMode == ETangentMode.Linear:
+            self.inTangentY = prevToMeDY
+            inTangentDone = True
+
+        if not outTangentDone and self.outTangentY == ETangentMode.Linear:
+            self.outTangentY = prevToMeDY
+            outTangentDone = True
+
+        # both were flat, custom, stepped or linear, done
+        if inTangentDone and outTangentDone:
+            return
+
+        splineDY = (prevToMeDY + meToNextDY) * 0.5
+        autoIsSpline = sign(prevToMeDY) == sign(meToNextDY)
+
+        if not inTangentDone:
+            if self.inTangentMode == ETangentMode.Spline or autoIsSpline:
+                self.inTangentY = splineDY
+            else:
+                assert self.inTangentMode == ETangentMode.Auto, 'Unknown tangent mode'
+                self.inTangentY = 0.0
+
+        if not outTangentDone:
+            if self.outTangentMode == ETangentMode.Spline or autoIsSpline:
+                self.outTangentY = splineDY
+            else:
+                assert self.outTangentMode == ETangentMode.Auto, 'Unknown tangent mode'
+                self.outTangentY = 0.0
 
 
 def binarySearch(value, data, key=lambda x: x):
