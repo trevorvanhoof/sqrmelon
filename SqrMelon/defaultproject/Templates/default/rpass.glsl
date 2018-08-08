@@ -1,7 +1,5 @@
-
 // reflection pass is a little special, it writes to a full screen pass because the tool can't dynamically edit buffer sizes
 // so this way we can have a setting for "reflection quality" in the shader code & discard unused fragments, it's still quite cheap
-
 void main()
 {
     outColor0=vec4(0);
@@ -14,7 +12,7 @@ void main()
     // discard non reflective pixels
     if(vmax(specularColor_roughness)==0.0)
         return;
-    Ray ray=ScreenRayUV(gl_FragCoord.xy/(uResolution/REFL_FACTOR));
+    Ray ray=ScreenRay(REFL_FACTOR);
     vec4 gbuf=texelFetch(uImages[1],fc*REFL_FACTOR,0);
     // extract packed normal
     int n=floatBitsToInt(gbuf.w);

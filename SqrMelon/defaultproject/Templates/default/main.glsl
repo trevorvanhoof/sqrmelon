@@ -4,7 +4,7 @@ out vec4 outColor2;
 void main()
 {
     Ray ray=ScreenRay();
-    float near=texelFetch(uImages[0],ivec2(gl_FragCoord.xy/8),0).x;
+    float near=0.0;//texelFetch(uImages[0],ivec2(gl_FragCoord.xy/8),0).x;
     LightData data=TraceAndShade(ray,near,FAR,STEPS);
 
     // store hit point & normal in world space

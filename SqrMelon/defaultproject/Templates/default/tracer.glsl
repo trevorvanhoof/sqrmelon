@@ -3,7 +3,7 @@
 Hit Trace(Ray ray, float near, float far, int steps)
 {
     // Compute pixel radius for cone trace
-    float pixelRadius = uFrustum[2].y / uResolution.y * 0.5;
+    float pixelRadius = uFrustum[2].y / uResolution.y * 2.0;
 
     vec4 materialId; // track material metadata of nearest point
     float fudge = 1.6; // over-relaxation to accelerate steps

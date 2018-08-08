@@ -1,7 +1,7 @@
 #version 410
 
 // Precision of the distance field & normal calculation.
-const float EPSILON = 0.001;
+const float EPSILON = 0.0001;
 
 // Current render target size in pixels (width, height)
 uniform vec2 uResolution;
@@ -9,7 +9,7 @@ uniform vec2 uResolution;
 // Image input as defined in the template.
 // Because this header is included everywhere the array size just matches the max input count in the shader graph.
 // Some passes may not use all indices (or otherwise access inactive texture IDs).
-uniform sampler2D uImages[4];
+uniform sampler2D uImages[8];
 
 // Time from the tool
 uniform float uBeats;
@@ -61,19 +61,23 @@ Material MixMaterial(Material a, Material b, float w)
 }
 
 // Shoots a ray through the current pixel based on uV and uFrustum
-Ray ScreenRayUV(vec2 uv)
-{
-    vec3 direction = mix(mix(uFrustum[0].xyz, uFrustum[1].xyz, uv.x), mix(uFrustum[2].xyz, uFrustum[3].xyz, uv.x), uv.y);
-    return Ray(uV[3].xyz, normalize(direction * mat3(uV)));
-}
-// Shoots a ray through the current pixel based on uV and uFrustum
-uniform vec3 uShake; // speed, seed, amount
+uniform vec3 uShake;
 uniform float uFishEye;
 const float PI=3.1415926535897;
-vec2 FishEyeUV(float amount)
+Ray ScreenRayUV(vec2 uv)
+{
+    vec2 suv=vec2(uBeats*uShake.x,uShake.y);
+    vec3 direction = mix(mix(uFrustum[0].xyz, uFrustum[1].xyz, uv.x), mix(uFrustum[2].xyz, uFrustum[3].xyz, uv.x), uv.y);
+    return Ray(uV[3].xyz
+             + uV[0].xyz*(texture(uImages[3],suv).y-.5)*uShake.z
+             + uV[1].xyz*(texture(uImages[3],suv+.5).y-.5)*uShake.z,
+               normalize(direction * mat3(uV)));
+}
+// Shoots a ray through the current pixel based on uV and uFrustum
+vec2 FishEyeUV(float amount, float factor)
 {
     //normalized coords with some cheat
-    vec2 uv = gl_FragCoord.xy / uResolution.x;
+    vec2 uv = gl_FragCoord.xy / (uResolution.x / factor);
 	float aspectRatio = uResolution.x / uResolution.y;
 	vec2 center = vec2(0.5, 0.5 / aspectRatio);
 	vec2 direction = uv - center;
@@ -98,14 +102,13 @@ vec2 FishEyeUV(float amount)
 
     return vec2(uv.x, uv.y * aspectRatio);
 }
+Ray ScreenRay(float factor)
+{
+    return ScreenRayUV((uFishEye > 0.) ? FishEyeUV(uFishEye, factor) : (gl_FragCoord.xy / (uResolution / factor)));
+}
 Ray ScreenRay()
 {
-    vec2 uv = (uFishEye>0.)?FishEyeUV(uFishEye):(gl_FragCoord.xy/uResolution),
-    suv=vec2(uBeats*uShake.x,uShake.y);
-    Ray ray = ScreenRayUV(uv);
-    ray.origin+=uV[0].xyz*(texture(uImages[3],suv).y-.5)*uShake.z;
-    ray.origin+=uV[1].xyz*(texture(uImages[3],suv+.5).y-.5)*uShake.z;
-    return ray;
+    return ScreenRay(1.0);
 }
 
 /// Utilities ///

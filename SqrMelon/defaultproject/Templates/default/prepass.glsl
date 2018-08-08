@@ -2,7 +2,7 @@
 // https://www.shadertoy.com/view/XdycWy by Henrik Münther
 void main()
 {
-    Ray ray = ScreenRayUV(gl_FragCoord.xy/uResolution);
+    Ray ray = ScreenRay();
 
     Hit hit = Trace(ray, 0.0, FAR, STEPS);
 
