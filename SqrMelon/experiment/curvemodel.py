@@ -24,7 +24,7 @@ class HermiteKey(object):
 
 
 def binarySearch(value, data, key=lambda x: x):
-    # finds value in data, assumes data is sorted small to large
+    # finds value in data, assumes data is sort()ed small to large
     a, b = 0, len(data) - 1
     index = -1
     while a <= b:
@@ -50,7 +50,7 @@ class HermiteCurve(ItemRow):
         for key in self._keys: key.parent = self
 
     def sort(self):
-        self._keys = sorted(self._keys, key=lambda x: x.x)
+        self.__dict__['_keys'] = sorted(self.__dict__['_keys'], key=lambda x: x.x)
 
     def key(self, index):
         return self._keys[index]
@@ -95,7 +95,6 @@ class HermiteCurve(ItemRow):
         next = self._keys[index]
 
         dx = float(next.x - prev.x)
-        dy = float(next.y - prev.y)
 
         t = (x - prev.x) / dx
 
@@ -112,6 +111,6 @@ class HermiteCurve(ItemRow):
         h11t = ttt - tt
 
         return (h00t * prev.y +
-                h10t * prev.outTangentY * dy +
-                h11t * next.inTangentY * dy +
+                h10t * prev.outTangentY +
+                h11t * next.inTangentY +
                 h01t * next.y)

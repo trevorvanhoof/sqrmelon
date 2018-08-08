@@ -105,12 +105,10 @@ class CurveView(QWidget):
         key = curve.key(i)
         if not isOut:
             dx = curve.key(i - 1).x - key.x
-            dy = curve.key(i - 1).y - key.y
-            wt = key.inTangentY * -dy
+            wt = key.inTangentY
         else:
             dx = curve.key(i + 1).x - key.x
-            dy = curve.key(i + 1).y - key.y
-            wt = key.outTangentY * dy
+            wt = key.outTangentY
 
         t = cos(asin(wt / 3.0)) * dx
         dx, dy = self.uToPx(t + self.left, wt + self.top)
