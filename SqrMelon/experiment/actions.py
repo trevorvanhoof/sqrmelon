@@ -277,10 +277,10 @@ class MoveTangentAction(object):
 
         for key, value in self.__initialState.iteritems():
             mask = self.__masks[key]
-            if mask & 1 << 1:
-                key.inTangentY(value[2] + dy)
-            if mask & 1 << 2:
-                key.outTangentY(value[3] + dy)
+            if mask & 2:
+                key._setInTangentY(value[2] - dy)
+            if mask & 4:
+                key._setOutTangentY(value[3] + dy)
 
         return True  # repaint
 

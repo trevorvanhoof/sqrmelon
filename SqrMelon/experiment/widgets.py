@@ -204,19 +204,32 @@ class CurveView(QWidget):
             self.action.draw(painter)
 
     def mousePressEvent(self, event):
-        for key, mask in self.itemsAt(event.x() - 5, event.y() - 5, 10, 10):
-            if key not in self._selectionModel:
-                continue
-            if not self._selectionModel[key] & mask:
-                continue
-            if mask == 1:
-                self.action = MoveKeyAction(self._selectionModel, self.pxToU, self.repaint)
-                break
+        # middle click drag moves selection automatically
+        if event.button() == Qt.MiddleButton and self._selectionModel:
+            for mask in self._selectionModel.itervalues():
+                if mask & 6:
+                    # prefer moving tangents
+                    self.action = MoveTangentAction(self._selectionModel, self.pxToU, self.repaint)
+                    break
             else:
-                self.action = MoveTangentAction(self._selectionModel, self.pxToU, self.repaint)
-                break
+                # only keys selected
+                self.action = MoveKeyAction(self._selectionModel, self.pxToU, self.repaint)
         else:
-            self.action = MarqueeAction(self, self._selectionModel)
+            # left click drag moves selection only when clicking a selected element
+            for key, mask in self.itemsAt(event.x() - 5, event.y() - 5, 10, 10):
+                if key not in self._selectionModel:
+                    continue
+                if not self._selectionModel[key] & mask:
+                    continue
+                if mask == 1:
+                    self.action = MoveKeyAction(self._selectionModel, self.pxToU, self.repaint)
+                    break
+                else:
+                    self.action = MoveTangentAction(self._selectionModel, self.pxToU, self.repaint)
+                    break
+            else:
+                # else we start a new selection action
+                self.action = MarqueeAction(self, self._selectionModel)
 
         if self.action.mousePressEvent(event):
             self.repaint()
