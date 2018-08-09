@@ -148,6 +148,8 @@ class CurveUI(QWidget):
             if mask == 1:
                 key.inTangentMode = tangentMode
                 key.outTangentMode = tangentMode
+
+            key.computeTangents()
         self._undoStack.push(KeyEdit(restore, self._curveView.repaint))
 
     def __addChannel(self):

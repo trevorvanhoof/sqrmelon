@@ -1,3 +1,4 @@
+from experiment.enums import ETangentMode
 from experiment.keyselection import selectNew, selectAdd, selectRemove, selectToggle
 from experiment.curvemodel import HermiteKey
 from qtutil import *
@@ -208,8 +209,9 @@ class KeyEdit(QUndoCommand):
 class MoveKeyAction(object):
     def __init__(self, selectedKeys, reproject, triggerRepaint):
         self.__reproject = reproject
-        self.__initialState = {key: key.copyData() for key in selectedKeys}
         self.__curves = {key.parent for key in selectedKeys}
+        # TODO: initialState must cover adjacent keys of selectedKeys before AND after an edit, since we don't know the AFTER state yet, I'm just gonna cache the entire curve
+        self.__initialState = {key: key.copyData() for curve in self.__curves for key in curve}
         self.__dragStartPx = None
         self.__dragStartU = None
         self.__triggerRepaint = triggerRepaint
@@ -251,6 +253,10 @@ class MoveKeyAction(object):
             for curve in self.__curves:
                 curve.sort()
 
+        # must do this after sorting...
+        for key in self.__initialState:
+            key.updateTangents()
+
         return True  # repaint
 
     def draw(self, painter):
@@ -282,8 +288,10 @@ class MoveTangentAction(object):
             mask = self.__masks[key]
             if mask & 2:
                 key.inTangentY = value[2] - dy
+                key.inTangentMode = ETangentMode.Custom
             if mask & 4:
                 key.outTangentY = value[3] + dy
+                key.outTangentMode = ETangentMode.Custom
 
         return True  # repaint
 
