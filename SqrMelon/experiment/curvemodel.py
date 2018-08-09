@@ -18,14 +18,16 @@ class HermiteKey(object):
         self.outTangentMode = outTangentMode
         self.parent = parent
 
-    def setData(self, x, y, inTangentY, outTangentY):
+    def setData(self, x, y, inTangentY, outTangentY, inTangentMode, outTangentMode):
         self.x = x
         self.y = y
         self.inTangentY = inTangentY
         self.outTangentY = outTangentY
+        self.inTangentMode = inTangentMode
+        self.outTangentMode = outTangentMode
 
     def copyData(self):
-        return self.x, self.y, self.inTangentY, self.outTangentY
+        return self.x, self.y, self.inTangentY, self.outTangentY, self.inTangentMode, self.outTangentMode
 
     def computeTangents(self):
         """

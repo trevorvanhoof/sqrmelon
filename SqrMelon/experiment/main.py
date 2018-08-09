@@ -3,7 +3,7 @@ from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.enums import ELoopMode
 from experiment.model import Clip, Shot, Event
 from experiment.timelineview import TimelineView
-from experiment.widgets import CurveList, ShotManager, CurveView, ClipManager, EventManager
+from experiment.widgets import ShotManager, ClipManager, EventManager, CurveUI
 
 if __name__ == '__main__':
     app = QApplication([])
@@ -33,9 +33,7 @@ if __name__ == '__main__':
     clipManager.model().appendRow(clip0.items)
     clipManager.model().appendRow(clip1.items)
 
-    curveList = CurveList(clipManager, undoStack)
-
-    curveView = CurveView(curveList, undoStack)
+    curveUI = CurveUI(clipManager, undoStack)
 
     eventTimeline = TimelineView(shotManager.model(), eventManager.model())
 
@@ -43,8 +41,7 @@ if __name__ == '__main__':
     mainWindow.setDockNestingEnabled(True)
     mainWindow.createDockWidget(undoView)
     mainWindow.createDockWidget(clipManager)
-    mainWindow.createDockWidget(curveList)
-    mainWindow.createDockWidget(curveView)
+    mainWindow.createDockWidget(curveUI)
     mainWindow.createDockWidget(shotManager)
     mainWindow.createDockWidget(eventManager)
     mainWindow.createDockWidget(eventTimeline)

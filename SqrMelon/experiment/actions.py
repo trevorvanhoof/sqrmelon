@@ -178,7 +178,7 @@ class KeyEdit(QUndoCommand):
     """
 
     def __init__(self, restore, triggerRepaint, parent=None):
-        # type: (dict[HermiteKey, (float, float, float, float)], QUndoCommand) -> None
+        # type: (dict[HermiteKey, (float, float, float, float)], (), QUndoCommand) -> None
         super(KeyEdit, self).__init__('Key edit', parent)
         self.restore = restore
         self.triggerRepaint = triggerRepaint
@@ -210,12 +210,14 @@ class MoveKeyAction(object):
         self.__reproject = reproject
         self.__initialState = {key: key.copyData() for key in selectedKeys}
         self.__curves = {key.parent for key in selectedKeys}
-        self.__dragStart = None
+        self.__dragStartPx = None
+        self.__dragStartU = None
         self.__triggerRepaint = triggerRepaint
         self.__mask = 3
 
     def mousePressEvent(self, event):
-        self.__dragStart = self.__reproject(event.x(), event.y())
+        self.__dragStartPx = event.pos()
+        self.__dragStartU = self.__reproject(event.x(), event.y())
         if event.modifiers() == Qt.ShiftModifier:
             self.__mask = 0
         return False
@@ -225,16 +227,19 @@ class MoveKeyAction(object):
         return False
 
     def mouseMoveEvent(self, event):
-        dx, dy = self.__reproject(event.x(), event.y())
-        dx -= self.__dragStart[0]
-        dy -= self.__dragStart[1]
-
         if not self.__mask:
-            if abs(dx) > 4 and abs(dx) > abs(dy):
+            deltaPx = event.pos() - self.__dragStartPx
+            dxPx = deltaPx.x()
+            dyPx = deltaPx.y()
+            if abs(dxPx) > 4 and abs(dxPx) > abs(dyPx):
                 self.__mask = 1
-            if abs(dy) > 4 and abs(dy) > abs(dx):
+            if abs(dyPx) > 4 and abs(dyPx) > abs(dxPx):
                 self.__mask = 2
             return
+
+        dx, dy = self.__reproject(event.x(), event.y())
+        dx -= self.__dragStartU[0]
+        dy -= self.__dragStartU[1]
 
         for key, value in self.__initialState.iteritems():
             if self.__mask & 1:
@@ -262,8 +267,6 @@ class MoveTangentAction(object):
 
     def mousePressEvent(self, event):
         self.__dragStart = self.__reproject(event.x(), event.y())
-        if event.modifiers() == Qt.ShiftModifier:
-            self.__mask = 0
         return False
 
     def mouseReleaseEvent(self, undoStack):

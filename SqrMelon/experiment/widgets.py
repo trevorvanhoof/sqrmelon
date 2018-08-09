@@ -1,7 +1,12 @@
+import re
+import functools
 from math import cos, asin
-from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction
+
+import icons
+from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit
 from experiment.curvemodel import HermiteCurve
 from experiment.delegates import UndoableSelectionView
+from experiment.enums import ETangentMode, ELoopMode
 from experiment.keyselection import KeySelection
 from experiment.model import Shot, Clip, Event
 from qtutil import *
@@ -35,6 +40,162 @@ class CurveList(UndoableSelectionView):
         self.selectAll()
 
 
+def createToolButton(iconName, toolTip, parent):
+    btn = QPushButton(icons.get(iconName), '')
+    btn.setToolTip(toolTip)
+    btn.setStatusTip(toolTip)
+    parent.addWidget(btn)
+    return btn
+
+
+class CurveUI(QWidget):
+    def __init__(self, clipManager, undoStack):
+        super(CurveUI, self).__init__()
+        mainLayout = QVBoxLayout()
+        self.setLayout(mainLayout)
+        toolBar = QHBoxLayout()
+
+        createToolButton('Add Node-48', 'Add channel', toolBar).clicked.connect(self.__addChannel)
+        createToolButton('Delete Node-48', 'Remove selected channels', toolBar).clicked.connect(self.__deleteChannels)
+
+        self._relative = QCheckBox()
+        self._time = QDoubleSpinBox()
+        self._value = QDoubleSpinBox()
+
+        toolBar.addWidget(QLabel('Relative:'))
+        toolBar.addWidget(self._relative)
+        toolBar.addWidget(QLabel('Time:'))
+        toolBar.addWidget(self._time)
+        toolBar.addWidget(QLabel('Value:'))
+        toolBar.addWidget(self._value)
+
+        self._time.editingFinished.connect(self.__timeChanged)
+        self._value.editingFinished.connect(self.__valueChanged)
+
+        createToolButton('tangent-auto', 'Set selected tangents to Auto', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Auto))
+        createToolButton('tangent-spline', 'Set selected tangents to Spline', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Spline))
+        createToolButton('tangent-linear', 'Set selected tangents to Linear', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Linear))
+        createToolButton('tangent-flat', 'Set selected tangents to Flat', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Flat))
+        createToolButton('tangent-stepped', 'Set selected tangents to Stepped', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Stepped))
+        createToolButton('tangent-broken', 'Set selected tangents to Custom', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Custom))
+
+        createToolButton('Move-48', 'Key camera position into selected channels', toolBar).clicked.connect(self.__copyCameraPosition)
+        createToolButton('3D Rotate-48', 'Key camera radians into selected channels', toolBar).clicked.connect(self.__copyCameraAngles)
+        createToolButton('Duplicate-Keys-24', 'Duplicated selected keys', toolBar).clicked.connect(self.__copyKeys)
+
+        toolBar.addStretch(1)
+
+        splitter = QSplitter(Qt.Horizontal)
+        self._curveList = CurveList(clipManager, undoStack)
+        self._curveView = CurveView(self._curveList, undoStack)
+        self._undoStack = undoStack
+        self._curveView.selectionModel.changed.connect(self.__keySelectionChanged)
+        splitter.addWidget(self._curveList)
+        splitter.addWidget(self._curveView)
+
+        mainLayout.addLayout(toolBar)
+        mainLayout.addWidget(splitter)
+        mainLayout.setStretch(0, 0)
+        mainLayout.setStretch(1, 1)
+
+    def __keySelectionChanged(self):
+        # set value and time fields to match selection
+        cache = None
+        for key, mask in self._curveView.selectionModel.iteritems():
+            if not mask & 1:
+                continue
+            if cache is None:
+                cache = key
+            else:
+                break
+        if not cache:
+            self._time.setEnabled(False)
+            self._value.setEnabled(False)
+            return
+        self._time.setEnabled(True)
+        self._value.setEnabled(True)
+        self._time.setValue(cache.x)
+        self._value.setValue(cache.y)
+
+    def __valueChanged(self, value):
+        restore = {}
+        for key, mask in self._curveView.selectionModel.iteritems():
+            if not mask & 1:
+                continue
+            restore[key] = key.copyData()
+            key.y = value
+        self._undostack.push(KeyEdit(restore, self._curveView.repaint))
+
+    def __timeChanged(self, value):
+        restore = {}
+        for key, mask in self._curveView.selectionModel.iteritems():
+            if not mask & 1:
+                continue
+            restore[key] = key.copyData()
+            key.x = value
+        self._undostack.push(KeyEdit(restore, self._curveView.repaint))
+
+    def __setTangentMode(self, tangentMode):
+        restore = {}
+        for key, mask in self._curveView.selectionModel.iteritems():
+            restore[key] = key.copyData()
+            if mask & 2:
+                key.inTangentMode = tangentMode
+
+            if mask & 4:
+                key.outTangentMode = tangentMode
+
+            if mask == 1:
+                key.inTangentMode = tangentMode
+                key.outTangentMode = tangentMode
+        self._undoStack.push(KeyEdit(restore, self._curveView.repaint))
+
+    def __addChannel(self):
+        res = QInputDialog.getText(self, 'Create channel',
+                                   'Name with optional [xy], [xyz], [xyzw] suffix\n'
+                                   'e.g. "uPosition[xyz]", "uSize[xy]".')
+        if not res[1] or not res[0]:
+            return
+        pat = re.compile(r'^[a-zA-Z_0-9]+(\[[x][y]?[z]?[w]?\])?$')
+        if not pat.match(res[0]):
+            QMessageBox.critical(self, 'Could not add attribute',
+                                 'Invalid name or channel pattern given. '
+                                 'Please use only alphanumeric characters and undersores;'
+                                 'also use only these masks: [x], [xy], [xyz], [xyzw].')
+            return
+        if '[' not in res[0]:
+            channelNames = [res[0]]
+        else:
+            channelNames = []
+            attr, channels = res[0].split('[', 1)
+            channels, remainder = channels.split(']')
+            for channel in channels:
+                channelNames.append('%s.%s' % (attr, channel))
+
+        mdl = self._curveList.model()
+        for channelName in channelNames:
+            if mdl.findItems(channelName):
+                QMessageBox.critical(self, 'Could not add attribute',
+                                     'An attribute with name "%s" already exists.\n'
+                                     'No attributes were added.' % channelName)
+                return
+
+        for channelName in channelNames:
+            mdl.appendRow(HermiteCurve(channelName, ELoopMode.Clamp, []).items)
+
+    def __deleteChannels(self):
+        pass
+
+    def __copyCameraPosition(self):
+        pass
+
+    def __copyCameraAngles(self):
+        pass
+
+    def __copyKeys(self):
+        pass
+
+
 class CurveView(QWidget):
     # TODO: Curve loop mode change should trigger a repaint
     # TODO: Ability to watch shots instead of clips so shot loop mode and time range can be rendered as well (possibly just have an optional shot field that the painter picks up on)
@@ -45,8 +206,8 @@ class CurveView(QWidget):
 
         self._visibleCurves = set()
         self.setFocusPolicy(Qt.StrongFocus)
-        self._selectionModel = KeySelection()
-        self._selectionModel.changed.connect(self.repaint)
+        self.selectionModel = KeySelection()
+        self.selectionModel.changed.connect(self.repaint)
         self._undoStack = undoStack
         self.action = None
 
@@ -65,7 +226,7 @@ class CurveView(QWidget):
         keyStateChange = {}
         for curve in deselected:
             for key in curve.keys:
-                if key in self._selectionModel:
+                if key in self.selectionModel:
                     keyStateChange[key] = 0
 
         # no keys to deselect
@@ -74,7 +235,7 @@ class CurveView(QWidget):
             return
 
         try:
-            cmd = KeySelectionEdit(self._selectionModel, keyStateChange)
+            cmd = KeySelectionEdit(self.selectionModel, keyStateChange)
             if cmd.canPush:
                 self._undoStack.push(cmd)
             else:
@@ -138,7 +299,7 @@ class CurveView(QWidget):
                 if x <= kx <= x + w and y < ky <= y + h:
                     yield key, 1
 
-                if key not in self._selectionModel:
+                if key not in self.selectionModel:
                     # key or tangent must be selected for tangents to be visible
                     continue
 
@@ -174,7 +335,7 @@ class CurveView(QWidget):
         for curve in self._visibleCurves:
             for i, key in enumerate(curve.keys):
                 # if key is selected, paint tangents
-                selectionState = self._selectionModel.get(key, 0)
+                selectionState = self.selectionModel.get(key, 0)
 
                 # key selected
                 if selectionState & 1:
@@ -203,31 +364,31 @@ class CurveView(QWidget):
 
     def mousePressEvent(self, event):
         # middle click drag moves selection automatically
-        if event.button() == Qt.MiddleButton and self._selectionModel:
-            for mask in self._selectionModel.itervalues():
+        if event.button() == Qt.MiddleButton and self.selectionModel:
+            for mask in self.selectionModel.itervalues():
                 if mask & 6:
                     # prefer moving tangents
-                    self.action = MoveTangentAction(self._selectionModel, self.pxToU, self.repaint)
+                    self.action = MoveTangentAction(self.selectionModel, self.pxToU, self.repaint)
                     break
             else:
                 # only keys selected
-                self.action = MoveKeyAction(self._selectionModel, self.pxToU, self.repaint)
+                self.action = MoveKeyAction(self.selectionModel, self.pxToU, self.repaint)
         else:
             # left click drag moves selection only when clicking a selected element
             for key, mask in self.itemsAt(event.x() - 5, event.y() - 5, 10, 10):
-                if key not in self._selectionModel:
+                if key not in self.selectionModel:
                     continue
-                if not self._selectionModel[key] & mask:
+                if not self.selectionModel[key] & mask:
                     continue
                 if mask == 1:
-                    self.action = MoveKeyAction(self._selectionModel, self.pxToU, self.repaint)
+                    self.action = MoveKeyAction(self.selectionModel, self.pxToU, self.repaint)
                     break
                 else:
-                    self.action = MoveTangentAction(self._selectionModel, self.pxToU, self.repaint)
+                    self.action = MoveTangentAction(self.selectionModel, self.pxToU, self.repaint)
                     break
             else:
                 # else we start a new selection action
-                self.action = MarqueeAction(self, self._selectionModel)
+                self.action = MarqueeAction(self, self.selectionModel)
 
         if self.action.mousePressEvent(event):
             self.repaint()
