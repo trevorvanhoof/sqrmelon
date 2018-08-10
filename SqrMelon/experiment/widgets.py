@@ -3,7 +3,7 @@ import functools
 from math import cos, asin
 
 import icons
-from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit
+from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit, CurveModelEdit
 from experiment.curvemodel import HermiteCurve
 from experiment.delegates import UndoableSelectionView
 from experiment.enums import ETangentMode, ELoopMode
@@ -49,6 +49,7 @@ def createToolButton(iconName, toolTip, parent):
 
 
 class CurveUI(QWidget):
+    # TODO: Controlling enabled state of buttons may be a necessity, or at least avoid pushing QUndoCommands that don't do anything
     def __init__(self, clipManager, undoStack):
         super(CurveUI, self).__init__()
         mainLayout = QVBoxLayout()
@@ -137,20 +138,29 @@ class CurveUI(QWidget):
 
     def __setTangentMode(self, tangentMode):
         restore = {}
+        dirty = False
         for key, mask in self._curveView.selectionModel.iteritems():
             restore[key] = key.copyData()
             if mask & 2:
                 key.inTangentMode = tangentMode
+                dirty = True
 
             if mask & 4:
                 key.outTangentMode = tangentMode
+                dirty = True
 
             if mask == 1:
                 key.inTangentMode = tangentMode
                 key.outTangentMode = tangentMode
+                dirty = True
 
             key.computeTangents()
+
+        if not dirty:
+            return
+
         self._undoStack.push(KeyEdit(restore, self._curveView.repaint))
+        self.repaint()
 
     def __addChannel(self):
         res = QInputDialog.getText(self, 'Create channel',
@@ -182,20 +192,30 @@ class CurveUI(QWidget):
                                      'No attributes were added.' % channelName)
                 return
 
+        newCurves = []
         for channelName in channelNames:
-            mdl.appendRow(HermiteCurve(channelName, ELoopMode.Clamp, []).items)
+            newCurves.append(HermiteCurve(channelName, ELoopMode.Clamp, []))
+        if not newCurves:
+            return
+        self._undoStack.push(CurveModelEdit(mdl, newCurves, []))
 
     def __deleteChannels(self):
-        pass
+        rows = []
+        for index in self._curveList.selectionModel().selectedRows():
+            rows.append(index.row())
+        if not rows:
+            return
+        mdl = self._curveList.model()
+        self._undoStack.push(CurveModelEdit(mdl, [], rows))
 
     def __copyCameraPosition(self):
-        pass
+        raise NotImplementedError()
 
     def __copyCameraAngles(self):
-        pass
+        raise NotImplementedError()
 
     def __copyKeys(self):
-        pass
+        raise NotImplementedError()
 
 
 class CurveView(QWidget):
@@ -272,8 +292,7 @@ class CurveView(QWidget):
         else:
             dx = curve.key(i + 1).x - key.x
             wt = key.outTangentY
-
-        t = cos(asin(wt / 3.0)) * dx
+        t = dx # cos(asin(wt / 3.0)) * dx
         dx, dy = self.uToPx(t + self.left, wt + self.top)
         TANGENT_LENGTH = 20.0
         a = (dx * dx + dy * dy)

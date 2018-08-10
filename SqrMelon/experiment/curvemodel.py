@@ -70,18 +70,25 @@ class HermiteKey(object):
         keys = self.parent._keys
         idx = keys.index(self)
 
-        prev = keys[idx - 1]
-        next = keys[idx + 1]
+        if idx == 0:
+            next = keys[idx + 1]
+            prev = next
+        elif idx == len(keys) - 1:
+            prev = keys[idx - 1]
+            next = prev
+        else:
+            prev = keys[idx - 1]
+            next = keys[idx + 1]
 
-        prevToMeDY = (self.y - prev.y) / (self.x - prev.x)
-        meToNextDY = (next.y - self.y) / (next.x - self.x)
+        prevToMeDY = (self.y - prev.y) #  / (self.x - prev.x)
+        meToNextDY = (next.y - self.y) #  / (next.x - self.x)
 
         if not inTangentDone and self.inTangentMode == ETangentMode.Linear:
             self.inTangentY = prevToMeDY
             inTangentDone = True
 
-        if not outTangentDone and self.outTangentY == ETangentMode.Linear:
-            self.outTangentY = prevToMeDY
+        if not outTangentDone and self.outTangentMode == ETangentMode.Linear:
+            self.outTangentY = meToNextDY
             outTangentDone = True
 
         # both were flat, custom, stepped or linear, done
@@ -130,7 +137,8 @@ class HermiteCurve(ItemRow):
         super(HermiteCurve, self).__init__(name, loopMode)
         self.__dict__['_keys'] = data or []
         self.__dict__['changed'] = Signal()
-        for key in self._keys: key.parent = self
+        for key in self._keys:
+            key.parent = self
 
     def sort(self):
         self.__dict__['_keys'] = sorted(self.__dict__['_keys'], key=lambda x: x.x)

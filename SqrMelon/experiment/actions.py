@@ -206,12 +206,43 @@ class KeyEdit(QUndoCommand):
         self.triggerRepaint()
 
 
+class CurveModelEdit(QUndoCommand):
+    def __init__(self, model, pyObjsToAppend, rowIndicesToRemove, parent=None):
+        super(CurveModelEdit, self).__init__('Create / delete curves', parent)
+        self.model = model
+        self.pyObjsToAppend = pyObjsToAppend
+        self.rowIndicesToRemove = sorted(rowIndicesToRemove)
+        self.removedRows = []
+        self.modelSizeAfterRemoval = None
+
+    def redo(self):
+        # remove rows at inidices, starting at the lowest index
+        self.removedRows = []
+        for row in self.rowIndicesToRemove:
+            self.removedRows.append(self.model.takeRow(row))
+
+        # append additional rows
+        self.modelSizeAfterRemoval = self.model.rowCount()
+        for row in self.pyObjsToAppend:
+            self.model.appendRow(row.items)
+
+    def undo(self):
+        # remove appended items, before reinserting
+        while self.model.rowCount() > self.modelSizeAfterRemoval:
+            self.model.removeRow(self.model.rowCount() - 1)
+
+        # reinsert removed rows
+        for i, row in enumerate(self.rowIndicesToRemove):
+            self.model.insertRow(i, self.removedRows.pop(i))
+
+
 class MoveKeyAction(object):
     def __init__(self, selectedKeys, reproject, triggerRepaint):
         self.__reproject = reproject
         self.__curves = {key.parent for key in selectedKeys}
         # TODO: initialState must cover adjacent keys of selectedKeys before AND after an edit, since we don't know the AFTER state yet, I'm just gonna cache the entire curve
-        self.__initialState = {key: key.copyData() for curve in self.__curves for key in curve}
+        self.__selectedKeys = list(selectedKeys.iterkeys())
+        self.__initialState = {key: key.copyData() for curve in self.__curves for key in curve.keys}
         self.__dragStartPx = None
         self.__dragStartU = None
         self.__triggerRepaint = triggerRepaint
@@ -243,7 +274,8 @@ class MoveKeyAction(object):
         dx -= self.__dragStartU[0]
         dy -= self.__dragStartU[1]
 
-        for key, value in self.__initialState.iteritems():
+        for key in self.__selectedKeys:
+            value = self.__initialState[key]
             if self.__mask & 1:
                 key.x = value[0] + dx
             if self.__mask & 2:
@@ -255,7 +287,7 @@ class MoveKeyAction(object):
 
         # must do this after sorting...
         for key in self.__initialState:
-            key.updateTangents()
+            key.computeTangents()
 
         return True  # repaint
 
