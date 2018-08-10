@@ -471,14 +471,17 @@ class ViewPanAction(object):
 
     def mousePressEvent(self, event):
         self.__dragStart = event.pos()
-        self.__startPos = self.__rect.left, self.__rect.top
+        self.__startPos = self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom
 
     def mouseMoveEvent(self, event):
-        delta = event.pos() - self.__dragStart()
-        ux = delta.x() * self.__rect.width / float(self.__widgetSize.width())
-        uy = delta.y() * self.__rect.height / float(self.__widgetSize.height())
-        self.__rect.x = self.__startPos[0] + ux
-        self.__rect.y = self.__startPos[1] + uy
+        delta = event.pos() - self.__dragStart
+        ux = delta.x() * (self.__rect.right - self.__rect.left) / float(self.__widgetSize.width())
+        uy = delta.y() * (self.__rect.bottom - self.__rect.top) / float(self.__widgetSize.height())
+        self.__rect.left = self.__startPos[0] - ux
+        self.__rect.right = self.__startPos[1] - ux
+        self.__rect.top = self.__startPos[2] - uy
+        self.__rect.bottom = self.__startPos[3] - uy
+        return True
 
     def mouseReleaseEvent(self, event):
         pass

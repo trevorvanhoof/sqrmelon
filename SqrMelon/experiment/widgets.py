@@ -221,6 +221,7 @@ class CurveUI(QWidget):
 class CurveView(QWidget):
     # TODO: Curve loop mode change should trigger a repaint
     # TODO: Ability to watch shots instead of clips so shot loop mode and time range can be rendered as well (possibly just have an optional shot field that the painter picks up on)
+    # TODO: Cursor management
     def __init__(self, source, undoStack, parent=None):
         super(CurveView, self).__init__(parent)
         self._source = source
@@ -405,13 +406,28 @@ class CurveView(QWidget):
 
     def wheelEvent(self, event):
         # zoom
-        # TODO:!
-        pass
+        cx, cy = self.pxToU(event.x(), event.y())
+        extents = [self.left - cx, self.right - cx, self.top - cy, self.bottom - cy]
+        d = event.delta()
+        for step in xrange(abs(d)):
+            for i in xrange(4):
+                if d > 0:
+                    extents[i] *= 1.0005
+                else:
+                    extents[i] /= 1.0005
+        self.left = cx + extents[0]
+        self.right = cx + extents[1]
+        self.top = cy + extents[2]
+        self.bottom = cy + extents[3]
+        self.repaint()
 
     def mousePressEvent(self, event):
         # alt for camera manip
         if event.modifiers() & Qt.AltModifier:
             # pan
+            if event.button() == Qt.RightButton:
+                # TODO: zoom, possibly on single axis when holding shift
+                pass
             self.action = ViewPanAction(self, self.size())
 
         elif event.button() == Qt.RightButton:
