@@ -3,8 +3,8 @@ import functools
 from math import cos, asin
 
 import icons
-from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit, CurveModelEdit
-from experiment.curvemodel import HermiteCurve
+from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit, CurveModelEdit, MoveTimeAction, DeleteKeys, InsertKeys, ViewPanAction
+from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.delegates import UndoableSelectionView
 from experiment.enums import ETangentMode, ELoopMode
 from experiment.keyselection import KeySelection
@@ -239,6 +239,18 @@ class CurveView(QWidget):
         self.top = 2.0
         self.bottom = -1.0
 
+        # time
+        self.__time = 0.0
+
+    @property
+    def time(self):
+        return self.__time
+
+    @time.setter
+    def time(self, value):
+        self.__time = value
+        self.repaint()
+
     def _pull(self, *args):
         newState = {index.data(Qt.UserRole + 1) for index in self._source.selectionModel().selectedRows()}
         deselected = self._visibleCurves - newState
@@ -292,7 +304,7 @@ class CurveView(QWidget):
         else:
             dx = curve.key(i + 1).x - key.x
             wt = key.outTangentY
-        t = dx # cos(asin(wt / 3.0)) * dx
+        t = dx  # cos(asin(wt / 3.0)) * dx
         dx, dy = self.uToPx(t + self.left, wt + self.top)
         TANGENT_LENGTH = 20.0
         a = (dx * dx + dy * dy)
@@ -380,12 +392,33 @@ class CurveView(QWidget):
                 if i < curve.keyCount() - 1:
                     self._drawTangent2(painter, selectionState & (1 << 2), x, y, curve, i, True)
 
+        # paint playhead
+        x = self.tToX(self.time)
+        painter.setPen(Qt.red)
+        painter.drawLine(x, 0, x, self.height())
+        painter.setPen(Qt.darkRed)
+        painter.drawLine(x + 1, 0, x + 1, self.height())
+        painter.drawPixmap(x - 4, 0, icons.getImage('playhead'))
+
         if self.action is not None:
             self.action.draw(painter)
 
+    def wheelEvent(self, event):
+        # zoom
+        # TODO:!
+        pass
+
     def mousePressEvent(self, event):
-        # middle click drag moves selection automatically
-        if event.button() == Qt.MiddleButton and self.selectionModel:
+        # alt for camera manip
+        if event.modifiers() & Qt.AltModifier:
+            # pan
+            self.action = ViewPanAction(self, self.size())
+
+        elif event.button() == Qt.RightButton:
+            # right button moves the time slider
+            self.action = MoveTimeAction(self.time, self.xToT, functools.partial(self.__setattr__, 'time'))
+        elif event.button() == Qt.MiddleButton and self.selectionModel:
+            # middle click drag moves selection automatically
             for mask in self.selectionModel.itervalues():
                 if mask & 6:
                     # prefer moving tangents
@@ -427,6 +460,21 @@ class CurveView(QWidget):
         if self.action:
             if self.action.mouseMoveEvent(event):
                 self.repaint()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_I:
+            # insert key if there's no key at this time
+            apply = {}
+            for curve in self._visibleCurves:
+                apply[curve] = HermiteKey(self.time, curve.evaluate(self.time), 0, 0, ETangentMode.Auto, ETangentMode.Auto, curve)
+            self._undoStack.push(InsertKeys(apply, self.repaint))
+        if event.key() == Qt.Key_Delete:
+            # delete selected keys
+            apply = {}
+            for key, mask in self.selectionModel.iteritems():
+                if mask & 1:
+                    apply.setdefault(key.parent, []).append(key)
+            self._undoStack.push(DeleteKeys(apply, self.repaint))
 
 
 class ShotManager(UndoableSelectionView):

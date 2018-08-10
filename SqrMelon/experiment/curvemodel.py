@@ -68,6 +68,13 @@ class HermiteKey(object):
             return
 
         keys = self.parent._keys
+
+        # just 1 key, set flat and return
+        if len(keys) == 1:
+            self.inTangentY = 0.0
+            self.outTangentY = 0.0
+            return
+
         idx = keys.index(self)
 
         if idx == 0:
@@ -80,8 +87,8 @@ class HermiteKey(object):
             prev = keys[idx - 1]
             next = keys[idx + 1]
 
-        prevToMeDY = (self.y - prev.y) #  / (self.x - prev.x)
-        meToNextDY = (next.y - self.y) #  / (next.x - self.x)
+        prevToMeDY = (self.y - prev.y)  # / (self.x - prev.x)
+        meToNextDY = (next.y - self.y)  # / (next.x - self.x)
 
         if not inTangentDone and self.inTangentMode == ETangentMode.Linear:
             self.inTangentY = prevToMeDY
@@ -114,7 +121,7 @@ class HermiteKey(object):
 
 
 def binarySearch(value, data, key=lambda x: x):
-    # finds value in data, assumes data is sort()ed small to large
+    # finds value in data, assumes data is sorted small to large
     a, b = 0, len(data) - 1
     index = -1
     while a <= b:
@@ -132,6 +139,13 @@ def binarySearch(value, data, key=lambda x: x):
     return index
 
 
+class EInsertMode:
+    Error = 0  # when inserting a key at another key, raise an exception
+    Copy = 1  # when inserting a key at another key, set the value of the exising key instead
+    Passive = 2  # when inserting a key at another key, silently ignore
+    # Force = 3  # when inserting a key at another key, insert it anyways, causing 2 keys at identical times (and undefined behaviour due to unstable sorting)
+
+
 class HermiteCurve(ItemRow):
     def __init__(self, name, loopMode=ELoopMode.Clamp, data=None):
         super(HermiteCurve, self).__init__(name, loopMode)
@@ -139,6 +153,62 @@ class HermiteCurve(ItemRow):
         self.__dict__['changed'] = Signal()
         for key in self._keys:
             key.parent = self
+
+    def removeKeys(self, keys):
+        for key in keys:
+            idx = self._keys.index(key)
+            self._keys.pop(idx)
+
+            # fix tangents
+            if idx > 0:
+                self._keys[idx - 1].computeTangents()
+            if idx < len(self._keys):
+                self._keys[idx].computeTangents()
+
+    def insertKey(self, newKey, mode=EInsertMode.Error):
+        index = binarySearch(newKey.x, self._keys, lambda key: key.x)
+
+        # prepend
+        if index < 0:
+            self._keys.insert(0, newKey)
+            newKey.computeTangents()
+            if len(self._keys) > 1:  # is there a key after?
+                self._keys[1].computeTangents()
+            return
+
+        # append
+        if index == len(self._keys):
+            self._keys.append(newKey)
+            newKey.computeTangents()
+            if len(self._keys) > 1:  # is there a key before?
+                self._keys[-2].computeTangents()
+            return
+
+        # overwrite
+        if self._keys[index].x == newKey.x:
+            cache = self._keys[index].copyData()
+            if mode == EInsertMode.Error:
+                raise RuntimeError()
+            elif mode == EInsertMode.Copy:
+                self._keys[index].y = newKey.y
+            else:
+                assert mode == EInsertMode.Passive, 'Unknown insertion mode %s for insertKey' % mode
+            return self._keys[index], cache
+
+        # insert
+        # make sure key we are inserting before is indeed after the new key
+        assert self._keys[index].x > newKey.x
+
+        self._keys.insert(index, newKey)
+        newKey.computeTangents()
+        if index > 0:  # is there a key after?
+            self._keys[index - 1].computeTangents()
+        if index + 1 < len(self._keys):  # is there a key before?
+            self._keys[index + 1].computeTangents()
+
+    def insertKeys(self, keys):
+        for key in keys:
+            self.insertKey(key)
 
     def sort(self):
         self.__dict__['_keys'] = sorted(self.__dict__['_keys'], key=lambda x: x.x)
@@ -159,6 +229,10 @@ class HermiteCurve(ItemRow):
         return 'name', 'loopMode'
 
     def evaluate(self, x):
+        # no keys, no values
+        if not self._keys:
+            return 0.0
+
         # apply loop mode
         loopMode = self[1]
         if loopMode == ELoopMode.Clamp:
@@ -177,8 +251,9 @@ class HermiteCurve(ItemRow):
         if index == 0:
             return self._keys[0].y
 
-        # x after last key this point should never be hit
+        # x after last key, this point should never be hit
         if index >= len(self._keys):
+            assert False
             return self._keys[-1].y
 
         # cubic hermite spline interpolation

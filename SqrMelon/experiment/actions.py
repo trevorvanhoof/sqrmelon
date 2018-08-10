@@ -1,6 +1,6 @@
 from experiment.enums import ETangentMode
 from experiment.keyselection import selectNew, selectAdd, selectRemove, selectToggle
-from experiment.curvemodel import HermiteKey
+from experiment.curvemodel import HermiteKey, EInsertMode
 from qtutil import *
 
 
@@ -216,9 +216,9 @@ class CurveModelEdit(QUndoCommand):
         self.modelSizeAfterRemoval = None
 
     def redo(self):
-        # remove rows at inidices, starting at the lowest index
+        # remove rows at inidices, starting at the highest index
         self.removedRows = []
-        for row in self.rowIndicesToRemove:
+        for row in reversed(self.rowIndicesToRemove):
             self.removedRows.append(self.model.takeRow(row))
 
         # append additional rows
@@ -229,11 +229,51 @@ class CurveModelEdit(QUndoCommand):
     def undo(self):
         # remove appended items, before reinserting
         while self.model.rowCount() > self.modelSizeAfterRemoval:
-            self.model.removeRow(self.model.rowCount() - 1)
+            self.model.takeRow(self.model.rowCount() - 1)
 
         # reinsert removed rows
-        for i, row in enumerate(self.rowIndicesToRemove):
-            self.model.insertRow(i, self.removedRows.pop(i))
+        for row in self.rowIndicesToRemove:
+            self.model.insertRow(row, self.removedRows.pop(0))
+
+
+class TimeEdit(QUndoCommand):
+    def __init__(self, originalTime, newTime, setTime, parent=None):
+        super(TimeEdit, self).__init__('Time changed', parent)
+        self.originalTime = originalTime
+        self.newTime = newTime
+        self.setTime = setTime
+        self.applied = True
+
+    def redo(self):
+        if self.applied:
+            return
+        self.applied = True
+        self.setTime(self.newTime)
+
+    def undo(self):
+        self.applied = False
+        self.setTime(self.originalTime)
+
+
+class MoveTimeAction(object):
+    def __init__(self, originalTime, xToT, setTime):
+        self.__originalTime = originalTime
+        self.__setTime = setTime
+        self.__xToT = xToT
+        self.__newTime = originalTime
+
+    def mousePressEvent(self, event):
+        pass
+
+    def mouseMoveEvent(self, event):
+        self.__newTime = self.__xToT(event.x())
+        self.__setTime(self.__newTime)
+
+    def mouseReleaseEvent(self, undoStack):
+        undoStack.push(TimeEdit(self.__originalTime, self.__newTime, self.__setTime))
+
+    def draw(self, painter):
+        pass
 
 
 class MoveKeyAction(object):
@@ -381,3 +421,67 @@ class MarqueeAction(object):
         painter.setPen(QColor(0, 160, 255, 255))
         painter.setBrush(QColor(0, 160, 255, 64))
         painter.drawRect(x, y, w, h)
+
+
+class DeleteKeys(QUndoCommand):
+    def __init__(self, apply, triggerRepaint, parent=None):
+        super(DeleteKeys, self).__init__('Delete keys', parent)
+        self.apply = apply
+        self.triggerRepaint = triggerRepaint
+
+    def redo(self):
+        for curve, keys in self.apply.iteritems():
+            curve.removeKeys(keys)
+        self.triggerRepaint()
+
+    def undo(self):
+        for curve, keys in self.apply.iteritems():
+            curve.insertKeys(keys)
+        self.triggerRepaint()
+
+
+class InsertKeys(QUndoCommand):
+    def __init__(self, apply, triggerRepaint, parent=None):
+        super(InsertKeys, self).__init__('Insert keys', parent)
+        self.apply = apply
+        self.triggerRepaint = triggerRepaint
+        self.alteredKeys = {}
+
+    def redo(self):
+        for curve, key in self.apply.iteritems():
+            other = curve.insertKey(key, EInsertMode.Passive)
+            if other is not None:
+                self.alteredKeys[curve] = other
+        self.triggerRepaint()
+
+    def undo(self):
+        for curve, key in self.apply.iteritems():
+            if curve in self.alteredKeys:
+                self.alteredKeys[curve][0].setData(*self.alteredKeys[curve][1])
+            else:
+                curve.removeKeys([key])
+        self.triggerRepaint()
+
+
+class ViewPanAction(object):
+    def __init__(self, viewRect, widgetSize):
+        self.__dragStart = None
+        self.__rect = viewRect
+        self.__widgetSize = widgetSize
+
+    def mousePressEvent(self, event):
+        self.__dragStart = event.pos()
+        self.__startPos = self.__rect.left, self.__rect.top
+
+    def mouseMoveEvent(self, event):
+        delta = event.pos() - self.__dragStart()
+        ux = delta.x() * self.__rect.width / float(self.__widgetSize.width())
+        uy = delta.y() * self.__rect.height / float(self.__widgetSize.height())
+        self.__rect.x = self.__startPos[0] + ux
+        self.__rect.y = self.__startPos[1] + uy
+
+    def mouseReleaseEvent(self, event):
+        pass
+
+    def draw(self, painter):
+        pass
