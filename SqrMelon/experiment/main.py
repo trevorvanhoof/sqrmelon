@@ -33,7 +33,13 @@ if __name__ == '__main__':
     clipManager.model().appendRow(clip0.items)
     clipManager.model().appendRow(clip1.items)
 
-    curveUI = CurveUI(clipManager, undoStack)
+    curveUI = CurveUI(eventManager, clipManager, undoStack)
+    def eventChanged():
+        for event in eventManager.selectionModel().selectedRows():
+            curveUI.setEvent(event.data(Qt.UserRole + 1))
+            return
+        curveUI.setEvent(None)
+    eventManager.selectionChange.connect(eventChanged)
 
     eventTimeline = TimelineView(shotManager.model(), eventManager.model())
 

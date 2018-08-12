@@ -84,8 +84,11 @@ class NamedColums(QTableView):
         mdl = QStandardItemModel()
         self.setModel(mdl)
         self.verticalHeader().hide()
+        self.verticalHeader().setDefaultSectionSize(22)
         self._updateNames()
         self.setItemDelegate(AtomDelegate())
+        self.setStyleSheet('QTableView { selection-background-color: rgb(188,220,244); }'
+                           'QTableView:active { selection-background-color: rgb(0,120,215); }')
 
     def _updateNames(self):
         names = self.columnNames()

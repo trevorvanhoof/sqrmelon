@@ -276,52 +276,65 @@ class MoveTimeAction(object):
         pass
 
 
-class MoveKeyAction(object):
-    def __init__(self, selectedKeys, reproject, triggerRepaint):
-        self.__reproject = reproject
-        self.__curves = {key.parent for key in selectedKeys}
-        # TODO: initialState must cover adjacent keys of selectedKeys before AND after an edit, since we don't know the AFTER state yet, I'm just gonna cache the entire curve
-        self.__selectedKeys = list(selectedKeys.iterkeys())
-        self.__initialState = {key: key.copyData() for curve in self.__curves for key in curve.keys}
-        self.__dragStartPx = None
-        self.__dragStartU = None
-        self.__triggerRepaint = triggerRepaint
-        self.__mask = 3
+class DirectionalAction(object):
+    def __init__(self, reproject):
+        self._reproject = reproject
+        self._dragStartPx = None
+        self._dragStartU = None
+        self._mask = 3
 
     def mousePressEvent(self, event):
-        self.__dragStartPx = event.pos()
-        self.__dragStartU = self.__reproject(event.x(), event.y())
+        self._dragStartPx = event.pos()
+        self._dragStartU = self._reproject(event.x(), event.y())
         if event.modifiers() == Qt.ShiftModifier:
-            self.__mask = 0
+            self._mask = 0
         return False
+
+    def mouseMoveEvent(self, event):
+        if not self._mask:
+            deltaPx = event.pos() - self._dragStartPx
+            dxPx = deltaPx.x()
+            dyPx = deltaPx.y()
+            if abs(dxPx) > 4 and abs(dxPx) > abs(dyPx):
+                self._mask = 1
+            if abs(dyPx) > 4 and abs(dyPx) > abs(dxPx):
+                self._mask = 2
+            return
+
+        return self.processMouseDelta(event)
+
+    def processMouseDelta(self, event):
+        raise NotImplementedError()
+
+    def draw(self, painter):
+        pass
+
+
+class MoveKeyAction(DirectionalAction):
+    def __init__(self, reproject, selectedKeys, triggerRepaint):
+        super(MoveKeyAction, self).__init__(reproject)
+        self.__curves = {key.parent for key in selectedKeys}
+        self.__selectedKeys = list(selectedKeys.iterkeys())
+        self.__initialState = {key: key.copyData() for curve in self.__curves for key in curve.keys}
+        self.__triggerRepaint = triggerRepaint
 
     def mouseReleaseEvent(self, undoStack):
         undoStack.push(KeyEdit(self.__initialState, self.__triggerRepaint))
         return False
 
-    def mouseMoveEvent(self, event):
-        if not self.__mask:
-            deltaPx = event.pos() - self.__dragStartPx
-            dxPx = deltaPx.x()
-            dyPx = deltaPx.y()
-            if abs(dxPx) > 4 and abs(dxPx) > abs(dyPx):
-                self.__mask = 1
-            if abs(dyPx) > 4 and abs(dyPx) > abs(dxPx):
-                self.__mask = 2
-            return
-
-        dx, dy = self.__reproject(event.x(), event.y())
-        dx -= self.__dragStartU[0]
-        dy -= self.__dragStartU[1]
+    def processMouseDelta(self, event):
+        ux, uy = self._reproject(event.x(), event.y())
+        ux -= self._dragStartU[0]
+        uy -= self._dragStartU[1]
 
         for key in self.__selectedKeys:
             value = self.__initialState[key]
-            if self.__mask & 1:
-                key.x = value[0] + dx
-            if self.__mask & 2:
-                key.y = value[1] + dy
+            if self._mask & 1:
+                key.x = value[0] + ux
+            if self._mask & 2:
+                key.y = value[1] + uy
 
-        if self.__mask & 1:
+        if self._mask & 1:
             for curve in self.__curves:
                 curve.sort()
 
@@ -330,9 +343,6 @@ class MoveKeyAction(object):
             key.computeTangents()
 
         return True  # repaint
-
-    def draw(self, painter):
-        pass
 
 
 class MoveTangentAction(object):
@@ -483,8 +493,59 @@ class ViewPanAction(object):
         self.__rect.bottom = self.__startPos[3] - uy
         return True
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, undoStack):
         pass
 
     def draw(self, painter):
         pass
+
+
+def zoom(pivotUnits, viewRect, hSteps, vSteps, triggerRepaint):
+    cx, cy = pivotUnits
+    extents = [viewRect.left - cx, viewRect.right - cx, viewRect.top - cy, viewRect.bottom - cy]
+
+    for step in xrange(abs(hSteps)):
+        if hSteps > 0:
+            extents[0] *= 1.0005
+            extents[1] *= 1.0005
+        else:
+            extents[0] /= 1.0005
+            extents[1] /= 1.0005
+
+    for step in xrange(abs(vSteps)):
+        if vSteps > 0:
+            extents[2] *= 1.0005
+            extents[3] *= 1.0005
+        else:
+            extents[2] /= 1.0005
+            extents[3] /= 1.0005
+
+    viewRect.left = cx + extents[0]
+    viewRect.right = cx + extents[1]
+    viewRect.top = cy + extents[2]
+    viewRect.bottom = cy + extents[3]
+
+    triggerRepaint()
+
+
+class ViewZoomAction(DirectionalAction):
+    def __init__(self, viewRect, reproject):
+        super(ViewZoomAction, self).__init__(reproject)
+        self.__rect = viewRect
+        self.__baseValues = self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom
+
+    def processMouseDelta(self, event):
+        dx = self._dragStartPx.x() - event.x()
+        dy = self._dragStartPx.y() - event.y()
+        dx = int(dx * 4000.0 / float(self.__rect.width()))
+        dy = int(dy * 4000.0 / float(self.__rect.height()))
+        if not self._mask & 1:
+            dx = 0
+        if not self._mask & 2:
+            dy = 0
+
+        self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom = self.__baseValues
+        zoom(self._dragStartU, self.__rect, dx, dy, self.__rect.repaint)
+
+    def mouseReleaseEvent(self, undoStack):
+        return False

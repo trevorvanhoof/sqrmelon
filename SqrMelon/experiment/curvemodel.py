@@ -260,6 +260,11 @@ class HermiteCurve(ItemRow):
         prev = self._keys[index - 1]
         next = self._keys[index]
 
+        if prev.outTangentY == float('infinity'):
+            return prev.y
+        if next.inTangentY == float('infinity'):
+            return next.y
+
         dx = float(next.x - prev.x)
 
         t = (x - prev.x) / dx

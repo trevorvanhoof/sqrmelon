@@ -3,7 +3,7 @@ import functools
 from math import cos, asin
 
 import icons
-from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit, CurveModelEdit, MoveTimeAction, DeleteKeys, InsertKeys, ViewPanAction
+from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit, CurveModelEdit, MoveTimeAction, DeleteKeys, InsertKeys, ViewPanAction, zoom, ViewZoomAction
 from experiment.curvemodel import HermiteCurve, HermiteKey
 from experiment.delegates import UndoableSelectionView
 from experiment.enums import ETangentMode, ELoopMode
@@ -27,9 +27,11 @@ class CurveList(UndoableSelectionView):
 
     def _pull(self, *args):
         # get first selected container
-        curves = None  # empty stub
+        clip = None  # empty stub
+        curves = None
         for container in self._source.selectionModel().selectedRows():
-            curves = container.data(Qt.UserRole + 1).curves
+            clip = container.data(Qt.UserRole + 1)
+            curves = clip.curves
             break
         if self.model() == curves:
             return
@@ -49,15 +51,20 @@ def createToolButton(iconName, toolTip, parent):
 
 
 class CurveUI(QWidget):
-    # TODO: Controlling enabled state of buttons may be a necessity, or at least avoid pushing QUndoCommands that don't do anything
-    def __init__(self, clipManager, undoStack):
+    # TODO: Show which clip / shot is active somehow (window title?)
+    def __init__(self, eventManager, clipManager, undoStack):
         super(CurveUI, self).__init__()
-        mainLayout = QVBoxLayout()
+        self._undoStack = undoStack
+
+        mainLayout = vlayout()
         self.setLayout(mainLayout)
-        toolBar = QHBoxLayout()
+        toolBar = hlayout()
 
         createToolButton('Add Node-48', 'Add channel', toolBar).clicked.connect(self.__addChannel)
-        createToolButton('Delete Node-48', 'Remove selected channels', toolBar).clicked.connect(self.__deleteChannels)
+
+        btn = createToolButton('Delete Node-48', 'Remove selected channels', toolBar)
+        btn.clicked.connect(self.__deleteChannels)
+        self._curveActions = [btn]
 
         self._relative = QCheckBox()
         self._time = QDoubleSpinBox()
@@ -73,24 +80,57 @@ class CurveUI(QWidget):
         self._time.editingFinished.connect(self.__timeChanged)
         self._value.editingFinished.connect(self.__valueChanged)
 
-        createToolButton('tangent-auto', 'Set selected tangents to Auto', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Auto))
-        createToolButton('tangent-spline', 'Set selected tangents to Spline', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Spline))
-        createToolButton('tangent-linear', 'Set selected tangents to Linear', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Linear))
-        createToolButton('tangent-flat', 'Set selected tangents to Flat', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Flat))
-        createToolButton('tangent-stepped', 'Set selected tangents to Stepped', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Stepped))
-        createToolButton('tangent-broken', 'Set selected tangents to Custom', toolBar).clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Custom))
+        self._keyActions = [self._time, self._value]
 
-        createToolButton('Move-48', 'Key camera position into selected channels', toolBar).clicked.connect(self.__copyCameraPosition)
-        createToolButton('3D Rotate-48', 'Key camera radians into selected channels', toolBar).clicked.connect(self.__copyCameraAngles)
-        createToolButton('Duplicate-Keys-24', 'Duplicated selected keys', toolBar).clicked.connect(self.__copyKeys)
+        btn = createToolButton('tangent-auto', 'Set selected tangents to Auto', toolBar)
+        btn.clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Auto))
+        self._keyActions.append(btn)
+        btn = createToolButton('tangent-spline', 'Set selected tangents to Spline', toolBar)
+        btn.clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Spline))
+        self._keyActions.append(btn)
+        btn = createToolButton('tangent-linear', 'Set selected tangents to Linear', toolBar)
+        btn.clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Linear))
+        self._keyActions.append(btn)
+        btn = createToolButton('tangent-flat', 'Set selected tangents to Flat', toolBar)
+        btn.clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Flat))
+        self._keyActions.append(btn)
+        btn = createToolButton('tangent-stepped', 'Set selected tangents to Stepped', toolBar)
+        btn.clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Stepped))
+        self._keyActions.append(btn)
+        btn = createToolButton('tangent-broken', 'Set selected tangents to Custom', toolBar)
+        btn.clicked.connect(functools.partial(self.__setTangentMode, ETangentMode.Custom))
+        self._keyActions.append(btn)
+
+        btn = createToolButton('Move-48', 'Key camera position into selected channels', toolBar)
+        btn.clicked.connect(self.__copyCameraPosition)
+        self._curveActions.append(btn)
+        btn = createToolButton('3D Rotate-48', 'Key camera radians into selected channels', toolBar)
+        btn.clicked.connect(self.__copyCameraAngles)
+        self._curveActions.append(btn)
+
+        btn = createToolButton('Duplicate-Keys-24', 'Duplicated selected keys', toolBar)
+        btn.clicked.connect(self.__copyKeys)
+        self._keyActions.append(btn)
 
         toolBar.addStretch(1)
 
         splitter = QSplitter(Qt.Horizontal)
+        clipManager.selectionChange.connect(self.__activeClipChanged)
+        self._clipManager = clipManager
+        self._eventManager = eventManager
+
         self._curveList = CurveList(clipManager, undoStack)
+        self._curveList.selectionChange.connect(self.__visibleCurvesChanged)
+
         self._curveView = CurveView(self._curveList, undoStack)
-        self._undoStack = undoStack
+        self._curveView.requestAllCurvesVisible.connect(self._curveList.selectAll)
         self._curveView.selectionModel.changed.connect(self.__keySelectionChanged)
+
+        def forwardFocus(event):
+            self._curveView.setFocus(Qt.MouseFocusReason)
+
+        self._curveList.focusInEvent = forwardFocus
+
         splitter.addWidget(self._curveList)
         splitter.addWidget(self._curveView)
 
@@ -98,6 +138,32 @@ class CurveUI(QWidget):
         mainLayout.addWidget(splitter)
         mainLayout.setStretch(0, 0)
         mainLayout.setStretch(1, 1)
+
+        self._toolBar = toolBar
+        toolBar.setEnabled(False)
+
+    def setEvent(self, event):
+        self._curveView.setEvent(event)
+
+    def __activeClipChanged(self):
+        pyObj = None
+        for container in self._clipManager.selectionModel().selectedRows():
+            pyObj = container.data(Qt.UserRole + 1)
+            break
+        self._toolBar.setEnabled(bool(pyObj))
+        pyObj2 = None
+        for container in self._eventManager.selectionModel().selectedRows():
+            pyObj2 = container.data(Qt.UserRole + 1)
+            if pyObj2.clip != pyObj:
+                pyObj2 = None
+            else:
+                break
+        self._curveView.setEvent(pyObj2)
+
+    def __visibleCurvesChanged(self):
+        state = self._curveView.hasVisibleCurves()
+        for action in self._curveActions:
+            action.setEnabled(state)
 
     def __keySelectionChanged(self):
         # set value and time fields to match selection
@@ -110,11 +176,11 @@ class CurveUI(QWidget):
             else:
                 break
         if not cache:
-            self._time.setEnabled(False)
-            self._value.setEnabled(False)
+            for action in self._keyActions:
+                action.setEnabled(False)
             return
-        self._time.setEnabled(True)
-        self._value.setEnabled(True)
+        for action in self._keyActions:
+            action.setEnabled(True)
         self._time.setValue(cache.x)
         self._value.setValue(cache.y)
 
@@ -219,9 +285,9 @@ class CurveUI(QWidget):
 
 
 class CurveView(QWidget):
-    # TODO: Curve loop mode change should trigger a repaint
-    # TODO: Ability to watch shots instead of clips so shot loop mode and time range can be rendered as well (possibly just have an optional shot field that the painter picks up on)
     # TODO: Cursor management
+    requestAllCurvesVisible = pyqtSignal()
+
     def __init__(self, source, undoStack, parent=None):
         super(CurveView, self).__init__(parent)
         self._source = source
@@ -243,6 +309,15 @@ class CurveView(QWidget):
         # time
         self.__time = 0.0
 
+        self._event = None
+
+    def setEvent(self, event):
+        self._event = event
+        self.repaint()
+
+    def hasVisibleCurves(self):
+        return bool(self._visibleCurves)
+
     @property
     def time(self):
         return self.__time
@@ -256,6 +331,8 @@ class CurveView(QWidget):
         newState = {index.data(Qt.UserRole + 1) for index in self._source.selectionModel().selectedRows()}
         deselected = self._visibleCurves - newState
         self._visibleCurves = newState
+
+        self._source.model().dataChanged.connect(self.repaint)
 
         # when curves are deselected, we must deselect their keys as well
         keyStateChange = {}
@@ -305,9 +382,13 @@ class CurveView(QWidget):
         else:
             dx = curve.key(i + 1).x - key.x
             wt = key.outTangentY
-        t = dx  # cos(asin(wt / 3.0)) * dx
-        dx, dy = self.uToPx(t + self.left, wt + self.top)
+
         TANGENT_LENGTH = 20.0
+        if abs(wt) == float('infinity'):
+            return TANGENT_LENGTH, 0.0
+
+        t = dx
+        dx, dy = self.uToPx(t + self.left, wt + self.top)
         a = (dx * dx + dy * dy)
         if a == 0.0:
             return (TANGENT_LENGTH, 0.0)
@@ -393,10 +474,37 @@ class CurveView(QWidget):
                 if i < curve.keyCount() - 1:
                     self._drawTangent2(painter, selectionState & (1 << 2), x, y, curve, i, True)
 
+        # paint loop range
+        if self._event:
+            if isinstance(self._event, Event):
+                left = self.tToX(self._event.roll)
+                right = self.tToX(self._event.roll + self._event.duration * self._event.speed)
+            else:
+                left = self.tToX(0.0)
+                right = self.tToX(self._event.duration)
+
+            painter.setOpacity(0.5)
+
+            painter.fillRect(0, 0, left, self.height(), Qt.black)
+            painter.fillRect(right + 2, 0, self.width() - right, self.height(), Qt.black)
+
+            painter.setPen(QColor(33, 150, 243))
+            painter.drawLine(left, 16, left, self.height())
+            painter.drawLine(right, 16, right, self.height())
+
+            painter.setPen(QColor(63, 81, 181))
+            painter.drawLine(left + 1, 16, left + 1, self.height())
+            painter.drawLine(right + 1, 16, right + 1, self.height())
+
+            painter.drawPixmap(left, 0, icons.getImage('left'))
+            painter.drawPixmap(right - 4, 0, icons.getImage('right'))
+
+            painter.setOpacity(1.0)
+
         # paint playhead
         x = self.tToX(self.time)
         painter.setPen(Qt.red)
-        painter.drawLine(x, 0, x, self.height())
+        painter.drawLine(x, 16, x, self.height())
         painter.setPen(Qt.darkRed)
         painter.drawLine(x + 1, 0, x + 1, self.height())
         painter.drawPixmap(x - 4, 0, icons.getImage('playhead'))
@@ -407,32 +515,22 @@ class CurveView(QWidget):
     def wheelEvent(self, event):
         # zoom
         cx, cy = self.pxToU(event.x(), event.y())
-        extents = [self.left - cx, self.right - cx, self.top - cy, self.bottom - cy]
         d = event.delta()
-        for step in xrange(abs(d)):
-            for i in xrange(4):
-                if d > 0:
-                    extents[i] *= 1.0005
-                else:
-                    extents[i] /= 1.0005
-        self.left = cx + extents[0]
-        self.right = cx + extents[1]
-        self.top = cy + extents[2]
-        self.bottom = cy + extents[3]
-        self.repaint()
+        zoom((cx, cy), self, d, d, self.repaint)
 
     def mousePressEvent(self, event):
         # alt for camera manip
         if event.modifiers() & Qt.AltModifier:
             # pan
             if event.button() == Qt.RightButton:
-                # TODO: zoom, possibly on single axis when holding shift
-                pass
-            self.action = ViewPanAction(self, self.size())
+                self.action = ViewZoomAction(self, self.pxToU)
+            else:
+                self.action = ViewPanAction(self, self.size())
 
         elif event.button() == Qt.RightButton:
             # right button moves the time slider
             self.action = MoveTimeAction(self.time, self.xToT, functools.partial(self.__setattr__, 'time'))
+
         elif event.button() == Qt.MiddleButton and self.selectionModel:
             # middle click drag moves selection automatically
             for mask in self.selectionModel.itervalues():
@@ -442,7 +540,8 @@ class CurveView(QWidget):
                     break
             else:
                 # only keys selected
-                self.action = MoveKeyAction(self.selectionModel, self.pxToU, self.repaint)
+                self.action = MoveKeyAction(self.pxToU, self.selectionModel, self.repaint)
+
         else:
             # left click drag moves selection only when clicking a selected element
             for key, mask in self.itemsAt(event.x() - 5, event.y() - 5, 10, 10):
@@ -451,7 +550,7 @@ class CurveView(QWidget):
                 if not self.selectionModel[key] & mask:
                     continue
                 if mask == 1:
-                    self.action = MoveKeyAction(self.selectionModel, self.pxToU, self.repaint)
+                    self.action = MoveKeyAction(self.pxToU, self.selectionModel, self.repaint)
                     break
                 else:
                     self.action = MoveTangentAction(self.selectionModel, self.pxToU, self.repaint)
@@ -477,14 +576,70 @@ class CurveView(QWidget):
             if self.action.mouseMoveEvent(event):
                 self.repaint()
 
+    def _frameKeys(self, keyGenerator):
+        left = float('infinity')
+        right = -float('infinity')
+        top = float('infinity')
+        bottom = -float('infinity')
+
+        for key in keyGenerator:
+            left = min(key.x, left)
+            right = max(key.x, right)
+            top = min(key.y, top)
+            bottom = max(key.y, bottom)
+
+        if left == float('infinity'):
+            left, right = -0.1, 0.1
+        if left == right:
+            left -= 0.1
+            right += 0.1
+
+        if top == float('infinity'):
+            top, bottom = -0.1, 0.1
+        if top == bottom:
+            top -= 0.1
+            bottom += 0.1
+
+        extents = (right - left) * 0.5, (bottom - top) * 0.5
+        center = left + extents[0], top + extents[1]
+        self.left = center[0] - extents[0] * 1.5
+        self.right = center[0] + extents[0] * 1.5
+        self.bottom = center[1] - extents[1] * 1.5
+        self.top = center[1] + extents[1] * 1.5
+
+    def frameAll(self):
+        def generator():
+            for curve in self._visibleCurves:
+                for key in curve.keys:
+                    yield key
+
+        self._frameKeys(generator())
+
+    def frameSelected(self):
+        if self.selectionModel:
+            self._frameKeys(self.selectionModel.__iter__())
+        else:
+            self.frameAll()
+
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_I:
+        if event.key() == Qt.Key_A:
+            if event.modifiers() == Qt.ControlModifier:
+                self.requestAllCurvesVisible.emit()
+                return
+            # frame all
+            self.frameAll()
+            self.repaint()
+        elif event.key() == Qt.Key_F:
+            # frame selection (or all if none selected)
+            self.frameSelected()
+            self.repaint()
+        elif event.key() == Qt.Key_I:
             # insert key if there's no key at this time
             apply = {}
             for curve in self._visibleCurves:
                 apply[curve] = HermiteKey(self.time, curve.evaluate(self.time), 0, 0, ETangentMode.Auto, ETangentMode.Auto, curve)
             self._undoStack.push(InsertKeys(apply, self.repaint))
-        if event.key() == Qt.Key_Delete:
+        elif event.key() == Qt.Key_Delete:
             # delete selected keys
             apply = {}
             for key, mask in self.selectionModel.iteritems():
