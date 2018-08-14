@@ -1,3 +1,4 @@
+from experiment.gridview import GridView
 from experiment.model import Shot
 from qtutil import *
 import icons
@@ -70,17 +71,34 @@ class GraphicsItemShot(GraphicsItemEvent):
         return 'Film Strip'
 
 
-class TimelineView(QWidget):
+class TimelineView(GridView):
     def __init__(self, *models):
-        super(TimelineView, self).__init__()
+        super(TimelineView, self).__init__(mask=1)
         self.__models = models
-        for model in models: model.dataChanged.connect(self.layout)
+        for model in models:
+            model.dataChanged.connect(self.layout)
 
-        self.__cameraStart = 0.0
-        self.__cameraEnd = 5.0
         self.setMouseTracking(True)
         self.__graphicsItems = []
 
+        self.frameAll()
+        self._viewRect.changed.connect(self.layout)
+        # layout already calls repaint
+        self._viewRect.changed.disconnect(self.repaint)
+
+    def frameAll(self):
+        start = float('inf')
+        end = float('-inf')
+        for pyObj in self.__iterAllItemRows():
+            start = min(start, pyObj.start)
+            end = max(end, pyObj.end)
+        if start == float('inf'):
+            start = 0.0
+            end = 1.0
+        self._viewRect.left = start
+        self._viewRect.right = end
+
+    def resizeEvent(self, event):
         self.layout()
 
     def __iterAllItemRows(self):
@@ -90,10 +108,10 @@ class TimelineView(QWidget):
 
     def layout(self):
         del self.__graphicsItems[:]
-        scaleX = self.width() / (self.__cameraEnd - self.__cameraStart)
+        scaleX = self.width() / (self._viewRect.right - self._viewRect.left)
         for pyObj in self.__iterAllItemRows():
-            x = round((pyObj.start - self.__cameraStart) * scaleX)
-            w = round((pyObj.end - self.__cameraStart) * scaleX - x)
+            x = round((pyObj.start - self._viewRect.left) * scaleX)
+            w = round((pyObj.end - self._viewRect.left) * scaleX - x)
             isShot = isinstance(pyObj, Shot)
             if isShot:
                 item = GraphicsItemShot(pyObj, x, w)
@@ -103,8 +121,13 @@ class TimelineView(QWidget):
         self.repaint()
 
     def mouseMoveEvent(self, event):
+        if self._action:
+            super(TimelineView, self).mouseMoveEvent(event)
+            return
+
         if event.button():
             return
+
         dirty = False
         pos = event.pos()
         for item in self.__graphicsItems:
@@ -120,7 +143,8 @@ class TimelineView(QWidget):
             self.repaint()
 
     def paintEvent(self, event):
+        super(TimelineView, self).paintEvent(event)
+
         painter = QPainter(self)
-        painter.fillRect(QRect(0, 0, self.width(), self.height()), QColor(40, 40, 40, 255))
         for item in self.__graphicsItems:
             item.paint(painter)

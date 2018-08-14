@@ -277,16 +277,17 @@ class MoveTimeAction(object):
 
 
 class DirectionalAction(object):
-    def __init__(self, reproject):
+    def __init__(self, reproject, mask=3):
         self._reproject = reproject
         self._dragStartPx = None
         self._dragStartU = None
-        self._mask = 3
+        self._mask = mask
 
     def mousePressEvent(self, event):
         self._dragStartPx = event.pos()
         self._dragStartU = self._reproject(event.x(), event.y())
-        if event.modifiers() == Qt.ShiftModifier:
+        # when we are omni-directional and shift is pressed we can lock the event to a single axis
+        if self._mask == 3 and event.modifiers() == Qt.ShiftModifier:
             self._mask = 0
         return False
 
@@ -471,81 +472,3 @@ class InsertKeys(QUndoCommand):
             else:
                 curve.removeKeys([key])
         self.triggerRepaint()
-
-
-class ViewPanAction(object):
-    def __init__(self, viewRect, widgetSize):
-        self.__dragStart = None
-        self.__rect = viewRect
-        self.__widgetSize = widgetSize
-
-    def mousePressEvent(self, event):
-        self.__dragStart = event.pos()
-        self.__startPos = self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom
-
-    def mouseMoveEvent(self, event):
-        delta = event.pos() - self.__dragStart
-        ux = delta.x() * (self.__rect.right - self.__rect.left) / float(self.__widgetSize.width())
-        uy = delta.y() * (self.__rect.bottom - self.__rect.top) / float(self.__widgetSize.height())
-        self.__rect.left = self.__startPos[0] - ux
-        self.__rect.right = self.__startPos[1] - ux
-        self.__rect.top = self.__startPos[2] - uy
-        self.__rect.bottom = self.__startPos[3] - uy
-        return True
-
-    def mouseReleaseEvent(self, undoStack):
-        pass
-
-    def draw(self, painter):
-        pass
-
-
-def zoom(pivotUnits, viewRect, hSteps, vSteps, triggerRepaint):
-    cx, cy = pivotUnits
-    extents = [viewRect.left - cx, viewRect.right - cx, viewRect.top - cy, viewRect.bottom - cy]
-
-    for step in xrange(abs(hSteps)):
-        if hSteps > 0:
-            extents[0] *= 1.0005
-            extents[1] *= 1.0005
-        else:
-            extents[0] /= 1.0005
-            extents[1] /= 1.0005
-
-    for step in xrange(abs(vSteps)):
-        if vSteps > 0:
-            extents[2] *= 1.0005
-            extents[3] *= 1.0005
-        else:
-            extents[2] /= 1.0005
-            extents[3] /= 1.0005
-
-    viewRect.left = cx + extents[0]
-    viewRect.right = cx + extents[1]
-    viewRect.top = cy + extents[2]
-    viewRect.bottom = cy + extents[3]
-
-    triggerRepaint()
-
-
-class ViewZoomAction(DirectionalAction):
-    def __init__(self, viewRect, reproject):
-        super(ViewZoomAction, self).__init__(reproject)
-        self.__rect = viewRect
-        self.__baseValues = self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom
-
-    def processMouseDelta(self, event):
-        dx = self._dragStartPx.x() - event.x()
-        dy = self._dragStartPx.y() - event.y()
-        dx = int(dx * 4000.0 / float(self.__rect.width()))
-        dy = int(dy * 4000.0 / float(self.__rect.height()))
-        if not self._mask & 1:
-            dx = 0
-        if not self._mask & 2:
-            dy = 0
-
-        self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom = self.__baseValues
-        zoom(self._dragStartU, self.__rect, dx, dy, self.__rect.repaint)
-
-    def mouseReleaseEvent(self, undoStack):
-        return False
