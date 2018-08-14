@@ -256,11 +256,12 @@ class TimeEdit(QUndoCommand):
 
 
 class MoveTimeAction(object):
-    def __init__(self, originalTime, xToT, setTime):
+    def __init__(self, originalTime, xToT, setTime, undoable=False):
         self.__originalTime = originalTime
         self.__setTime = setTime
         self.__xToT = xToT
         self.__newTime = originalTime
+        self.__undoable = undoable
 
     def mousePressEvent(self, event):
         pass
@@ -270,7 +271,8 @@ class MoveTimeAction(object):
         self.__setTime(self.__newTime)
 
     def mouseReleaseEvent(self, undoStack):
-        undoStack.push(TimeEdit(self.__originalTime, self.__newTime, self.__setTime))
+        if self.__undoable:
+            undoStack.push(TimeEdit(self.__originalTime, self.__newTime, self.__setTime))
 
     def draw(self, painter):
         pass

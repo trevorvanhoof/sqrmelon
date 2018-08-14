@@ -1,7 +1,5 @@
 import re
 import functools
-from math import cos, asin
-
 import icons
 from experiment.actions import KeySelectionEdit, RecursiveCommandError, MarqueeAction, MoveKeyAction, MoveTangentAction, KeyEdit, CurveModelEdit, MoveTimeAction, DeleteKeys, InsertKeys, ViewPanAction, zoom, ViewZoomAction
 from experiment.curvemodel import HermiteCurve, HermiteKey
@@ -286,6 +284,9 @@ class CurveUI(QWidget):
 
 class CurveView(QWidget):
     # TODO: Cursor management
+    # TODO: Timeline time cursor
+    # TODO: Timeline editing
+    # TODO: Curve view time should control timeline time when an event range is known
     requestAllCurvesVisible = pyqtSignal()
 
     def __init__(self, source, undoStack, parent=None):
@@ -529,7 +530,7 @@ class CurveView(QWidget):
 
         elif event.button() == Qt.RightButton:
             # right button moves the time slider
-            self.action = MoveTimeAction(self.time, self.xToT, functools.partial(self.__setattr__, 'time'))
+            self.action = MoveTimeAction(self.time, self.xToT, functools.partial(self.__setattr__, 'time'), bool(self._event))
 
         elif event.button() == Qt.MiddleButton and self.selectionModel:
             # middle click drag moves selection automatically
