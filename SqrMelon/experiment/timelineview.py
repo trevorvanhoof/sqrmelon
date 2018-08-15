@@ -1,5 +1,9 @@
+import functools
+
+from experiment.actions import MarqueeActionBase, MoveTimeAction
 from experiment.gridview import GridView
 from experiment.model import Shot
+from experiment.timer import drawPlayhead
 from qtutil import *
 import icons
 
@@ -29,7 +33,7 @@ class GraphicsItemEvent(object):
         if self.__class__._ico is None:
             self.__class__._ico = icons.getImage(self.iconName())
 
-    def paint(self, painter):
+    def paint(self, painter, isSelected=False):
         painter.fillRect(self.rect, self.event.color)
         highlightColor = QColor(255, 255, 64, 128)
         if self.__mouseOver == 3:
@@ -38,6 +42,10 @@ class GraphicsItemEvent(object):
             painter.fillRect(QRect(self.rect.x(), self.rect.y(), GraphicsItemEvent.handleWidth, self.rect.height()), highlightColor)
         elif self.__mouseOver == 2:
             painter.fillRect(QRect(self.rect.right() - GraphicsItemEvent.handleWidth + 1, self.rect.y(), GraphicsItemEvent.handleWidth, self.rect.height()), highlightColor)
+        if isSelected:
+            painter.setPen(Qt.yellow)
+            painter.drawRect(self.rect.adjusted(0, 0, -1, -1))
+            painter.setPen(Qt.black)
         painter.drawText(self.textRect, 0, self.event.name)
         painter.drawPixmap(self.iconRect, self._ico)
 
@@ -71,20 +79,121 @@ class GraphicsItemShot(GraphicsItemEvent):
         return 'Film Strip'
 
 
+class TimelineMarqueeAction(MarqueeActionBase):
+    def __init__(self, view, model, undoStack):
+        super(TimelineMarqueeAction, self).__init__(view, model)
+        self._undoStack = undoStack
+
+    @staticmethod
+    def _preprocess(selectionModels, itemsIter):
+        # an items model will tell us what rows are selected in that model
+        modelMap = {selection.model(): set(idx.row() for idx in selection.selectedRows()) for selection in selectionModels}
+        reverseMap = {selection.model(): selection for selection in selectionModels}
+
+        # an items model will tell us what change has happened in that model
+        changeMap = {selection.model(): set() for selection in selectionModels}
+        for graphicsItem in itemsIter:
+            # add row to right model change
+            pyObj = graphicsItem.event
+            changeMap[pyObj.items[0].model()].add(pyObj.items[0].row())
+
+        for model in modelMap.iterkeys():
+            yield reverseMap[model], modelMap[model], changeMap[model]
+
+    @staticmethod
+    def _selectNew(selectionModels, itemsIter):
+        changeMap = {}
+        for selectionModel, selectedRows, touchedRows in TimelineMarqueeAction._preprocess(selectionModels, itemsIter):
+            keep = selectedRows & touchedRows
+            select = (touchedRows - keep)
+            deselect = (selectedRows - keep)
+            if not select and not deselect:
+                continue
+            changeMap[selectionModel] = select, deselect
+        return changeMap
+
+    @staticmethod
+    def _selectAdd(selectionModels, itemsIter):
+        changeMap = {}
+        for selectionModel, selectedRows, touchedRows in TimelineMarqueeAction._preprocess(selectionModels, itemsIter):
+            select = set(x for x in itemsIter) - selectedRows
+            if not select:
+                continue
+            changeMap[selectionModel] = select, set()
+        return changeMap
+
+    @staticmethod
+    def _selectRemove(selectionModels, itemsIter):
+        changeMap = {}
+        for selectionModel, selectedRows, touchedRows in TimelineMarqueeAction._preprocess(selectionModels, itemsIter):
+            deselect = set(x for x in itemsIter) & selectedRows
+            if not deselect:
+                continue
+            changeMap[selectionModel] = set(), deselect
+        return changeMap
+
+    @staticmethod
+    def _selectToggle(selectionModels, itemsIter):
+        changeMap = {}
+        for selectionModel, selectedRows, touchedRows in TimelineMarqueeAction._preprocess(selectionModels, itemsIter):
+            deselect = touchedRows & selectedRows
+            select = touchedRows - deselect
+            if not select and not deselect:
+                continue
+            changeMap[selectionModel] = select, deselect
+        return changeMap
+
+    def _createCommand(self, selectionModels, changeMap):
+        """
+        # TODO: If we instead were editing one single model, and our other views were just filtered versions of the same model, this can become so much simpler
+        Super fun hacky times!
+        So the SelectionModelEdit does not actually change anything as it reacts to changes
+        by Qt views to a selectionModel. We just retroactively try to make those selection changes undoable.
+        If we want to push selection changes, which would work as normal and push undo commands to the stack for free.
+        But now we want to push multiple selection changes as 1 undo macro.
+        """
+        self._undoStack.beginMacro('Multi-selection model edit')
+        for selectionModel, change in changeMap.iteritems():
+
+            model = selectionModel.model()
+            added = QItemSelection()
+            removed = QItemSelection()
+
+            for row in change[0]:
+                left = model.index(row, 0)
+                right = model.index(row, model.columnCount() - 1)
+                added.select(left, right)
+
+            for row in change[1]:
+                left = model.index(row, 0)
+                right = model.index(row, model.columnCount() - 1)
+                removed.select(left, right)
+
+            selectionModel.select(added, QItemSelectionModel.Select)
+            selectionModel.select(removed, QItemSelectionModel.Deselect)
+        self._undoStack.endMacro()
+
+
 class TimelineView(GridView):
-    def __init__(self, *models):
+    def __init__(self, timer, undoStack, models, selectionModels):
         super(TimelineView, self).__init__(mask=1)
+
+        # TODO: these multiple models should become 1 model owned by this view, where the other views are just filtered
         self.__models = models
+        self.__selectionModels = selectionModels
+        for slModel in selectionModels:
+            slModel.selectionChanged.connect(self.repaint)
         for model in models:
             model.dataChanged.connect(self.layout)
 
+        self._timer = timer
+        timer.changed.connect(self.repaint)
+        self._undoStack = undoStack
         self.setMouseTracking(True)
         self.__graphicsItems = []
-
         self.frameAll()
         self._viewRect.changed.connect(self.layout)
-        # layout already calls repaint
-        self._viewRect.changed.disconnect(self.repaint)
+        self._viewRect.changed.disconnect(self.repaint)  # layout already calls repaint
 
     def frameAll(self):
         start = float('inf')
@@ -120,6 +229,29 @@ class TimelineView(GridView):
             self.__graphicsItems.append(item)
         self.repaint()
 
+    def itemsAt(self, x, y, w, h):
+        rect = QRect(x, y, w, h)
+        for item in self.__graphicsItems:
+            if item.rect.contains(rect) or item.rect.intersects(rect):
+                yield item
+
+    def mousePressEvent(self, event):
+        if event.modifiers() & Qt.AltModifier:
+            super(TimelineView, self).mousePressEvent(event)
+            # creating self._action, calling it's mousePressEvent and repainting is handled in base class
+            return
+
+        elif event.button() == Qt.RightButton:
+            # right button moves the time slider
+            self._action = MoveTimeAction(self._timer.time, self.xToT, functools.partial(self._timer.__setattr__, 'time'))
+
+        else:
+            # else we start a new selection action
+            self._action = TimelineMarqueeAction(self, self.__selectionModels, self._undoStack)
+
+        if self._action.mousePressEvent(event):
+            self.repaint()
+
     def mouseMoveEvent(self, event):
         if self._action:
             super(TimelineView, self).mouseMoveEvent(event)
@@ -135,6 +267,15 @@ class TimelineView(GridView):
         if dirty:
             self.repaint()
 
+    def mouseReleaseEvent(self, event):
+        action = self._action
+        super(TimelineView, self).mouseReleaseEvent(event)  # self._action = None
+        # make sure self.action is None before calling mouseReleaseEvent so that:
+        # 1. when returning True we will clear any painting done by self.action during mousePress/-Move
+        # 2. when a callback results in a repaint the above holds true
+        if action and action.mouseReleaseEvent(self._undoStack):
+            self.repaint()
+
     def leaveEvent(self, event):
         dirty = False
         for item in self.__graphicsItems:
@@ -145,6 +286,19 @@ class TimelineView(GridView):
     def paintEvent(self, event):
         super(TimelineView, self).paintEvent(event)
 
+        selectedPyObjs = set()
+        for model in self.__selectionModels:
+            for idx in model.selectedRows():
+                selectedPyObjs.add(idx.data(Qt.UserRole + 1))
+
         painter = QPainter(self)
         for item in self.__graphicsItems:
-            item.paint(painter)
+            isSelected = item.event in selectedPyObjs
+            item.paint(painter, isSelected)
+
+        # paint playhead
+        x = self.tToX(self._timer.time)
+        drawPlayhead(painter, x, self.height())
+
+        if self._action is not None:
+            self._action.draw(painter)

@@ -50,7 +50,7 @@ def createToolButton(iconName, toolTip, parent):
 
 class CurveUI(QWidget):
     # TODO: Show which clip / shot is active somehow (window title?)
-    def __init__(self, eventManager, clipManager, undoStack):
+    def __init__(self, timer, eventManager, clipManager, undoStack):
         super(CurveUI, self).__init__()
         self._undoStack = undoStack
 
@@ -120,7 +120,7 @@ class CurveUI(QWidget):
         self._curveList = CurveList(clipManager, undoStack)
         self._curveList.selectionChange.connect(self.__visibleCurvesChanged)
 
-        self._curveView = CurveView(self._curveList, undoStack)
+        self._curveView = CurveView(timer, self._curveList, undoStack)
         self._curveView.requestAllCurvesVisible.connect(self._curveList.selectAll)
         self._curveView.selectionModel.changed.connect(self.__keySelectionChanged)
 

@@ -1,5 +1,4 @@
 from experiment.enums import ETangentMode
-from experiment.keyselection import selectNew, selectAdd, selectRemove, selectToggle
 from experiment.curvemodel import HermiteKey, EInsertMode
 from qtutil import *
 
@@ -117,57 +116,6 @@ class SelectionModelEdit(NestedCommand):
         self.__emit(removed, added)
 
 
-class KeySelectionEdit(NestedCommand):
-    def __init__(self, selectionDict, keyStateDict, parent=None):
-        super(KeySelectionEdit, self).__init__('Key selection change', parent)
-        self.__selectionModel = selectionDict
-        self.__apply = (keyStateDict.copy(), [])
-
-        # move addOrModify actions to remove if we are modifying to '0'
-        for key, value in self.__apply[0].iteritems():
-            if value == 0:
-                # all elements deselected, register for removal
-                assert key in self.__selectionModel, 'Attempting to deselect key that wasn\'t selected.'
-                self.__apply[1].append(key)
-
-        for key in self.__apply[1]:
-            del self.__apply[0][key]
-
-        # cache restore state
-        self.__restore = ({}, [])
-        for addOrModify in self.__apply[0]:
-            if addOrModify in self.__selectionModel:
-                # is modification
-                self.__restore[0][addOrModify] = self.__selectionModel[addOrModify]
-            else:
-                self.__restore[1].append(addOrModify)
-
-        for remove in self.__apply[1]:
-            self.__restore[0][remove] = self.__selectionModel[remove]
-
-    def redo(self):
-        oldState = self.__selectionModel.blockSignals(True)
-
-        self.__selectionModel.update(self.__apply[0])
-        for remove in self.__apply[1]:
-            del self.__selectionModel[remove]
-
-        self.__selectionModel.blockSignals(oldState)
-        if not oldState:
-            self.__selectionModel.changed.emit()
-
-    def undo(self):
-        oldState = self.__selectionModel.blockSignals(True)
-
-        self.__selectionModel.update(self.__restore[0])
-        for remove in self.__restore[1]:
-            del self.__selectionModel[remove]
-
-        self.__selectionModel.blockSignals(oldState)
-        if not oldState:
-            self.__selectionModel.changed.emit()
-
-
 class KeyEdit(QUndoCommand):
     """
     Assumes the keys are already changed and we are passing in the undo state.
@@ -256,7 +204,7 @@ class TimeEdit(QUndoCommand):
 
 
 class MoveTimeAction(object):
-    def __init__(self, originalTime, xToT, setTime, undoable=False):
+    def __init__(self, originalTime, xToT, setTime, undoable=True):
         self.__originalTime = originalTime
         self.__setTime = setTime
         self.__xToT = xToT
@@ -384,49 +332,71 @@ class MoveTangentAction(object):
         pass
 
 
-class MarqueeAction(object):
-    def __init__(self, view, selectionDict):
-        self.__view = view
-        self.__selection = selectionDict
-        self.__delta = {}
+class MarqueeActionBase(object):
+    def __init__(self, view, selection):
+        self._view = view
+        self._selection = selection
+        self._delta = None
 
     def mousePressEvent(self, event):
-        self.__start = event.pos()
-        self.__end = event.pos()
-        self.__mode = event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)
+        self._start = event.pos()
+        self._end = event.pos()
+        self._mode = event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier)
 
     def _rect(self):
-        x0, x1 = self.__start.x(), self.__end.x()
+        x0, x1 = self._start.x(), self._end.x()
         x0, x1 = min(x0, x1), max(x0, x1)
-        y0, y1 = self.__start.y(), self.__end.y()
+        y0, y1 = self._start.y(), self._end.y()
         y0, y1 = min(y0, y1), max(y0, y1)
         return x0, y0, x1 - x0, y1 - y0
 
+    @staticmethod
+    def _selectNew(selection, itemsIter):
+        raise NotImplementedError()
+
+    @staticmethod
+    def _selectAdd(selection, itemsIter):
+        raise NotImplementedError()
+
+    @staticmethod
+    def _selectRemove(selection, itemsIter):
+        raise NotImplementedError()
+
+    @staticmethod
+    def _selectToggle(selection, itemsIter):
+        raise NotImplementedError()
+
+    @staticmethod
+    def _createCommand(selection, delta):
+        raise NotImplementedError()
+
     def mouseReleaseEvent(self, undoStack):
-        if self.__end == self.__start:
-            x, y, w, h = self.__start.x() - 5, self.__start.y() - 5, 10, 10
+        if self._end == self._start:
+            x, y, w, h = self._start.x() - 5, self._start.y() - 5, 10, 10
         else:
             x, y, w, h = self._rect()
         # build apply state
-        itemsIter = self.__view.itemsAt(x, y, w, h)
-        if self.__mode == Qt.NoModifier:
-            selectNew(self.__selection, self.__delta, itemsIter)
-        elif self.__mode == Qt.ControlModifier | Qt.ShiftModifier:
-            selectAdd(self.__selection, self.__delta, itemsIter)
-        elif self.__mode == Qt.ControlModifier:
-            selectRemove(self.__selection, self.__delta, itemsIter)
+        itemsIter = self._view.itemsAt(x, y, w, h)
+        if self._mode == Qt.NoModifier:
+            self._delta = self._selectNew(self._selection, itemsIter)
+        elif self._mode == Qt.ControlModifier | Qt.ShiftModifier:
+            self._delta = self._selectAdd(self._selection, itemsIter)
+        elif self._mode == Qt.ControlModifier:
+            self._delta = self._selectRemove(self._selection, itemsIter)
         else:  # if self.mode == Qt.ShiftModifier:
-            selectToggle(self.__selection, self.__delta, itemsIter)
+            self._delta = self._selectToggle(self._selection, itemsIter)
 
         # if we don't plan to change anything, stop right here and don't submit this undoable action
-        if not self.__delta:
+        if not self._delta:
             return True
 
         # commit self to undo stack
-        undoStack.push(KeySelectionEdit(self.__selection, self.__delta))
+        cmd = self._createCommand(self._selection, self._delta)
+        if cmd:
+            undoStack.push(cmd)
 
     def mouseMoveEvent(self, event):
-        self.__end = event.pos()
+        self._end = event.pos()
         return True
 
     def draw(self, painter):

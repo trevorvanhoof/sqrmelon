@@ -1,23 +1,22 @@
 import functools
 
 import icons
-from experiment.actions import KeySelectionEdit, RecursiveCommandError, MoveTimeAction, MoveTangentAction, MoveKeyAction, MarqueeAction, InsertKeys, DeleteKeys
+from experiment.actions import RecursiveCommandError, MoveTimeAction, MoveTangentAction, MoveKeyAction, InsertKeys, DeleteKeys
 from experiment.curvemodel import HermiteKey
 from experiment.enums import ETangentMode
 from experiment.gridview import GridView
-from experiment.keyselection import KeySelection
+from experiment.keyselection import KeySelection, KeyMarqueeAction, KeySelectionEdit
 from experiment.model import Event
+from experiment.timer import drawPlayhead
 from qtutil import *
 
 
 class CurveView(GridView):
     # TODO: Cursor management
-    # TODO: Timeline time cursor
     # TODO: Timeline editing
-    # TODO: Curve view time should control timeline time when an event range is known
     requestAllCurvesVisible = pyqtSignal()
 
-    def __init__(self, source, undoStack, parent=None):
+    def __init__(self, timer, source, undoStack, parent=None):
         super(CurveView, self).__init__(parent)
 
         self._source = source
@@ -29,7 +28,9 @@ class CurveView(GridView):
         self._undoStack = undoStack
 
         # time
-        self.__time = 0.0
+        self._timer = timer
+        self._timer.changed.connect(self.repaint)
+        self._time = 0.0
 
         self._event = None
 
@@ -42,19 +43,27 @@ class CurveView(GridView):
 
     @property
     def time(self):
-        return self.__time
+        if self._event:
+            return self._timer.time
+        else:
+            return self._time
 
     @time.setter
     def time(self, value):
-        self.__time = value
-        self.repaint()
+        if self._event:
+            self._timer.time = value
+        else:
+            self._time = value
+            self.repaint()
 
     def _pull(self, *args):
         newState = {index.data(Qt.UserRole + 1) for index in self._source.selectionModel().selectedRows()}
         deselected = self._visibleCurves - newState
         self._visibleCurves = newState
 
-        self._source.model().dataChanged.connect(self.repaint)
+        sourceCurves = self._source.model()
+        if sourceCurves:
+            sourceCurves.dataChanged.connect(self.repaint)
 
         # when curves are deselected, we must deselect their keys as well
         keyStateChange = {}
@@ -206,11 +215,7 @@ class CurveView(GridView):
 
         # paint playhead
         x = self.tToX(self.time)
-        painter.setPen(Qt.red)
-        painter.drawLine(x, 16, x, self.height())
-        painter.setPen(Qt.darkRed)
-        painter.drawLine(x + 1, 0, x + 1, self.height())
-        painter.drawPixmap(x - 4, 0, icons.getImage('playhead'))
+        drawPlayhead(painter, x, self.height())
 
         if self._action is not None:
             self._action.draw(painter)
@@ -224,7 +229,7 @@ class CurveView(GridView):
 
         elif event.button() == Qt.RightButton:
             # right button moves the time slider
-            self.action = MoveTimeAction(self.time, self.xToT, functools.partial(self.__setattr__, 'time'), bool(self._event))
+            self._action = MoveTimeAction(self.time, self.xToT, functools.partial(self.__setattr__, 'time'), bool(self._event))
 
         elif event.button() == Qt.MiddleButton and self.selectionModel:
             # middle click drag moves selection automatically
@@ -252,7 +257,7 @@ class CurveView(GridView):
                     break
             else:
                 # else we start a new selection action
-                self._action = MarqueeAction(self, self.selectionModel)
+                self._action = KeyMarqueeAction(self, self.selectionModel)
 
         if self._action.mousePressEvent(event):
             self.repaint()
