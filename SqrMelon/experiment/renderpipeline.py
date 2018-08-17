@@ -391,6 +391,20 @@ class CreateConnectionAction(object):
         super(CreateConnectionAction, self).__init__()
         self.__plug = plug
 
+    def mousePressEvent(self, event):
+        return True
+
+    def mouseMoveEvent(self, event):
+        return True
+
+    def mouseReleaseEvent(self, undoStack):
+        return True
+
+    def draw(self, painter):
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(Qt.green)
+        painter.drawEllipse(self.__plug.portRect)
+
 
 class DragNodeAction(object):
     def __init__(self, node):
@@ -465,6 +479,8 @@ class NodeView(QWidget):
         painter.setRenderHints(QPainter.Antialiasing)
         for node in self.graph:
             node.paint(painter)
+        if self._action:
+            self._action.draw(painter)
 
 
 # TODO: Connect & disconnect, save & load actions
