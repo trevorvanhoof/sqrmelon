@@ -27,6 +27,21 @@ class Enum(object):
         raise NotImplementedError()
 
 
+class EStitchScope(Enum):
+    Scene = None  # type: EStitchScope
+    Public = None  # type: EStitchScope
+    Private = None  # type: EStitchScope
+
+    @staticmethod
+    def options():
+        return 'Scene', 'Public', 'Private'
+
+
+EStitchScope.Scene = EStitchScope('Scene')
+EStitchScope.Public = EStitchScope('Public')
+EStitchScope.Private = EStitchScope('Private')
+
+
 class ELoopMode(Enum):
     Clamp = None  # type: ELoopMode
     Loop = None  # type: ELoopMode
