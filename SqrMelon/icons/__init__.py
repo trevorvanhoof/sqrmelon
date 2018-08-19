@@ -1,5 +1,5 @@
-from qtutil import *
-import fileutil
+from SqrMelon.qtutil import *
+from SqrMelon import fileutil
 import os
 
 __iconCache = {None: {}}

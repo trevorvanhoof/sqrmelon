@@ -1,5 +1,5 @@
-import icons
-from qtutil import *
+from SqrMelon import icons
+from SqrMelon.qtutil import *
 
 
 class Time(object):

@@ -1,11 +1,11 @@
 import functools
 
-from experiment.actions import MarqueeActionBase, MoveTimeAction
-from experiment.gridview import GridView
-from experiment.model import Shot
-from experiment.timer import drawPlayhead
-from qtutil import *
-import icons
+from SqrMelon.experiment.actions import MarqueeActionBase, MoveTimeAction
+from SqrMelon.experiment.gridview import GridView
+from SqrMelon.experiment.model import Shot
+from SqrMelon.experiment.timer import drawPlayhead
+from SqrMelon.qtutil import *
+from SqrMelon import icons
 
 
 class GraphicsItemEvent(object):

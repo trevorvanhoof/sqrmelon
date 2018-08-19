@@ -1,6 +1,6 @@
-from experiment.enums import Enum
-from qtutil import *
-from util import randomColor
+from SqrMelon.experiment.enums import Enum
+from SqrMelon.qtutil import *
+from SqrMelon.util import randomColor
 
 
 class Label(object):
