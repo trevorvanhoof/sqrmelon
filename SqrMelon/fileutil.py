@@ -1,4 +1,4 @@
-from SqrMelon.qtutil import *
+from qtutil import *
 import os, stat
 from contextlib import contextmanager
 

@@ -1,20 +1,20 @@
 # TODO: scroll wheel zoom, zoom X and Y equally
 
-from SqrMelon.qtutil import *
+from qtutil import *
 
 import time
-import SqrMelon.icons
+import icons
 import functools
 import re
 from math import log10
 
-from SqrMelon.util import gSettings
-from SqrMelon.mathutil import Vec2
+from util import gSettings
+from mathutil import Vec2
 
-from SqrMelon.animationgraph.curvedata import Curve
-from SqrMelon.animationgraph.curveselection import Selection, MarqueeSelectAction
-from SqrMelon.animationgraph.curveactions import InsertKeyAction, SetKeyAction, DeleteAction, DragAction, EditKeyAction
-from SqrMelon.animationgraph.viewactions import CameraFrameAction, CameraPanAction, CameraZoomAction, CameraUndoCommand
+from animationgraph.curvedata import Curve
+from animationgraph.curveselection import Selection, MarqueeSelectAction
+from animationgraph.curveactions import InsertKeyAction, SetKeyAction, DeleteAction, DragAction, EditKeyAction
+from animationgraph.viewactions import CameraFrameAction, CameraPanAction, CameraZoomAction, CameraUndoCommand
 
 
 class CurveViewCamera(object):

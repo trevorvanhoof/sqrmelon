@@ -10,7 +10,7 @@ from OpenGL.GL.EXT import texture_filter_anisotropic
 
 from heightfield import loadHeightfield
 from buffers import *
-from SqrMelon.qtutil import *
+from qtutil import *
 from util import TemplateForScene, ProjectFile, ParseXMLWithIncludes
 from gl_shaders import compileProgram
 

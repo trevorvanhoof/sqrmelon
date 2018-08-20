@@ -1,6 +1,6 @@
 import functools
 
-from SqrMelon.qtutil import *
+from qtutil import *
 from util import randomColor, gSettings
 
 

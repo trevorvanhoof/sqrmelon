@@ -1,4 +1,4 @@
-from SqrMelon.qtutil import *
+from qtutil import *
 
 
 class CameraUndoCommand(QUndoCommand):

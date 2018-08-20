@@ -1,6 +1,6 @@
-from SqrMelon.mathutil import Vec2
-from SqrMelon.animationgraph.curvedata import Key
-from SqrMelon.qtutil import *
+from mathutil import Vec2
+from animationgraph.curvedata import Key
+from qtutil import *
 
 
 class DragAction(QUndoCommand):

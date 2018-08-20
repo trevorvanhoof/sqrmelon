@@ -1,6 +1,6 @@
-from SqrMelon.qtutil import Signal
-from SqrMelon.experiment.enums import ELoopMode, ETangentMode
-from SqrMelon.experiment.modelbase import ItemRow
+from qtutil import Signal
+from experiment.enums import ELoopMode, ETangentMode
+from experiment.modelbase import ItemRow
 
 
 def sign(x): return -1 if x < 0 else 1

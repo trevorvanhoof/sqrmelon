@@ -1,6 +1,6 @@
 from OSC import OSCClientError
 
-from SqrMelon.qtutil import *
+from qtutil import *
 import os
 import time
 from math import floor

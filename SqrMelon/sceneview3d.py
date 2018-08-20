@@ -1,5 +1,5 @@
 import fileutil
-from SqrMelon.qtutil import *
+from qtutil import *
 import time
 import os
 from overlays import loadImage

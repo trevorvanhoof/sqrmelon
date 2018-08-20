@@ -18,7 +18,7 @@ from shots import ShotManager
 from timeslider import Timer, TimeSlider
 from util import PROJ_EXT, SCENE_EXT, gSettings, ScenesPath, ProjectDir
 import fileutil
-from SqrMelon.qtutil import *
+from qtutil import *
 import icons
 
 IGNORED_EXTENSIONS = (PROJ_EXT, '.user')

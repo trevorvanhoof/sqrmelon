@@ -1,7 +1,7 @@
 from math import log, floor, ceil
 
-from SqrMelon.experiment.actions import DirectionalAction
-from SqrMelon.qtutil import *
+from experiment.actions import DirectionalAction
+from qtutil import *
 
 
 def clamp(v, n, x):

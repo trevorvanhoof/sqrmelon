@@ -1,6 +1,6 @@
-from SqrMelon.experiment.enums import ETangentMode
-from SqrMelon.experiment.curvemodel import HermiteKey, EInsertMode
-from SqrMelon.qtutil import *
+from experiment.enums import ETangentMode
+from experiment.curvemodel import HermiteKey, EInsertMode
+from qtutil import *
 
 
 def unpackModelIndex(qIndex):

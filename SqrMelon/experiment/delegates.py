@@ -1,6 +1,6 @@
-from SqrMelon.experiment.actions import SelectionModelEdit, RecursiveCommandError
-from SqrMelon.experiment.enums import Enum
-from SqrMelon.qtutil import *
+from experiment.actions import SelectionModelEdit, RecursiveCommandError
+from experiment.enums import Enum
+from qtutil import *
 
 
 class LineEdit(QLineEdit):

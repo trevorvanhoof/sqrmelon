@@ -2,7 +2,7 @@ from math import degrees, radians
 import functools
 import time
 import icons
-from SqrMelon.qtutil import *
+from qtutil import *
 from mathutil import addVec3, multVec3, rotateVec3
 from scene import CameraTransform
 

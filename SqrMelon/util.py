@@ -3,7 +3,7 @@ from xml.etree import cElementTree
 import colorsys
 import xml.dom.minidom
 import fileutil
-from SqrMelon.qtutil import *
+from qtutil import *
 import re
 
 gSettings = QSettings('PB', 'Py64k')

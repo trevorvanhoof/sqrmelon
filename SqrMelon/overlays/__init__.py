@@ -2,11 +2,11 @@
 Module to load and manage the textures on this folder.
 Loads all PNG files into GL textures on initialization.
 """
-from SqrMelon import fileutil
-from SqrMelon.util import gSettings
-from SqrMelon.qtutil import *
+import fileutil
+from util import gSettings
+from qtutil import *
 import os
-from SqrMelon.buffers import *
+from buffers import *
 
 
 def loadImage(filePath, tile=True):
