@@ -155,6 +155,7 @@ class ViewRect(object):
 
 class GridView(QWidget):
     # TODO: Cursor management
+    CELL_SIZE_MAX_PX = 80
     def __init__(self, parent=None, mask=3):
         super(GridView, self).__init__(parent)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -184,11 +185,21 @@ class GridView(QWidget):
     def pxToU(self, x, y):
         return self.xToT(x), self.yToV(y)
 
+    @property
+    def cellSize(self):
+        """
+        Calculate the size (in time-units) of a grid-cell
+        """
+        view = self._viewRect.right - self._viewRect.left
+        cellSize = abs(view) / (float(self.width()) / float(self.CELL_SIZE_MAX_PX))
+        cellSize = min(pow(2.0, round(log(cellSize, 2.0))), pow(4.0, round(log(cellSize, 4.0))),
+                       pow(8.0, round(log(cellSize, 8.0))))
+
+        return cellSize
+
     def iterAxis(self, pixels, start, end, textBoundsMin, textBoundsMax, uToPx):
-        CELL_SIZE_MAX_PX = 80
         view = end - start
-        cellSize = abs(view) / (float(pixels) / float(CELL_SIZE_MAX_PX))
-        cellSize = min(pow(2.0, round(log(cellSize, 2.0))), pow(4.0, round(log(cellSize, 4.0))), pow(8.0, round(log(cellSize, 8.0))))
+        cellSize = self.cellSize
         cursor = int(ceil(start / cellSize))
         limit = int(floor(end / cellSize))
         if cursor > limit:

@@ -332,6 +332,38 @@ class MoveTangentAction(object):
         pass
 
 
+class MoveTimeLineItemAction(DirectionalAction):
+    def __init__(self, scale, cellSize, items, undoable=True):
+        super(MoveTimeLineItemAction, self).__init__(scale)
+        self.__items = [(i, i.event.start) for i in items]
+        self.__cellSize = cellSize
+        self.__undoable = undoable
+
+    # def mouseReleaseEvent(self, undoStack):
+    #     if self.__undoable:
+    #         # undoStack.push(TimeEdit(self.__originalTime, self.__newTime, self.__setTime))
+    #         pass
+    #     return True
+
+    def processMouseDelta(self, event):
+        ux, uy = self._reproject(event.x(), event.y())
+        ux -= self._dragStartU[0]
+        uy -= self._dragStartU[1]
+
+        for item, itemDragStart in self.__items:
+            if self._mask & 1: # X move
+                newStart = round(itemDragStart + ux, 2)
+                if newStart != item.event.start:
+                    item.event.start = newStart
+            if self._mask & 2: # Y move
+                pass
+
+        return False  # Don't paint here. Updating the model-item triggers a layout event, which does the painting.
+
+    def draw(self, painter):
+        pass
+
+
 class MarqueeActionBase(object):
     def __init__(self, view, selection):
         self._view = view
@@ -444,3 +476,5 @@ class InsertKeys(QUndoCommand):
             else:
                 curve.removeKeys([key])
         self.triggerRepaint()
+
+
