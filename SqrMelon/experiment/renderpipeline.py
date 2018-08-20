@@ -1,3 +1,5 @@
+import functools
+from experiment import projectutil
 from experiment.delegates import AtomDelegate
 from experiment.enums import EStitchScope
 from qtutil import *
@@ -5,7 +7,85 @@ import json
 import uuid
 
 
+def deserializeGraph(fileHandle):
+    data = json.load(fileHandle)
+    graph = []
+    uuidMap = {}
+
+    for nodeData in data['graph']:
+        node = Node(nodeData['name'], nodeData['x'], nodeData['y'])
+        uuidMap[nodeData['uuid']] = node
+        graph.append(node)
+        for plugData in nodeData['inputs']:
+            plug = Plug(plugData['name'], graph[-1])
+            uuidMap[plugData['uuid']] = plug
+            node.inputs.append(plug)
+        for plugData in nodeData['outputs']:
+            plug = Plug(plugData['name'], graph[-1])
+            uuidMap[plugData['uuid']] = plug
+            node.outputs.append(plug)
+        for stitchData in nodeData['stitches']:
+            stitch = Stitch(stitchData['name'], EStitchScope(stitchData['scope']))
+            node.stitches.append(stitch)
+        node.layout()
+
+    for nodeData in data['graph']:
+        for plugData in nodeData['inputs']:
+            plug = uuidMap[plugData['uuid']]
+            for uuid in plugData['connections']:
+                plug.connections.append(uuidMap[uuid])
+        for plugData in nodeData['outputs']:
+            plug = uuidMap[plugData['uuid']]
+            for uuid in plugData['connections']:
+                plug.connections.append(uuidMap[uuid])
+
+    return graph
+
+
+def serializeGraph(graph, fileHandle):
+    data = {'graph': []}
+    uuidCache = {}
+    for node in graph:
+        nodeData = {
+            'uuid': str(uuidCache.setdefault(node, uuid.uuid4())),
+            'name': node.name,
+            'x': node.x,
+            'y': node.y,
+            'inputs': [],
+            'outputs': [],
+            'stitches': []
+        }
+        for input in node.inputs:
+            inputData = {
+                'uuid': str(uuidCache.setdefault(input, uuid.uuid4())),
+                'name': input.name,
+                'connections': [str(uuidCache.setdefault(connection, uuid.uuid4())) for connection in input.connections]
+            }
+            nodeData['inputs'].append(inputData)
+        for output in node.outputs:
+            inputData = {
+                'uuid': str(uuidCache.setdefault(output, uuid.uuid4())),
+                'name': output.name,
+                'connections': [str(uuidCache.setdefault(connection, uuid.uuid4())) for connection in output.connections]
+            }
+            nodeData['outputs'].append(inputData)
+        for stitch in node.stitches:
+            stitchData = {
+                'name': stitch.name,
+                'scope': str(stitch.scope)
+            }
+            nodeData['stitches'].append(stitchData)
+        data['graph'].append(nodeData)
+    json.dump(data, fileHandle)
+
+
 def lerp(a, b, t): return (b - a) * t + a
+
+
+class Stitch(object):
+    def __init__(self, name, scope=EStitchScope.Public):
+        self.name = name
+        self.scope = scope
 
 
 class Plug(object):
@@ -20,15 +100,13 @@ class Plug(object):
     def portRect(self):
         return self._portRect
 
+    @property
+    def textRect(self):
+        return self._textRect
+
     def paint(self, painter):
         painter.drawEllipse(self._portRect)
         painter.drawText(self._textRect, Qt.AlignRight | Qt.AlignTop, self.name)
-
-
-class Stitch(object):
-    def __init__(self, name, scope=EStitchScope.Public):
-        self.name = name
-        self.scope = scope
 
 
 class Node(object):
@@ -88,7 +166,7 @@ class Node(object):
             o = ((em - padding) - PLUGSIZE) / 2
             if i < len(self.inputs):
                 self.inputs[i]._portRect = QRect(contentRect.x(), contentRect.y() + o, PLUGSIZE, PLUGSIZE)
-                self.inputs[i]._textRect = QRect(contentRect.x() + PLUGSIZE + padding, contentRect.y(), lhs - (PLUGSIZE + padding), contentRect.height())
+                self.inputs[i]._textRect = QRect(contentRect.x() + PLUGSIZE + padding, contentRect.y(), lhs - (PLUGSIZE + padding), metrics.height())
             if i < len(self.outputs):
                 self.outputs[i]._portRect = QRect(contentRect.right() - PLUGSIZE, contentRect.y() + o, PLUGSIZE, PLUGSIZE)
                 self.outputs[i]._textRect = QRect(contentRect.right() - rhs, contentRect.y(), rhs - (PLUGSIZE + padding), contentRect.height())
@@ -113,74 +191,219 @@ class Node(object):
             output.paint(painter)
 
 
-def deserializeGraph(filePath):
-    data = json.load(filePath)
-    graph = []
-    uuidMap = {}
+class MoveNode(QUndoCommand):
+    def __init__(self, node, oldPos, callback, parent=None):
+        super(MoveNode, self).__init__('Node moved', parent)
+        self.__node = node
+        self.__oldPos = oldPos
+        self.__newPos = self.__node.x, self.__node.y
+        self.__applied = True
+        self.__callback = callback
 
-    for nodeData in data['graph']:
-        node = Node(nodeData['name'], nodeData['x'], nodeData['y'])
-        uuidMap[nodeData['uuid']] = node
-        graph.append(node)
-        for plugData in nodeData['inputs']:
-            plug = Plug(plugData['name'], graph[-1])
-            uuidMap[plugData['uuid']] = plug
-            node.inputs.append(plug)
-        for plugData in nodeData['outputs']:
-            plug = Plug(plugData['name'], graph[-1])
-            uuidMap[plugData['uuid']] = plug
-            node.outputs.append(plug)
-        node.layout()
+    def redo(self):
+        if self.__applied:
+            return
+        self.__applied = True
+        self.__node.setPosition(*self.__newPos)
+        self.__callback()
 
-    for nodeData in data['graph']:
-        for plugData in nodeData['inputs']:
-            plug = uuidMap[plugData['uuid']]
-            for uuid in plugData['connections']:
-                plug.connections.append(uuidMap[uuid])
-        for plugData in nodeData['outputs']:
-            plug = uuidMap[plugData['uuid']]
-            for uuid in plugData['connections']:
-                plug.connections.append(uuidMap[uuid])
-
-    return graph
+    def undo(self):
+        self.__applied = False
+        self.__node.setPosition(*self.__oldPos)
+        self.__callback()
 
 
-def serializeGraph(graph, filePath):
-    data = {'graph': []}
-    uuidCache = {}
-    for node in graph:
-        nodeData = {
-            'uuid': str(uuidCache.setdefault(node, uuid.uuid4())),
-            'name': node.name,
-            'x': node.x,
-            'y': node.y,
-            'inputs': [],
-            'outputs': []
-        }
-        for input in node.inputs:
-            inputData = {
-                'uuid': str(uuidCache.setdefault(input, uuid.uuid4())),
-                'name': input.name,
-                'connections': [str(uuidCache.setdefault(connection, uuid.uuid4())) for connection in input.connections]
-            }
-            nodeData['inputs'].append(inputData)
-        for output in node.outputs:
-            inputData = {
-                'uuid': str(uuidCache.setdefault(output, uuid.uuid4())),
-                'name': output.name,
-                'connections': [str(uuidCache.setdefault(connection, uuid.uuid4())) for connection in output.connections]
-            }
-            nodeData['outputs'].append(inputData)
-        data['graph'].append(nodeData)
-    json.dump(data, filePath)
+class AddNode(QUndoCommand):
+    def __init__(self, graph, node, triggerRepaint):
+        super(AddNode, self).__init__('Add node')
+        self.__graph = graph
+        self.__node = node
+        self.__triggerRepaint = triggerRepaint
+
+    def redo(self):
+        self.__graph.append(self.__node)
+        self.__triggerRepaint()
+
+    def undo(self):
+        self.__graph.remove(self.__node)
+        self.__triggerRepaint()
+
+
+class DeleteNode(QUndoCommand):
+    def __init__(self, graph, node):
+        super(DeleteNode, self).__init__('Delete node')
+        self.__graph = graph
+        self.__node = node
+
+    def redo(self):
+        self.__graph.remove(self.__node)
+
+    def undo(self):
+        self.__graph.append(self.__node)
+
+
+class ConnectionEdit(QUndoCommand):
+    def __init__(self, a, b, triggerRepaint, parent=None):
+        super(ConnectionEdit, self).__init__('Connection edit', parent)
+        self._triggerRepaint = triggerRepaint
+        self._connect = None
+        self._disconnect = tuple()
+        if a in a.node.inputs:
+            if b is None:  # break connections to a
+                self._disconnect = tuple((c, a) for c in a.connections)
+            else:
+                self._connect = b, a
+                # disconnect other inputs from a
+                self._disconnect = tuple((c, a) for c in a.connections)
+        elif b is not None:  # connect b to a
+            self._connect = a, b  # connect a to b
+            # disconnect other inputs from b
+            self._disconnect = tuple((c, b) for c in b.connections)
+
+    def redo(self):
+        if self._connect is not None:
+            a, b = self._connect
+            a.connections.append(b)
+            b.connections.append(a)
+        for a, b in self._disconnect:
+            a.connections.remove(b)
+            b.connections.remove(a)
+        self._triggerRepaint()
+
+    def undo(self):
+        for a, b in self._disconnect:
+            a.connections.append(b)
+            b.connections.append(a)
+        if self._connect is not None:
+            a, b = self._connect
+            a.connections.remove(b)
+            b.connections.remove(a)
+        self._triggerRepaint()
+
+
+class SetAttr(QUndoCommand):
+    def __init__(self, setter, restoreValue, newValue, callback, parent=None):
+        super(SetAttr, self).__init__('Attribute change', parent)
+        self._setter = setter
+        self._newValue = newValue
+        self._restoreValue = restoreValue
+        self._callback = callback
+
+    def redo(self):
+        self._setter(self._newValue)
+        self._callback()
+
+    def undo(self):
+        self._setter(self._restoreValue)
+        self._callback()
+
+
+class NodeEditArray(QUndoCommand):
+    Add = True
+    Remove = False
+
+    def __init__(self, inspect, array, node, elements, mode, callback, parent=None):
+        super(NodeEditArray, self).__init__('Node element add/remove', parent)
+        self._inspect = inspect
+        self._array = array
+        self._node = node
+        self._elements = elements
+        self._mode = mode
+        self._callback = callback
+
+    def redo(self):
+        if self._mode == NodeEditArray.Add:
+            self._array.extend(self._elements)
+        else:
+            for element in self._elements:
+                self._array.remove(element)
+                if isinstance(element, Plug):
+                    # clear connections to this plug
+                    for entry in element.connections:
+                        entry.connections.remove(element)
+        self._inspect(self._node)
+        self._node.layout()
+        self._callback()
+
+    def undo(self):
+        if self._mode == NodeEditArray.Add:
+            for element in self._elements:
+                self._array.remove(element)
+        else:
+            # TODO: reinsert at right indices, undo/redo now shuffles plugs. It doesn't break but it's confusing to the user.
+            self._array.extend(self._elements)
+            for element in self._elements:
+                if isinstance(element, Plug):
+                    # restore connections to this plug
+                    for entry in element.connections:
+                        entry.connections.append(element)
+        self._inspect(self._node)
+        self._node.layout()
+        self._callback()
+
+
+class CreateConnectionAction(object):
+    def __init__(self, plug, plugAt, triggerRepaint):
+        super(CreateConnectionAction, self).__init__()
+        self.__plug = plug
+        self.__drag = None
+        self.__over = None
+        self.__plugAt = plugAt
+        self._triggerRepaint = triggerRepaint
+
+    def mousePressEvent(self, event):
+        pass
+
+    def mouseMoveEvent(self, event):
+        self.__drag = event.pos()
+        self.__over = self.__plugAt(event.pos())
+        return True
+
+    def mouseReleaseEvent(self, undoStack):
+        undoStack.push(ConnectionEdit(self.__plug, self.__over, self._triggerRepaint))
+        return True
+
+    def draw(self, painter):
+        if self.__drag is not None:
+            painter.drawLine(self.__plug.portRect.center(), self.__drag)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(Qt.green)
+        if self.__over is not None:
+            painter.drawEllipse(self.__over.portRect)
+        painter.drawEllipse(self.__plug.portRect)
+
+
+class DragNodeAction(object):
+    def __init__(self, node, triggerRepaint):
+        self.__restore = node.x, node.y
+        self.__node = node
+        self.__dragStart = None
+        self.__triggerRepaint = triggerRepaint
+
+    def mousePressEvent(self, event):
+        self.__dragStart = event.pos()
+
+    def mouseMoveEvent(self, event):
+        delta = event.pos() - self.__dragStart
+        x = self.__restore[0] + delta.x()
+        y = self.__restore[1] + delta.y()
+        self.__node.setPosition(x, y)
+        return True
+
+    def mouseReleaseEvent(self, undoStack):
+        undoStack.push(MoveNode(self.__node, self.__restore, self.__triggerRepaint))
+
+    def draw(self, painter):
+        pass
 
 
 class NodeSettings(QWidget):
     nodeChanged = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, undoStack):
         super(NodeSettings, self).__init__()
 
+        self.undoStack = undoStack
         self.setEnabled(False)
         self.node = None
 
@@ -234,51 +457,41 @@ class NodeSettings(QWidget):
         text, accepted = QInputDialog.getText(self, 'Add input', 'Set new input name')
         if not accepted or not text:
             return
+        for plug in self.node.inputs:
+            if text == plug.name:
+                QMessageBox.critical(None, 'Error', 'Node %s already has an input named %s' % (self.node.name, plug.name))
+                return
         plug = Plug(text, self.node)
-        self.node.inputs.append(plug)
-        item = QStandardItem(plug.name)
-        item.setData(plug)
-        self._inputList.model().appendRow(item)
-        self.node.layout()
+        self.undoStack.push(NodeEditArray(self.setNode, self.node.inputs, self.node, [plug], NodeEditArray.Add, self.nodeChanged.emit))
 
     def _deleteSelectedInputs(self):
         rows = {idx.row() for idx in self._inputList.selectionModel().selectedRows()}
         mdl = self._inputList.model()
-        for row in reversed(sorted(list(rows))):
-            plug = mdl.item(row).data()
-            self.node.inputs.remove(plug)
-            for connection in plug.connections:
-                connection.connections.remove(plug)
-            self.node.layout()
-            mdl.removeRows(row, 1)
-        self.nodeChanged.emit()
+        plugs = [mdl.item(row).data() for row in rows]
+        self.undoStack.push(NodeEditArray(self.setNode, self.node.inputs, self.node, plugs, NodeEditArray.Remove, self.nodeChanged.emit))
 
     def _renameInput(self, item):
-        item.data().name = item.text()
-        self.nodeChanged.emit()
+        self.undoStack.push(SetAttr(functools.partial(setattr, item.data(), 'name'), item.data().name, item.text(), self.nodeChanged.emit))
 
     def _addOutput(self):
         text, accepted = QInputDialog.getText(self, 'Add output', 'Set new output name')
         if not accepted or not text:
             return
-        self.node.outputs.append(Plug(text, self.node))
-        self.node.layout()
+        for plug in self.node.outputs:
+            if text == plug.name:
+                QMessageBox.critical(None, 'Error', 'Node %s already has an output named %s' % (self.node.name, plug.name))
+                return
+        plug = Plug(text, self.node)
+        self.undoStack.push(NodeEditArray(self.setNode, self.node.outputs, self.node, [plug], NodeEditArray.Add, self.nodeChanged.emit))
 
     def _deleteSelectedOutputs(self):
         rows = {idx.row() for idx in self._outputList.selectionModel().selectedRows()}
         mdl = self._outputList.model()
-        for row in reversed(sorted(list(rows))):
-            plug = mdl.item(row).data()
-            self.node.outputs.remove(plug)
-            for connection in plug.connections:
-                connection.connections.remove(plug)
-            self.node.layout()
-            mdl.removeRows(row, 1)
-        self.nodeChanged.emit()
+        plugs = [mdl.item(row).data() for row in rows]
+        self.undoStack.push(NodeEditArray(self.setNode, self.node.outputs, self.node, plugs, NodeEditArray.Remove, self.nodeChanged.emit))
 
     def _renameOutput(self, item):
-        item.data().name = item.text()
-        self.nodeChanged.emit()
+        self.undoStack.push(SetAttr(functools.partial(setattr, item.data(), 'name'), item.data().name, item.text(), self.nodeChanged.emit))
 
     def _addStitch(self):
         dialog = QDialog(self)
@@ -302,35 +515,29 @@ class NodeSettings(QWidget):
             return
         if not name.text():
             return
+        for stitch in self.node.stitches:
+            if stitch.name == name.text():
+                QMessageBox.critical(None, 'Error', 'Node %s already has a stitch named %s' % (self.node.name, stitch.name))
+                return
         stitch = Stitch(name.text(), EStitchScope(scope.currentText()))
-        self.node.stitches.append(stitch)
-        mdl = self._stitchList.model()
-        item = QStandardItem(stitch.name)
-        item.setData(stitch)
-        item2 = QStandardItem(str(stitch.scope))
-        item2.setData(stitch.scope.__class__)
-        mdl.appendRow([item, item2])
+        self.undoStack.push(NodeEditArray(self.setNode, self.node.stitches, self.node, [stitch], NodeEditArray.Add, self.nodeChanged.emit))
 
     def _deleteSelectedStitches(self):
         rows = {idx.row() for idx in self._stitchList.selectionModel().selectedRows()}
         mdl = self._stitchList.model()
-        for row in reversed(sorted(list(rows))):
-            stitch = mdl.item(row).data()
-            self.node.stitches.remove(stitch)
-            mdl.removeRows(row, 1)
-        self.nodeChanged.emit()
+        stitches = [mdl.item(row).data() for row in rows]
+        self.undoStack.push(NodeEditArray(self.setNode, self.node.stitches, self.node, stitches, NodeEditArray.Remove, self.nodeChanged.emit))
 
     def _processStitchChange(self, item):
         if item.column() == 0:
             stitch = item.data()
-            stitch.name = item.text()
+            self.undoStack.push(SetAttr(functools.partial(setattr, stitch, 'name'), stitch.name, item.text(), functools.partial(self.setNode, self.node)))
         elif item.column() == 1:
             stitch = self._stitchList.model().item(item.row()).data()
-            stitch.scope = EStitchScope(item.text())
+            self.undoStack.push(SetAttr(functools.partial(setattr, stitch, 'scope'), stitch.scope, EStitchScope(item.text()), functools.partial(self.setNode, self.node)))
 
     def __onEditingFinished(self, *args):
-        self.node.name = self._nameEdit.text()
-        self.nodeChanged.emit()
+        self.undoStack.push(SetAttr(functools.partial(setattr, self.node, 'name'), self.node.name, self._nameEdit.text(), self.nodeChanged.emit))
 
     def setNode(self, node):
         if self.node:
@@ -367,68 +574,6 @@ class NodeSettings(QWidget):
             mdl.appendRow([item, item2])
 
 
-class MoveNode(QUndoCommand):
-    def __init__(self, node, oldPos, parent=None):
-        super(MoveNode, self).__init__('Node moved', parent)
-        self.__node = node
-        self.__oldPos = oldPos
-        self.__newPos = self.__node.x, self.__node.y
-        self.__applied = True
-
-    def redo(self):
-        if self.__applied:
-            return
-        self.__applied = True
-        self.__node.setPosition(*self.__newPos)
-
-    def undo(self):
-        self.__applied = False
-        self.__node.setPosition(*self.__oldPos)
-
-
-class CreateConnectionAction(object):
-    def __init__(self, plug):
-        super(CreateConnectionAction, self).__init__()
-        self.__plug = plug
-
-    def mousePressEvent(self, event):
-        return True
-
-    def mouseMoveEvent(self, event):
-        return True
-
-    def mouseReleaseEvent(self, undoStack):
-        return True
-
-    def draw(self, painter):
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(Qt.green)
-        painter.drawEllipse(self.__plug.portRect)
-
-
-class DragNodeAction(object):
-    def __init__(self, node):
-        self.__restore = node.x, node.y
-        self.__node = node
-        self.__dragStart = None
-
-    def mousePressEvent(self, event):
-        self.__dragStart = event.pos()
-
-    def mouseMoveEvent(self, event):
-        delta = event.pos() - self.__dragStart
-        x = self.__restore[0] + delta.x()
-        y = self.__restore[1] + delta.y()
-        self.__node.setPosition(x, y)
-        return True
-
-    def mouseReleaseEvent(self, undoStack):
-        undoStack.push(MoveNode(self.__node, self.__restore))
-
-    def draw(self, painter):
-        pass
-
-
 class NodeView(QWidget):
     currentNodeChanged = pyqtSignal(Node)
 
@@ -436,12 +581,23 @@ class NodeView(QWidget):
         super(NodeView, self).__init__(parent)
         self._undoStack = undoStack
         self._action = None
-        with open('renderpipelinetest.json') as fh:
-            self.graph = deserializeGraph(fh)
+        self.graph = []
 
-    def save(self):
-        with open('renderpipelinetest.json', 'w') as fh:
-            serializeGraph(self.graph, fh)
+    def _portAt(self, ignoreNode, pos, attr):
+        for node in self.graph:
+            if node == ignoreNode:
+                continue
+            for plug in getattr(node, attr):
+                if plug.portRect.contains(pos):
+                    return plug
+                if plug.textRect.contains(pos):
+                    return plug
+
+    def _inputAt(self, ignoreNode, pos):
+        return self._portAt(ignoreNode, pos, 'inputs')
+
+    def _outputAt(self, ignoreNode, pos):
+        return self._portAt(ignoreNode, pos, 'outputs')
 
     def mousePressEvent(self, event):
         for node in self.graph:
@@ -450,10 +606,13 @@ class NodeView(QWidget):
             self.currentNodeChanged.emit(node)
             for plug in (node.inputs + node.outputs):
                 if plug.portRect.contains(event.pos()):
-                    self._action = CreateConnectionAction(plug)
+                    if plug in node.inputs:
+                        self._action = CreateConnectionAction(plug, functools.partial(self._outputAt, node), self.repaint)
+                    else:
+                        self._action = CreateConnectionAction(plug, functools.partial(self._inputAt, node), self.repaint)
                     break
             else:
-                self._action = DragNodeAction(node)
+                self._action = DragNodeAction(node, self.repaint)
 
         if self._action:
             if self._action.mousePressEvent(event):
@@ -483,15 +642,96 @@ class NodeView(QWidget):
             self._action.draw(painter)
 
 
-# TODO: Connect & disconnect, save & load actions
+class RenderPipelineEditor(QMainWindowState):
+    def __init__(self):
+        super(RenderPipelineEditor, self).__init__(QSettings('PB', 'SqrMelon'))
+        menuBar = QMenuBar()
+        self.setMenuBar(menuBar)
+
+        fileMenu = menuBar.addMenu('&File')
+
+        a = fileMenu.addAction('&Save')
+        a.setShortcut(QKeySequence('Ctrl+S'))
+        a.triggered.connect(self.__save)
+
+        a = fileMenu.addAction('&Open')
+        a.setShortcut(QKeySequence('Ctrl+O'))
+        a.triggered.connect(self.__open)
+
+        fileMenu = menuBar.addMenu('&Edit')
+
+        self.__undoStack = QUndoStack()
+        a = self.__undoStack.createUndoAction(self)
+        fileMenu.addAction(a)
+        a.setShortcut(QKeySequence('Ctrl+Z'))
+
+        a = self.__undoStack.createRedoAction(self)
+        fileMenu.addAction(a)
+        a.setShortcut(QKeySequence('Ctrl+Shift+Z'))
+
+        a = fileMenu.addAction('&New node')
+        a.setShortcut(QKeySequence('Ctrl+N'))
+        a.triggered.connect(self.__create)
+
+        a = fileMenu.addAction('&Delete current node')
+        a.setShortcut(QKeySequence('Delete'))
+        a.triggered.connect(self.__delete)
+
+        self.__view = NodeView(self.__undoStack)
+        self.__settings = NodeSettings(self.__undoStack)
+        self.__view.currentNodeChanged.connect(self.__settings.setNode)
+        self.__settings.nodeChanged.connect(self.__view.repaint)
+        self.createDockWidget(self.__view, 'View')
+        self.createDockWidget(self.__settings, 'Settings')
+
+        self.__currentGraphFile = None
+
+    def __create(self):
+        result = QInputDialog.getText(self, 'Create node', 'Name')
+        if not result[0] or not result[1]:
+            return
+        node = Node(result[0], 0, 0)
+        node.layout()
+        self.__undoStack.push(AddNode(self.__view.graph, node, self.repaint))
+
+    def __delete(self):
+        if self.__settings.node:
+            self.__undoStack.append(DeleteNode(self.__view.graph, self.__settings.node))
+
+    def __save(self):
+        result = self.currentGraphFile()
+        if not result:
+            return
+        with open(result, 'w') as fh:
+            serializeGraph(self.__view.graph, fh)
+        QMessageBox.information(self, 'Save successful', 'Saved %s' % result)
+
+    def __open(self):
+        result = QFileDialog.getOpenFileName(self, 'Open', self.currentGraphDir(), 'Pipeline files (*.json)')
+        if not result:
+            return
+        self.__undoStack.clear()
+        self.__currentGraphFile = result
+        with open(result) as fh:
+            self.__view.graph = deserializeGraph(fh)
+        self.__view.repaint()
+
+    def currentGraphFile(self):
+        if self.__currentGraphFile and os.path.exists(self.__currentGraphFile):
+            return self.__currentGraphFile
+
+    def currentGraphDir(self):
+        currentPath = self.currentGraphFile()
+        if currentPath:
+            return os.path.dirname(currentPath)
+        return projectutil.templateFolder()
+
+
+settings = projectutil.settings()
+defaultProjectDir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'defaultproject')
+settings.setValue('currentproject', defaultProjectDir)
+
 app = QApplication([])
-split = QSplitter(Qt.Horizontal)
-undoStack = QUndoStack()
-view = NodeView(undoStack)
-settings = NodeSettings()
-view.currentNodeChanged.connect(settings.setNode)
-settings.nodeChanged.connect(view.repaint)
-split.addWidget(view)
-split.addWidget(settings)
-split.show()
+win = RenderPipelineEditor()
+win.show()
 app.exec_()

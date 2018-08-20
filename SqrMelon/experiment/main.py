@@ -36,11 +36,15 @@ if __name__ == '__main__':
 
     timer = Time()
     curveUI = CurveUI(timer, eventManager, clipManager, undoStack)
+
+
     def eventChanged():
         for event in eventManager.selectionModel().selectedRows():
             curveUI.setEvent(event.data(Qt.UserRole + 1))
             return
         curveUI.setEvent(None)
+
+
     eventManager.selectionChange.connect(eventChanged)
 
     eventTimeline = TimelineView(timer, undoStack, (shotManager.model(), eventManager.model()), (shotManager.selectionModel(), eventManager.selectionModel()))

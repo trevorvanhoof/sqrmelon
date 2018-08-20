@@ -66,7 +66,7 @@ class ViewZoomAction(DirectionalAction):
         self.__rect = viewRect
         self.__pixelSize = pixelSize
         self.__baseValues = self.__rect.left, self.__rect.right, self.__rect.top, self.__rect.bottom
-
+    
     def processMouseDelta(self, event):
         dx = self._dragStartPx.x() - event.x()
         dy = self._dragStartPx.y() - event.y()
