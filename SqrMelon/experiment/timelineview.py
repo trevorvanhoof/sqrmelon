@@ -1,6 +1,6 @@
 import functools
 
-from experiment.actions import MarqueeActionBase, MoveTimeAction, MoveTimeLineItemAction
+from experiment.actions import MarqueeActionBase, MoveTimeAction, MoveEventAction
 from experiment.gridview import GridView
 from experiment.model import Shot
 from experiment.timer import drawPlayhead
@@ -80,6 +80,8 @@ class GraphicsItemShot(GraphicsItemEvent):
 
 
 class TimelineMarqueeAction(MarqueeActionBase):
+    CLICK_SIZE = 2
+
     def __init__(self, view, model, undoStack):
         super(TimelineMarqueeAction, self).__init__(view, model)
         self._undoStack = undoStack
@@ -238,6 +240,22 @@ class TimelineView(GridView):
     def _reproject(self, x, y):
         return self.xToT(x), y
 
+    def _selectedItems(self):
+        for selection in self.__selectionModels:
+            for row in set(idx.row() for idx in selection.selectedRows()):
+                yield selection.model().item(row).data()
+
+    def _itemHandleAt(self, itemRect, pos):
+        # reimplemented from GraphicsItemEvent.mouseMoveEvent
+        # returns a mask for what part of the event is clicked (start=1, right=2, both=3)
+        if itemRect.width() > GraphicsItemEvent.handleWidth * 3:
+            lx = pos.x() - itemRect.x()
+            if lx < GraphicsItemEvent.handleWidth:
+                return 1
+            elif lx > itemRect.width() - GraphicsItemEvent.handleWidth:
+                return 2
+        return 3
+
     def mousePressEvent(self, event):
         if event.modifiers() & Qt.AltModifier:
             super(TimelineView, self).mousePressEvent(event)
@@ -245,18 +263,21 @@ class TimelineView(GridView):
             return
 
         elif event.button() == Qt.RightButton:
-            # right button moves the time slider
+            # Right button moves the time slider
             self._action = MoveTimeAction(self._timer.time, self.xToT, functools.partial(self._timer.__setattr__, 'time'))
 
-        elif event.button() == Qt.MiddleButton:
-            # Drag single timeline item when using middle mouse
-            items = list(self.itemsAt(event.x(), event.y(), 1, 1))
-            assert len(items) <= 1
+        elif event.button() == Qt.LeftButton:
+            # Drag selected timeline item under mouse
+            items = set(self.itemsAt(event.x(), event.y(), 1, 1))
+            events = {item.event for item in items}
+            selected = set(self._selectedItems())
+            if events & selected:
+                for item in items:
+                    handle = self._itemHandleAt(item.rect, event.pos())
+                    break
+                self._action = MoveEventAction(self._reproject, self.cellSize, selected, handle)
 
-            if items:
-                self._action = MoveTimeLineItemAction(self._reproject, self.cellSize, items)
-
-        else:
+        if not self._action:
             # else we start a new selection action
             self._action = TimelineMarqueeAction(self, self.__selectionModels, self._undoStack)
 

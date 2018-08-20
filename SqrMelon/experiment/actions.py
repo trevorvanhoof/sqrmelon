@@ -116,6 +116,35 @@ class SelectionModelEdit(NestedCommand):
         self.__emit(removed, added)
 
 
+class EventEdit(QUndoCommand):
+    """
+    Assumes the events are already changed and we are passing in the undo state.
+    Caches current state during construction as redo state.
+
+    first redo() will do nothing
+    undo() will apply given state
+    redo() will apply state chached during construction
+    """
+
+    def __init__(self, restore, parent=None):
+        super(EventEdit, self).__init__('Event edit', parent)
+        self._apply = {event: (event.start, event.end, event.track) for event in restore.iterkeys()}
+        self._restore = restore.copy()
+        self.applied = True
+
+    def redo(self):
+        if self.applied:
+            return
+        self.applied = True
+        for event, value in self._apply.iteritems():
+            event.start, event.end, event.track = value
+
+    def undo(self):
+        self.applied = False
+        for event, value in self._restore.iteritems():
+            event.start, event.end, event.track = value
+
+
 class KeyEdit(QUndoCommand):
     """
     Assumes the keys are already changed and we are passing in the undo state.
@@ -332,49 +361,54 @@ class MoveTangentAction(object):
         pass
 
 
-class MoveTimeLineItemAction(DirectionalAction):
-    def __init__(self, scalefunc, cellSize, items, undoable=False):
-        super(MoveTimeLineItemAction, self).__init__(scalefunc)
-
-        self.__items = [(i, i.event.start) for i in items]
-        self.__cellSize = cellSize
-        self.__undoable = undoable
+class MoveEventAction(DirectionalAction):
+    def __init__(self, reproject, cellSize, events, handle=3):
+        super(MoveEventAction, self).__init__(reproject)
+        self._events = {event: (event.start, event.end, event.track) for event in events}
+        self._cellSize = cellSize / 8.0  # Snap at 1/8th of a grid cell
+        self._handle = handle
 
     def mouseReleaseEvent(self, undoStack):
-        if self.__undoable:
-            # Todo: Some undo stuff
-            pass
-        return True
+        undoStack.push(EventEdit(self._events))
 
     def processMouseDelta(self, event):
+        from experiment.timelineview import GraphicsItemEvent
         ux, uy = self._reproject(event.x(), event.y())
         ux -= self._dragStartU[0]
-        uy -= self._dragStartU[1]
+        uy = (event.y() - self._dragStartPx.y()) / float(GraphicsItemEvent.trackHeight)
 
-        snapSize = self.__cellSize / 10.0  # Snap at 1/10th of a grid cell
-
-        for item, itemDragStart in self.__items:
+        for event, value in self._events.iteritems():
             if self._mask & 1:  # X move
-                newStart = round(itemDragStart + ux, 3)
+                newStart = round(value[0] + ux, 3)
+                newEnd = round(value[1] + ux, 3)
 
-                # Todo: When moving multiple items, only snap to the one under the cursor
-                gridDiff = newStart % self.__cellSize
-                if gridDiff < snapSize or (self.__cellSize - gridDiff) < snapSize:
-                    # Snap
-                    newStart = round(newStart / self.__cellSize) * self.__cellSize
+                # Snap
+                newStart = round(newStart / self._cellSize) * self._cellSize
+                newEnd = round(newEnd / self._cellSize) * self._cellSize
 
-                if newStart != item.event.start:
-                    item.event.start = newStart
+                if self._handle & 1 and newStart != event.start:
+                    if not self._handle & 2:
+                        # truncate from start
+                        event.duration = event.end - newStart
+                    event.start = newStart
+
+                if self._handle == 2:
+                    # truncate from end
+                    if newEnd != event.end:
+                        event.end = newEnd
+
             if self._mask & 2:  # Y move
-                pass
-
-        return False  # Don't paint here. Updating the model-item triggers a layout event, which does the painting.
+                newTrack = int(round(value[2] + uy))
+                if newTrack != event.track:
+                    event.track = newTrack
 
     def draw(self, painter):
         pass
 
 
 class MarqueeActionBase(object):
+    CLICK_SIZE = 10
+
     def __init__(self, view, selection):
         self._view = view
         self._selection = selection
@@ -414,7 +448,10 @@ class MarqueeActionBase(object):
 
     def mouseReleaseEvent(self, undoStack):
         if self._end == self._start:
-            x, y, w, h = self._start.x() - 5, self._start.y() - 5, 10, 10
+            x, y, w, h = self._start.x() - (self.CLICK_SIZE / 2), \
+                         self._start.y() - (self.CLICK_SIZE / 2), \
+                         self.CLICK_SIZE, \
+                         self.CLICK_SIZE
         else:
             x, y, w, h = self._rect()
         # build apply state
@@ -486,5 +523,3 @@ class InsertKeys(QUndoCommand):
             else:
                 curve.removeKeys([key])
         self.triggerRepaint()
-
-
