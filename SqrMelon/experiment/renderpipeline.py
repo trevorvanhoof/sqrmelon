@@ -1,4 +1,6 @@
 import functools
+from contextlib import contextmanager
+
 from experiment import projectutil
 from experiment.delegates import AtomDelegate
 from experiment.enums import EStitchScope
@@ -21,7 +23,7 @@ def deserializeGraph(fileHandle):
             uuidMap[plugData['uuid']] = plug
             node.inputs.append(plug)
         for plugData in nodeData['outputs']:
-            plug = Plug(plugData['name'], graph[-1])
+            plug = OutputPlug(plugData['name'], graph[-1], plugData.get('size', -1))
             uuidMap[plugData['uuid']] = plug
             node.outputs.append(plug)
         for stitchData in nodeData['stitches']:
@@ -63,12 +65,13 @@ def serializeGraph(graph, fileHandle):
             }
             nodeData['inputs'].append(inputData)
         for output in node.outputs:
-            inputData = {
+            outputData = {
                 'uuid': str(uuidCache.setdefault(output, uuid.uuid4())),
                 'name': output.name,
+                'size': output.size,
                 'connections': [str(uuidCache.setdefault(connection, uuid.uuid4())) for connection in output.connections]
             }
-            nodeData['outputs'].append(inputData)
+            nodeData['outputs'].append(outputData)
         for stitch in node.stitches:
             stitchData = {
                 'name': stitch.name,
@@ -107,6 +110,13 @@ class Plug(object):
     def paint(self, painter):
         painter.drawEllipse(self._portRect)
         painter.drawText(self._textRect, Qt.AlignRight | Qt.AlignTop, self.name)
+
+
+class OutputPlug(Plug):
+    def __init__(self, name, node, size=-1):
+        super(OutputPlug, self).__init__(name, node)
+        # if size is negative it is a factor of the screen resolution
+        self.size = size
 
 
 class Node(object):
@@ -230,16 +240,19 @@ class AddNode(QUndoCommand):
 
 
 class DeleteNode(QUndoCommand):
-    def __init__(self, graph, node):
+    def __init__(self, graph, node, triggerRepaint):
         super(DeleteNode, self).__init__('Delete node')
         self.__graph = graph
         self.__node = node
+        self.__triggerRepaint = triggerRepaint
 
     def redo(self):
         self.__graph.remove(self.__node)
+        self.__triggerRepaint()
 
     def undo(self):
         self.__graph.append(self.__node)
+        self.__triggerRepaint()
 
 
 class ConnectionEdit(QUndoCommand):
@@ -397,6 +410,41 @@ class DragNodeAction(object):
         pass
 
 
+@contextmanager
+def blankDialog(parent, title):
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title)
+    main = vlayout()
+    dialog.setLayout(main)
+    buttonbar = hlayout()
+    buttonbar.addStretch()
+    ok = QPushButton('Ok')
+    buttonbar.addWidget(ok)
+    cancel = QPushButton('Cancel')
+    buttonbar.addWidget(cancel)
+    yield dialog
+    main.addLayout(buttonbar)
+    ok.clicked.connect(dialog.accept)
+    cancel.clicked.connect(dialog.reject)
+    dialog.exec_()
+
+
+def tableView(table, mainLayout, name, onAdd, onDelete, onEdit):
+    add = QPushButton('Add %s' % name)
+    mainLayout.addWidget(add)
+    add.clicked.connect(onAdd)
+    delete = QPushButton('Delete selected %ss' % name)
+    mainLayout.addWidget(delete)
+    delete.clicked.connect(onDelete)
+    table.horizontalHeader().hide()
+    table.verticalHeader().hide()
+    table.verticalHeader().setDefaultSectionSize(22)
+    table.setSelectionMode(QListView.ExtendedSelection)
+    table.setModel(QStandardItemModel())
+    mainLayout.addWidget(table)
+    table.model().itemChanged.connect(onEdit)
+
+
 class NodeSettings(QWidget):
     nodeChanged = pyqtSignal()
 
@@ -413,45 +461,18 @@ class NodeSettings(QWidget):
         self._nameEdit = QLineEdit()
         mainLayout.addWidget(self._nameEdit)
 
-        addInput = QPushButton('Add input')
-        mainLayout.addWidget(addInput)
-        addInput.clicked.connect(self._addInput)
-        deleteInput = QPushButton('Delete selected inputs')
-        mainLayout.addWidget(deleteInput)
-        deleteInput.clicked.connect(self._deleteSelectedInputs)
-        self._inputList = QListView()
-        self._inputList.setSelectionMode(QListView.ExtendedSelection)
-        self._inputList.setModel(QStandardItemModel())
-        mainLayout.addWidget(self._inputList)
-        self._inputList.model().itemChanged.connect(self._renameInput)
+        self._inputList = QTableView()
+        tableView(self._inputList, mainLayout, 'input', self._addInput, self._deleteSelectedInputs, self._renameInput)
 
-        addOutput = QPushButton('Add output')
-        mainLayout.addWidget(addOutput)
-        addOutput.clicked.connect(self._addOutput)
-        deleteOutput = QPushButton('Delete selected outputs')
-        mainLayout.addWidget(deleteOutput)
-        deleteOutput.clicked.connect(self._deleteSelectedOutputs)
-        self._outputList = QListView()
-        self._outputList.setModel(QStandardItemModel())
-        self._outputList.setSelectionMode(QListView.ExtendedSelection)
-        mainLayout.addWidget(self._outputList)
-        self._outputList.model().itemChanged.connect(self._renameOutput)
+        self._outputList = QTableView()
+        tableView(self._outputList, mainLayout, 'output', self._addOutput, self._deleteSelectedOutputs, self._processOutputChange)
+        self._outputList.setSelectionBehavior(QTableView.SelectRows)
+        self._outputList.setItemDelegateForColumn(1, AtomDelegate())
 
-        addStitch = QPushButton('Add stitch')
-        mainLayout.addWidget(addStitch)
-        addStitch.clicked.connect(self._addStitch)
-        deleteStitch = QPushButton('Delete selected stitches')
-        mainLayout.addWidget(deleteStitch)
-        deleteStitch.clicked.connect(self._deleteSelectedStitches)
         self._stitchList = QTableView()
-        self._stitchList.setModel(QStandardItemModel())
+        tableView(self._stitchList, mainLayout, 'stitch', self._addStitch, self._deleteSelectedStitches, self._processStitchChange)
         self._stitchList.setSelectionBehavior(QTableView.SelectRows)
-        self._stitchList.setSelectionMode(QListView.ExtendedSelection)
-        self._stitchList.verticalHeader().setVisible(False)
-        self._stitchList.horizontalHeader().setVisible(False)
         self._stitchList.setItemDelegateForColumn(1, AtomDelegate())
-        mainLayout.addWidget(self._stitchList)
-        self._stitchList.model().itemChanged.connect(self._processStitchChange)
 
     def _addInput(self):
         text, accepted = QInputDialog.getText(self, 'Add input', 'Set new input name')
@@ -474,14 +495,22 @@ class NodeSettings(QWidget):
         self.undoStack.push(SetAttr(functools.partial(setattr, item.data(), 'name'), item.data().name, item.text(), self.nodeChanged.emit))
 
     def _addOutput(self):
-        text, accepted = QInputDialog.getText(self, 'Add output', 'Set new output name')
-        if not accepted or not text:
+        with blankDialog(self, 'Add output') as dialog:
+            dialog.layout().addWidget(QLabel('New output name'))
+            name = QLineEdit()
+            dialog.layout().addWidget(name)
+            dialog.layout().addWidget(QLabel('Target buffer size\n(negative means factor of resolution)'))
+            size = QSpinBox()
+            size.setMinimum(-128)
+            size.setMaximum(16192)
+            dialog.layout().addWidget(size)
+        if dialog.result() != QDialog.Accepted or not name.text() or size.value() == 0:
             return
         for plug in self.node.outputs:
-            if text == plug.name:
+            if name.text() == plug.name:
                 QMessageBox.critical(None, 'Error', 'Node %s already has an output named %s' % (self.node.name, plug.name))
                 return
-        plug = Plug(text, self.node)
+        plug = OutputPlug(name.text(), self.node, size.value())
         self.undoStack.push(NodeEditArray(self.setNode, self.node.outputs, self.node, [plug], NodeEditArray.Add, self.nodeChanged.emit))
 
     def _deleteSelectedOutputs(self):
@@ -490,30 +519,29 @@ class NodeSettings(QWidget):
         plugs = [mdl.item(row).data() for row in rows]
         self.undoStack.push(NodeEditArray(self.setNode, self.node.outputs, self.node, plugs, NodeEditArray.Remove, self.nodeChanged.emit))
 
-    def _renameOutput(self, item):
-        self.undoStack.push(SetAttr(functools.partial(setattr, item.data(), 'name'), item.data().name, item.text(), self.nodeChanged.emit))
+    def _processOutputChange(self, item):
+        plug = self._outputList.model().item(item.row()).data()
+        if item.column() == 0:
+            name = 'name'
+            old = plug.name
+            new = item.text()
+        else:
+            name = 'size'
+            old = plug.size
+            try:
+                new = int(item.text())
+            except:
+                return
+        self.undoStack.push(SetAttr(functools.partial(setattr, plug, name), old, new, self.nodeChanged.emit))
 
     def _addStitch(self):
-        dialog = QDialog(self)
-        dialog.setLayout(vlayout())
-        name = QLineEdit()
-        dialog.layout().addWidget(name)
-        scope = QComboBox()
-        scope.addItems(EStitchScope.options())
-        dialog.layout().addWidget(scope)
-        buttonbar = hlayout()
-        buttonbar.addStretch()
-        ok = QPushButton('Ok')
-        buttonbar.addWidget(ok)
-        cancel = QPushButton('Cancel')
-        buttonbar.addWidget(cancel)
-        dialog.layout().addLayout(buttonbar)
-        ok.clicked.connect(dialog.accept)
-        cancel.clicked.connect(dialog.reject)
-        dialog.exec_()
-        if dialog.result() != QDialog.Accepted:
-            return
-        if not name.text():
+        with blankDialog(self, 'Add output') as dialog:
+            name = QLineEdit()
+            dialog.layout().addWidget(name)
+            scope = QComboBox()
+            scope.addItems(EStitchScope.options())
+            dialog.layout().addWidget(scope)
+        if dialog.result() != QDialog.Accepted or not name.text():
             return
         for stitch in self.node.stitches:
             if stitch.name == name.text():
@@ -529,12 +557,16 @@ class NodeSettings(QWidget):
         self.undoStack.push(NodeEditArray(self.setNode, self.node.stitches, self.node, stitches, NodeEditArray.Remove, self.nodeChanged.emit))
 
     def _processStitchChange(self, item):
+        stitch = self._stitchList.model().item(item.row()).data()
         if item.column() == 0:
-            stitch = item.data()
-            self.undoStack.push(SetAttr(functools.partial(setattr, stitch, 'name'), stitch.name, item.text(), functools.partial(self.setNode, self.node)))
-        elif item.column() == 1:
-            stitch = self._stitchList.model().item(item.row()).data()
-            self.undoStack.push(SetAttr(functools.partial(setattr, stitch, 'scope'), stitch.scope, EStitchScope(item.text()), functools.partial(self.setNode, self.node)))
+            name = 'name'
+            old = stitch.name
+            new = item.text()
+        else:
+            name = 'scope'
+            old = stitch.scope
+            new = EStitchScope(item.text())
+        self.undoStack.push(SetAttr(functools.partial(setattr, stitch, name), old, new, functools.partial(self.setNode, self.node)))
 
     def __onEditingFinished(self, *args):
         self.undoStack.push(SetAttr(functools.partial(setattr, self.node, 'name'), self.node.name, self._nameEdit.text(), self.nodeChanged.emit))
@@ -562,7 +594,9 @@ class NodeSettings(QWidget):
         for output in node.outputs:
             item = QStandardItem(output.name)
             item.setData(output)
-            mdl.appendRow(QStandardItem(item))
+            item2 = QStandardItem(str(output.size))
+            item2.setData(int)
+            mdl.appendRow([item, item2])
 
         mdl = self._stitchList.model()
         mdl.clear()
@@ -642,48 +676,44 @@ class NodeView(QWidget):
             self._action.draw(painter)
 
 
+def menuAction(menu, label, keySequence, callback):
+    a = menu.addAction(label)
+    a.setShortcut(QKeySequence(keySequence))
+    a.triggered.connect(callback)
+
+
 class RenderPipelineEditor(QMainWindowState):
     def __init__(self):
         super(RenderPipelineEditor, self).__init__(QSettings('PB', 'SqrMelon'))
         menuBar = QMenuBar()
         self.setMenuBar(menuBar)
 
-        fileMenu = menuBar.addMenu('&File')
-
-        a = fileMenu.addAction('&Save')
-        a.setShortcut(QKeySequence('Ctrl+S'))
-        a.triggered.connect(self.__save)
-
-        a = fileMenu.addAction('&Open')
-        a.setShortcut(QKeySequence('Ctrl+O'))
-        a.triggered.connect(self.__open)
-
-        fileMenu = menuBar.addMenu('&Edit')
-
         self.__undoStack = QUndoStack()
-        a = self.__undoStack.createUndoAction(self)
-        fileMenu.addAction(a)
-        a.setShortcut(QKeySequence('Ctrl+Z'))
 
-        a = self.__undoStack.createRedoAction(self)
-        fileMenu.addAction(a)
-        a.setShortcut(QKeySequence('Ctrl+Shift+Z'))
+        fileMenu = menuBar.addMenu('&File')
+        menuAction(fileMenu, '&Save', 'Ctrl+S', self.__save)
+        menuAction(fileMenu, '&Open', 'Ctrl+O', self.__open)
 
-        a = fileMenu.addAction('&New node')
-        a.setShortcut(QKeySequence('Ctrl+N'))
-        a.triggered.connect(self.__create)
+        editMenu = menuBar.addMenu('&Edit')
+        undo = self.__undoStack.createUndoAction(self)
+        editMenu.addAction(undo)
+        undo.setShortcut(QKeySequence('Ctrl+Z'))
 
-        a = fileMenu.addAction('&Delete current node')
-        a.setShortcut(QKeySequence('Delete'))
-        a.triggered.connect(self.__delete)
+        redo = self.__undoStack.createRedoAction(self)
+        editMenu.addAction(redo)
+        redo.setShortcut(QKeySequence('Ctrl+Shift+Z'))
+
+        menuAction(editMenu, '&New node', 'Ctrl+N', self.__create)
+        menuAction(editMenu, '&Delete current node', 'Delete', self.__delete)
 
         self.__view = NodeView(self.__undoStack)
-        self.__settings = NodeSettings(self.__undoStack)
-        self.__view.currentNodeChanged.connect(self.__settings.setNode)
-        self.__settings.nodeChanged.connect(self.__view.repaint)
         self.createDockWidget(self.__view, 'View')
+
+        self.__settings = NodeSettings(self.__undoStack)
         self.createDockWidget(self.__settings, 'Settings')
 
+        self.__view.currentNodeChanged.connect(self.__settings.setNode)
+        self.__settings.nodeChanged.connect(self.__view.repaint)
         self.__currentGraphFile = None
 
     def __create(self):
@@ -696,7 +726,7 @@ class RenderPipelineEditor(QMainWindowState):
 
     def __delete(self):
         if self.__settings.node:
-            self.__undoStack.append(DeleteNode(self.__view.graph, self.__settings.node))
+            self.__undoStack.push(DeleteNode(self.__view.graph, self.__settings.node, self.repaint))
 
     def __save(self):
         result = self.currentGraphFile()

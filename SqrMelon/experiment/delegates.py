@@ -59,7 +59,11 @@ class AtomDelegate(QItemDelegate):
             self.__typ = index.data(Qt.UserRole + 1)
             if not isinstance(self.__typ, type):
                 return
-            if self.__typ == float:
+            if self.__typ == int:
+                self.__editor = SpinBox()
+                self.__editor.setMinimum(-2**31)
+                self.__editor.setMaximum(2**31-1)
+            elif self.__typ == float:
                 self.__editor = DoubleSpinBox()
             elif self.__typ == basestring or issubclass(self.__typ, basestring):
                 self.__editor = LineEdit()
