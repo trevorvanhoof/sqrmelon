@@ -34,6 +34,10 @@ class Event(ItemRow):
     def properties(cls):
         return 'name', 'clip', 'start', 'end', 'duration', 'speed', 'roll', 'track'
 
+    def __deepcopy__(self, memodict=None):
+        # Todo: Figure out of __copy__ also does the job
+        return self.__class__(self.name, self.clip, self.start, self.end, self.speed, self.roll, self.track)
+
 
 class Shot(ItemRow):
     def __init__(self, name, sceneName, start=0.0, end=1.0, track=0):
@@ -54,3 +58,7 @@ class Shot(ItemRow):
     @classmethod
     def properties(cls):
         return 'name', 'scene', 'start', 'end', 'duration', 'track'
+
+    def __deepcopy__(self, memodict=None):
+        # Todo: Figure out of __copy__ also does the job
+        return self.__class__(self.name, self.scene.text, self.start, self.end, self.track)

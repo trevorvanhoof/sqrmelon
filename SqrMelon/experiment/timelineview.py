@@ -1,9 +1,12 @@
 import functools
+from copy import deepcopy
 
 from experiment.actions import MarqueeActionBase, MoveTimeAction, MoveEventAction
 from experiment.gridview import GridView
 from experiment.model import Shot
+from experiment.model import Event
 from experiment.timer import drawPlayhead
+
 from qtutil import *
 import icons
 
@@ -196,6 +199,7 @@ class TimelineView(GridView):
         self.frameAll()
         self._viewRect.changed.connect(self.layout)
         self._viewRect.changed.disconnect(self.repaint)  # layout already calls repaint
+        self._copyCounter = 0
 
     def frameAll(self):
         start = float('inf')
@@ -334,3 +338,45 @@ class TimelineView(GridView):
 
         if self._action is not None:
             self._action.draw(painter)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_D and event.modifiers() & Qt.ControlModifier:
+            # Duplicate items
+            selected = list(self._selectedItems())
+            for item in selected:
+                copy = deepcopy(item)
+                if self._copyCounter:
+                    copy.name = '%s (Copy %s)' % (copy.name, self._copyCounter)
+                else:
+                    copy.name = '%s (Copy)' % copy.name
+                self._copyCounter += 1
+
+                if isinstance(item, Shot):
+                    model = self.__models[0]
+                elif isinstance(item, Event):
+                    model = self.__models[1]
+                else:
+                    raise AssertionError('Unknown model type')
+
+                # Place copied item at the end of the timeline
+                end = 0
+                for row in xrange(model.rowCount()):
+                    item = model.item(row, 0).data()
+
+                    if item.track != copy.track:
+                        continue
+                    if item.end > end:
+                        end = item.end
+
+                copy.start = end
+                copy.end = copy.start + copy.duration
+
+                model.appendRow(copy.items)
+
+            self.layout()
+
+    def keyReleaseEvent(self, event):
+        if event.key() == Qt.Key_Control:
+            self._copyCounter = 0
+
+
