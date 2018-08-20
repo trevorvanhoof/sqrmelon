@@ -1,13 +1,13 @@
 import re
 import functools
-import icons
-from experiment.actions import KeyEdit, CurveModelEdit
-from experiment.curvemodel import HermiteCurve
-from experiment.curveview import CurveView
-from experiment.delegates import UndoableSelectionView
-from experiment.enums import ETangentMode, ELoopMode
-from experiment.model import Shot, Clip, Event
-from qtutil import *
+from SqrMelon import icons
+from SqrMelon.experiment.actions import KeyEdit, CurveModelEdit
+from SqrMelon.experiment.curvemodel import HermiteCurve
+from SqrMelon.experiment.curveview import CurveView
+from SqrMelon.experiment.delegates import UndoableSelectionView
+from SqrMelon.experiment.enums import ETangentMode, ELoopMode
+from SqrMelon.experiment.model import Shot, Clip, Event
+from SqrMelon.qtutil import *
 
 
 def sign(x): return -1 if x < 0 else 1

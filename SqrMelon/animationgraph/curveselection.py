@@ -1,4 +1,4 @@
-from qtutil import *
+from SqrMelon.qtutil import *
 
 
 class SelectedKey:

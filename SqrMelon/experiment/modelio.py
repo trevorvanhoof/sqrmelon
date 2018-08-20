@@ -1,5 +1,5 @@
-from experiment.model import Clip, Event, Shot
-from experiment.curvemodel import HermiteCurve, HermiteKey
+from SqrMelon.experiment.model import Clip, Event, Shot
+from SqrMelon.experiment.curvemodel import HermiteCurve, HermiteKey
 
 
 def serializeCurve(curve):

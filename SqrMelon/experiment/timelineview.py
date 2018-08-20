@@ -1,11 +1,11 @@
 import functools
 
-from experiment.actions import MarqueeActionBase, MoveTimeAction
-from experiment.gridview import GridView
-from experiment.model import Shot
-from experiment.timer import drawPlayhead
-from qtutil import *
-import icons
+from SqrMelon.experiment.actions import MarqueeActionBase, MoveTimeAction, MoveTimeLineItemAction
+from SqrMelon.experiment.gridview import GridView
+from SqrMelon.experiment.model import Shot
+from SqrMelon.experiment.timer import drawPlayhead
+from SqrMelon.qtutil import *
+from SqrMelon import icons
 
 
 class GraphicsItemEvent(object):
@@ -235,6 +235,9 @@ class TimelineView(GridView):
             if item.rect.contains(rect) or item.rect.intersects(rect):
                 yield item
 
+    def _reproject(self, x, y):
+        return self.xToT(x), y
+
     def mousePressEvent(self, event):
         if event.modifiers() & Qt.AltModifier:
             super(TimelineView, self).mousePressEvent(event)
@@ -244,6 +247,14 @@ class TimelineView(GridView):
         elif event.button() == Qt.RightButton:
             # right button moves the time slider
             self._action = MoveTimeAction(self._timer.time, self.xToT, functools.partial(self._timer.__setattr__, 'time'))
+
+        elif event.button() == Qt.MiddleButton:
+            # Drag single timeline item when using middle mouse
+            items = list(self.itemsAt(event.x(), event.y(), 1, 1))
+            assert len(items) <= 1
+
+            if items:
+                self._action = MoveTimeLineItemAction(self._reproject, self.cellSize, items)
 
         else:
             # else we start a new selection action

@@ -1,6 +1,6 @@
-from experiment.delegates import AtomDelegate
-from experiment.enums import EStitchScope
-from qtutil import *
+from SqrMelon.experiment.delegates import AtomDelegate
+from SqrMelon.experiment.enums import EStitchScope
+from SqrMelon.qtutil import *
 import json
 import uuid
 

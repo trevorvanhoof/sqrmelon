@@ -1,10 +1,10 @@
-from qtutil import *
-from experiment.curvemodel import HermiteCurve, HermiteKey
-from experiment.enums import ELoopMode
-from experiment.model import Clip, Shot, Event
-from experiment.timelineview import TimelineView
-from experiment.timer import Time
-from experiment.widgets import ShotManager, ClipManager, EventManager, CurveUI
+from SqrMelon.qtutil import *
+from SqrMelon.experiment.curvemodel import HermiteCurve, HermiteKey
+from SqrMelon.experiment.enums import ELoopMode
+from SqrMelon.experiment.model import Clip, Shot, Event
+from SqrMelon.experiment.timelineview import TimelineView
+from SqrMelon.experiment.timer import Time
+from SqrMelon.experiment.widgets import ShotManager, ClipManager, EventManager, CurveUI
 
 if __name__ == '__main__':
     app = QApplication([])

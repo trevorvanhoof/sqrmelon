@@ -1,5 +1,5 @@
-from experiment.actions import MarqueeActionBase, NestedCommand
-from qtutil import *
+from SqrMelon.experiment.actions import MarqueeActionBase, NestedCommand
+from SqrMelon.qtutil import *
 
 
 class KeySelection(QObject):

@@ -1,7 +1,7 @@
 import fileutil
 import os
 from util import ProjectDir
-from qtutil import *
+from SqrMelon.qtutil import *
 import icons
 
 

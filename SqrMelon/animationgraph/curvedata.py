@@ -1,4 +1,4 @@
-from mathutil import Vec2
+from SqrMelon.mathutil import Vec2
 
 
 class Key(object):

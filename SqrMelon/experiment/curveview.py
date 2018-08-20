@@ -1,14 +1,14 @@
 import functools
 
-import icons
-from experiment.actions import RecursiveCommandError, MoveTimeAction, MoveTangentAction, MoveKeyAction, InsertKeys, DeleteKeys
-from experiment.curvemodel import HermiteKey
-from experiment.enums import ETangentMode
-from experiment.gridview import GridView
-from experiment.keyselection import KeySelection, KeyMarqueeAction, KeySelectionEdit
-from experiment.model import Event
-from experiment.timer import drawPlayhead
-from qtutil import *
+from SqrMelon import icons
+from SqrMelon.experiment.actions import RecursiveCommandError, MoveTimeAction, MoveTangentAction, MoveKeyAction, InsertKeys, DeleteKeys
+from SqrMelon.experiment.curvemodel import HermiteKey
+from SqrMelon.experiment.enums import ETangentMode
+from SqrMelon.experiment.gridview import GridView
+from SqrMelon.experiment.keyselection import KeySelection, KeyMarqueeAction, KeySelectionEdit
+from SqrMelon.experiment.model import Event
+from SqrMelon.experiment.timer import drawPlayhead
+from SqrMelon.qtutil import *
 
 
 class CurveView(GridView):

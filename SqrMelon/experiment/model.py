@@ -1,6 +1,6 @@
 from collections import OrderedDict
-from qtutil import *
-from experiment.modelbase import ItemRow, Label
+from SqrMelon.qtutil import *
+from SqrMelon.experiment.modelbase import ItemRow, Label
 
 
 class Clip(ItemRow):
