@@ -367,9 +367,20 @@ class MoveEventAction(DirectionalAction):
         self._events = {event: (event.start, event.end, event.track) for event in events}
         self._cellSize = cellSize / 8.0  # Snap at 1/8th of a grid cell
         self._handle = handle
+        self._cursorOverride = False
+
+    def mousePressEvent(self, event):
+        if self._handle in (1, 2):
+            # Change cursor to horizontal move when dragging start or end section
+            QApplication.setOverrideCursor(Qt.SizeHorCursor)
+            self._cursorOverride = True
+
+        return super(MoveEventAction, self).mousePressEvent(event)
 
     def mouseReleaseEvent(self, undoStack):
         undoStack.push(EventEdit(self._events))
+        if self._cursorOverride:
+            QApplication.restoreOverrideCursor()
 
     def processMouseDelta(self, event):
         from experiment.timelineview import GraphicsItemEvent
