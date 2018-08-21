@@ -2,8 +2,7 @@ import functools
 
 import icons
 from experiment.actions import RecursiveCommandError, MoveTimeAction, MoveTangentAction, MoveKeyAction, InsertKeys, DeleteKeys
-from experiment.curvemodel import HermiteKey
-from experiment.enums import ETangentMode
+from experiment.curvemodel import HermiteKey, ETangentMode
 from experiment.gridview import GridView
 from experiment.keyselection import KeySelection, KeyMarqueeAction, KeySelectionEdit
 from experiment.model import Event
@@ -13,7 +12,6 @@ from qtutil import *
 
 class CurveView(GridView):
     # TODO: Cursor management
-    # TODO: Timeline editing
     requestAllCurvesVisible = pyqtSignal()
 
     def __init__(self, timer, source, undoStack, parent=None):

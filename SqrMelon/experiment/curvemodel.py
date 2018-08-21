@@ -1,9 +1,58 @@
 from qtutil import Signal
-from experiment.enums import ELoopMode, ETangentMode
+from experiment.enum import Enum
 from experiment.modelbase import ItemRow
+from experiment.util import sign
 
 
-def sign(x): return -1 if x < 0 else 1
+class EInsertMode(Enum):
+    Error = None  # when inserting a key at another key, raise an exception
+    Copy = None  # when inserting a key at another key, set the value of the exising key instead
+    Passive = None  # when inserting a key at another key, silently ignore
+
+    # Force = None  # when inserting a key at another key, insert it anyways, causing 2 keys at identical times (and undefined behaviour due to unstable sorting)
+
+    @staticmethod
+    def options():
+        return 'Error', 'Copy', 'Passive'
+
+
+EInsertMode.Error = EInsertMode('Error')
+EInsertMode.Copy = EInsertMode('Copy')
+EInsertMode.Passive = EInsertMode('Passive')
+
+
+class ELoopMode(Enum):
+    Clamp = None  # type: ELoopMode
+    Loop = None  # type: ELoopMode
+
+    @staticmethod
+    def options():
+        return 'Clamp', 'Loop'
+
+
+ELoopMode.Clamp = ELoopMode('Clamp')
+ELoopMode.Loop = ELoopMode('Loop')
+
+
+class ETangentMode(Enum):
+    Auto = None
+    Flat = None
+    Linear = None
+    Spline = None
+    Stepped = None
+    Custom = None
+
+    @staticmethod
+    def options():
+        return 'Auto', 'Flat', 'Linear', 'Spline', 'Stepped', 'Custom'
+
+
+ETangentMode.Auto = ETangentMode('Auto')
+ETangentMode.Flat = ETangentMode('Flat')
+ETangentMode.Linear = ETangentMode('Linear')
+ETangentMode.Spline = ETangentMode('Spline')
+ETangentMode.Stepped = ETangentMode('Stepped')
+ETangentMode.Custom = ETangentMode('Custom')
 
 
 class HermiteKey(object):
@@ -137,13 +186,6 @@ def binarySearch(value, data, key=lambda x: x):
         else:
             return index
     return index
-
-
-class EInsertMode:
-    Error = 0  # when inserting a key at another key, raise an exception
-    Copy = 1  # when inserting a key at another key, set the value of the exising key instead
-    Passive = 2  # when inserting a key at another key, silently ignore
-    # Force = 3  # when inserting a key at another key, insert it anyways, causing 2 keys at identical times (and undefined behaviour due to unstable sorting)
 
 
 class HermiteCurve(ItemRow):

@@ -1,5 +1,5 @@
 from experiment.actions import SelectionModelEdit, RecursiveCommandError
-from experiment.enums import Enum
+from experiment.enum import Enum
 from qtutil import *
 
 
@@ -85,14 +85,15 @@ class NamedColums(QTableView):
         super(NamedColums, self).__init__(parent)
         self.setSelectionMode(QTableView.ExtendedSelection)
         self.setSelectionBehavior(QTableView.SelectRows)
-        mdl = QStandardItemModel()
-        self.setModel(mdl)
         self.verticalHeader().hide()
         self.verticalHeader().setDefaultSectionSize(22)
-        self._updateNames()
         self.setItemDelegate(AtomDelegate())
         self.setStyleSheet('QTableView { selection-background-color: rgb(188,220,244); }'
                            'QTableView:active { selection-background-color: rgb(0,120,215); }')
+
+    def setModel(self, model):
+        super(NamedColums, self).setModel(model)
+        self._updateNames()
 
     def _updateNames(self):
         names = self.columnNames()
@@ -120,7 +121,6 @@ class UndoableSelectionView(NamedColums):
         if model is None:
             # deselect all
             self.selectionChange.emit(QItemSelection(), self.selectionModel().selection())
-
         super(UndoableSelectionView, self).setModel(model)
         self.selectionModel().selectionChanged.connect(self.__selectionChanged)
 

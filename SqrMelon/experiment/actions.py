@@ -1,9 +1,6 @@
 from copy import deepcopy
-
-from experiment.enums import ETangentMode
-from experiment.curvemodel import HermiteKey, EInsertMode
 from experiment.model import Event, Shot
-
+from experiment.curvemodel import HermiteKey, EInsertMode, ETangentMode
 from qtutil import *
 
 

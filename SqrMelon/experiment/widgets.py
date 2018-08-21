@@ -2,10 +2,9 @@ import re
 import functools
 import icons
 from experiment.actions import KeyEdit, CurveModelEdit
-from experiment.curvemodel import HermiteCurve
+from experiment.curvemodel import HermiteCurve, ETangentMode, ELoopMode
 from experiment.curveview import CurveView
 from experiment.delegates import UndoableSelectionView
-from experiment.enums import ETangentMode, ELoopMode
 from experiment.model import Shot, Clip, Event
 from qtutil import *
 
@@ -16,6 +15,7 @@ def sign(x): return -1 if x < 0 else 1
 class CurveList(UndoableSelectionView):
     def __init__(self, source, undoStack, parent=None):
         super(CurveList, self).__init__(undoStack, parent)
+        self.setModel(QStandardItemModel())
         self._source = source
         source.selectionChange.connect(self._pull)
 
@@ -282,36 +282,79 @@ class CurveUI(QWidget):
         raise NotImplementedError()
 
 
+class NamedProxyModel(QSortFilterProxyModel):
+    """
+    Base model to filter a specific ItemRow subclass
+    """
 
-class ShotManager(UndoableSelectionView):
-    def __init__(self, undoStack, parent=None):
-        super(ShotManager, self).__init__(undoStack, parent)
-        self.model().itemChanged.connect(self.__fwdItemChanged)
+    def __init__(self, source):
+        super(NamedProxyModel, self).__init__()
+        self.setSourceModel(source)
+
+    def setHorizontalHeaderLabels(self, labels):
+        # worked around in headerData
+        pass
+
+    def headerData(self, section, orientation, role=None):
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
+                return self.filterClass().properties()[section]
+            if role == Qt.TextAlignmentRole:
+                return Qt.AlignLeft
+        return super(NamedProxyModel, self).headerData(section, orientation, role)
+
+    def appendRow(self, *args):
+        self.sourceModel().appendRow(*args)
+
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        return isinstance(self.sourceModel().item(sourceRow).data(), self.filterClass())
+
+    def filterAcceptsColumn(self, sourceColumn, sourceParent):
+        return sourceColumn < len(self.filterClass().properties())
+
+    @classmethod
+    def filterClass(cls):
+        raise NotImplementedError
+
+
+class ShotModel(NamedProxyModel):
+    @classmethod
+    def filterClass(cls):
+        return Shot
+
+
+class EventModel(NamedProxyModel):
+    @classmethod
+    def filterClass(cls):
+        return Event
+
+
+class FilteredView(UndoableSelectionView):
+    def __init__(self, undoStack, model, parent=None):
+        super(FilteredView, self).__init__(undoStack, parent)
+        self.setModel(model)
+        model.sourceModel().itemChanged.connect(self.__fwdItemChanged)
 
     def __fwdItemChanged(self, item):
-        self.model().item(item.row()).data().propertyChanged(item.column())
+        self.model().sourceModel().item(item.row()).data().propertyChanged(item.column())
 
-    @staticmethod
-    def columnNames():
-        return Shot.properties()
+    def updateSections(self):
+        if self.model():
+            n = len(self.model().filterClass().properties()) - 1
+            self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
+            self.horizontalHeader().setResizeMode(0, QHeaderView.Interactive)
+            for i in xrange(1, n):
+                self.horizontalHeader().setResizeMode(i, QHeaderView.ResizeToContents)
+            self.horizontalHeader().setResizeMode(n, QHeaderView.Stretch)
 
-
-class EventManager(UndoableSelectionView):
-    def __init__(self, undoStack, parent=None):
-        super(EventManager, self).__init__(undoStack, parent)
-        self.model().itemChanged.connect(self.__fwdItemChanged)
-
-    def __fwdItemChanged(self, item):
-        self.model().item(item.row()).data().propertyChanged(item.column())
-
-    @staticmethod
-    def columnNames():
-        return Event.properties()
+    def columnNames(self):
+        return self.model().filterClass().properties()
 
 
 class ClipManager(UndoableSelectionView):
     def __init__(self, source, undoStack, parent=None):
         super(ClipManager, self).__init__(undoStack, parent)
+        self.setModel(QStandardItemModel())
         self._source = source
         source.selectionChange.connect(self._pull)
 
