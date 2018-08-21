@@ -282,56 +282,73 @@ class CurveUI(QWidget):
         raise NotImplementedError()
 
 
-class ShotModel(QSortFilterProxyModel):
+class NamedProxyModel(QSortFilterProxyModel):
+    """
+    Base model to filter a specific ItemRow subclass
+    """
+
     def __init__(self, source):
-        super(ShotModel, self).__init__()
+        super(NamedProxyModel, self).__init__()
         self.setSourceModel(source)
+
+    def setHorizontalHeaderLabels(self, labels):
+        # worked around in headerData
+        pass
+
+    def headerData(self, section, orientation, role=None):
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole:
+                return self.filterClass().properties()[section]
+            if role == Qt.TextAlignmentRole:
+                return Qt.AlignLeft
+        return super(NamedProxyModel, self).headerData(section, orientation, role)
 
     def appendRow(self, *args):
         self.sourceModel().appendRow(*args)
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
-        return isinstance(self.sourceModel().item(sourceRow).data(), Shot)
+        return isinstance(self.sourceModel().item(sourceRow).data(), self.filterClass())
+
+    def filterAcceptsColumn(self, sourceColumn, sourceParent):
+        return sourceColumn < len(self.filterClass().properties())
+
+    @classmethod
+    def filterClass(cls):
+        raise NotImplementedError
 
 
-class EventModel(QSortFilterProxyModel):
-    def __init__(self, source):
-        super(EventModel, self).__init__()
-        self.setSourceModel(source)
-
-    def appendRow(self, *args):
-        self.sourceModel().appendRow(*args)
-
-    def filterAcceptsRow(self, sourceRow, sourceParent):
-        return isinstance(self.sourceModel().item(sourceRow).data(), Event)
+class ShotModel(NamedProxyModel):
+    @classmethod
+    def filterClass(cls):
+        return Shot
 
 
-class ShotManager(UndoableSelectionView):
+class EventModel(NamedProxyModel):
+    @classmethod
+    def filterClass(cls):
+        return Event
+
+
+class FilteredView(UndoableSelectionView):
     def __init__(self, undoStack, model, parent=None):
-        super(ShotManager, self).__init__(undoStack, parent)
-        self.setModel(ShotModel(model))
-        model.itemChanged.connect(self.__fwdItemChanged)
+        super(FilteredView, self).__init__(undoStack, parent)
+        self.setModel(model)
+        model.sourceModel().itemChanged.connect(self.__fwdItemChanged)
 
     def __fwdItemChanged(self, item):
-        self.model().item(item.row()).data().propertyChanged(item.column())
+        self.model().sourceModel().item(item.row()).data().propertyChanged(item.column())
 
-    @staticmethod
-    def columnNames():
-        return Shot.properties()
+    def updateSections(self):
+        if self.model():
+            n = len(self.model().filterClass().properties()) - 1
+            self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
+            self.horizontalHeader().setResizeMode(0, QHeaderView.Interactive)
+            for i in xrange(1, n):
+                self.horizontalHeader().setResizeMode(i, QHeaderView.ResizeToContents)
+            self.horizontalHeader().setResizeMode(n, QHeaderView.Stretch)
 
-
-class EventManager(UndoableSelectionView):
-    def __init__(self, undoStack, model, parent=None):
-        super(EventManager, self).__init__(undoStack, parent)
-        self.setModel(EventModel(model))
-        model.itemChanged.connect(self.__fwdItemChanged)
-
-    def __fwdItemChanged(self, item):
-        self.model().item(item.row()).data().propertyChanged(item.column())
-
-    @staticmethod
-    def columnNames():
-        return Event.properties()
+    def columnNames(self):
+        return self.model().filterClass().properties()
 
 
 class ClipManager(UndoableSelectionView):
