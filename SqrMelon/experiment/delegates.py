@@ -85,8 +85,6 @@ class NamedColums(QTableView):
         super(NamedColums, self).__init__(parent)
         self.setSelectionMode(QTableView.ExtendedSelection)
         self.setSelectionBehavior(QTableView.SelectRows)
-        mdl = QStandardItemModel()
-        self.setModel(mdl)
         self.verticalHeader().hide()
         self.verticalHeader().setDefaultSectionSize(22)
         self._updateNames()

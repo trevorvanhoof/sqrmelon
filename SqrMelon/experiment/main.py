@@ -20,10 +20,13 @@ if __name__ == '__main__':
     clip1.curves.appendRow(HermiteCurve('uOrigin.x', ELoopMode.Clamp, [HermiteKey(2.0, 0.0, 0.0, 0.0), HermiteKey(3.0, 1.0, 0.0, 0.0)]).items)
     clip1.curves.appendRow(HermiteCurve('uOrigin.y', ELoopMode.Clamp, [HermiteKey(0.0, 0.0, 1.0, 1.0), HermiteKey(1.0, 1.0, 1.0, 1.0)]).items)
 
-    shotManager = ShotManager(undoStack)
+    model = QStandardItemModel()
+    selectionModel = QItemSelectionModel(model)
+
+    shotManager = ShotManager(undoStack, model)
     shotManager.model().appendRow(Shot('New Shot', 'Scene 1', 0.0, 4.0, 0).items)
 
-    eventManager = EventManager(undoStack)
+    eventManager = EventManager(undoStack, model)
     eventManager.model().appendRow(Event('New event', clip0, 0.0, 4.0, 1.0, 0.0, 2).items)
     eventManager.model().appendRow(Event('New event', clip0, 0.0, 1.0, 1.0, 0.0, 1).items)
     eventManager.model().appendRow(Event('New event', clip1, 1.0, 2.0, 0.5, 0.0, 1).items)
@@ -46,7 +49,7 @@ if __name__ == '__main__':
 
     eventManager.selectionChange.connect(eventChanged)
 
-    eventTimeline = TimelineView(timer, undoStack, (shotManager.model(), eventManager.model()), (shotManager.selectionModel(), eventManager.selectionModel()))
+    eventTimeline = TimelineView(timer, undoStack, model, selectionModel)
 
     mainWindow = QMainWindowState(settings)
     mainWindow.setDockNestingEnabled(True)

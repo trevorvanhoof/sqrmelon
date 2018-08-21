@@ -2,10 +2,9 @@ import re
 import functools
 import icons
 from experiment.actions import KeyEdit, CurveModelEdit
-from experiment.curvemodel import HermiteCurve
+from experiment.curvemodel import HermiteCurve, ETangentMode, ELoopMode
 from experiment.curveview import CurveView
 from experiment.delegates import UndoableSelectionView
-from experiment.enum import ETangentMode, ELoopMode
 from experiment.model import Shot, Clip, Event
 from qtutil import *
 
@@ -16,6 +15,7 @@ def sign(x): return -1 if x < 0 else 1
 class CurveList(UndoableSelectionView):
     def __init__(self, source, undoStack, parent=None):
         super(CurveList, self).__init__(undoStack, parent)
+        self.setModel(QStandardItemModel())
         self._source = source
         source.selectionChange.connect(self._pull)
 
@@ -282,11 +282,35 @@ class CurveUI(QWidget):
         raise NotImplementedError()
 
 
+class ShotModel(QSortFilterProxyModel):
+    def __init__(self, source):
+        super(ShotModel, self).__init__()
+        self.setSourceModel(source)
+
+    def appendRow(self, *args):
+        self.sourceModel().appendRow(*args)
+
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        return isinstance(self.sourceModel().item(sourceRow).data(), Shot)
+
+
+class EventModel(QSortFilterProxyModel):
+    def __init__(self, source):
+        super(EventModel, self).__init__()
+        self.setSourceModel(source)
+
+    def appendRow(self, *args):
+        self.sourceModel().appendRow(*args)
+
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        return isinstance(self.sourceModel().item(sourceRow).data(), Event)
+
 
 class ShotManager(UndoableSelectionView):
-    def __init__(self, undoStack, parent=None):
+    def __init__(self, undoStack, model, parent=None):
         super(ShotManager, self).__init__(undoStack, parent)
-        self.model().itemChanged.connect(self.__fwdItemChanged)
+        self.setModel(ShotModel(model))
+        model.itemChanged.connect(self.__fwdItemChanged)
 
     def __fwdItemChanged(self, item):
         self.model().item(item.row()).data().propertyChanged(item.column())
@@ -297,9 +321,10 @@ class ShotManager(UndoableSelectionView):
 
 
 class EventManager(UndoableSelectionView):
-    def __init__(self, undoStack, parent=None):
+    def __init__(self, undoStack, model, parent=None):
         super(EventManager, self).__init__(undoStack, parent)
-        self.model().itemChanged.connect(self.__fwdItemChanged)
+        self.setModel(EventModel(model))
+        model.itemChanged.connect(self.__fwdItemChanged)
 
     def __fwdItemChanged(self, item):
         self.model().item(item.row()).data().propertyChanged(item.column())
@@ -312,6 +337,7 @@ class EventManager(UndoableSelectionView):
 class ClipManager(UndoableSelectionView):
     def __init__(self, source, undoStack, parent=None):
         super(ClipManager, self).__init__(undoStack, parent)
+        self.setModel(QStandardItemModel())
         self._source = source
         source.selectionChange.connect(self._pull)
 

@@ -82,25 +82,24 @@ class GraphicsItemShot(GraphicsItemEvent):
 class TimelineMarqueeAction(MarqueeActionBase):
     CLICK_SIZE = 2
 
-    def __init__(self, view, model, undoStack):
-        super(TimelineMarqueeAction, self).__init__(view, model)
+    def __init__(self, view, selectionModel, undoStack):
+        super(TimelineMarqueeAction, self).__init__(view, selectionModel)
         self._undoStack = undoStack
 
     @staticmethod
-    def _preprocess(selectionModels, itemsIter):
+    def _preprocess(selectionModel, itemsIter):
         # an items model will tell us what rows are selected in that model
-        modelMap = {selection.model(): set(idx.row() for idx in selection.selectedRows()) for selection in selectionModels}
-        reverseMap = {selection.model(): selection for selection in selectionModels}
+        model = selectionModel.model()
+        selectedRows = set(idx.row() for idx in selectionModel.selectedRows())
 
         # an items model will tell us what change has happened in that model
-        changeMap = {selection.model(): set() for selection in selectionModels}
+        touchedRows = set()
         for graphicsItem in itemsIter:
             # add row to right model change
             pyObj = graphicsItem.event
-            changeMap[pyObj.items[0].model()].add(pyObj.items[0].row())
+            touchedRows.add(pyObj.items[0].row())
 
-        for model in modelMap.iterkeys():
-            yield reverseMap[model], modelMap[model], changeMap[model]
+        yield selectionModel, selectedRows, touchedRows
 
     @staticmethod
     def _selectNew(selectionModels, itemsIter):
@@ -177,16 +176,14 @@ class TimelineMarqueeAction(MarqueeActionBase):
 
 
 class TimelineView(GridView):
-    def __init__(self, timer, undoStack, models, selectionModels):
+    def __init__(self, timer, undoStack, model, selectionModel):
         super(TimelineView, self).__init__(mask=1)
 
         # TODO: these multiple models should become 1 model owned by this view, where the other views are just filtered
-        self.__models = models
-        self.__selectionModels = selectionModels
-        for slModel in selectionModels:
-            slModel.selectionChanged.connect(self.repaint)
-        for model in models:
-            model.dataChanged.connect(self.layout)
+        self.__model = model
+        self.__selectionModel = selectionModel
+        selectionModel.selectionChanged.connect(self.repaint)
+        model.dataChanged.connect(self.layout)
 
         self._timer = timer
         timer.changed.connect(self.repaint)
@@ -213,9 +210,8 @@ class TimelineView(GridView):
         self.layout()
 
     def __iterAllItemRows(self):
-        for model in self.__models:
-            for row in xrange(model.rowCount()):
-                yield model.item(row, 0).data()
+        for row in xrange(self.__model.rowCount()):
+            yield self.__model.item(row, 0).data()
 
     def layout(self):
         del self.__graphicsItems[:]
@@ -241,9 +237,8 @@ class TimelineView(GridView):
         return self.xToT(x), y
 
     def _selectedItems(self):
-        for selection in self.__selectionModels:
-            for row in set(idx.row() for idx in selection.selectedRows()):
-                yield selection.model().item(row).data()
+        for row in set(idx.row() for idx in self.__selectionModel.selectedRows()):
+            yield self.__model.item(row).data()
 
     def _itemHandleAt(self, itemRect, pos):
         # reimplemented from GraphicsItemEvent.mouseMoveEvent
@@ -279,7 +274,7 @@ class TimelineView(GridView):
 
         if not self._action:
             # else we start a new selection action
-            self._action = TimelineMarqueeAction(self, self.__selectionModels, self._undoStack)
+            self._action = TimelineMarqueeAction(self, self.__selectionModel, self._undoStack)
 
         if self._action.mousePressEvent(event):
             self.repaint()
@@ -318,10 +313,7 @@ class TimelineView(GridView):
     def paintEvent(self, event):
         super(TimelineView, self).paintEvent(event)
 
-        selectedPyObjs = set()
-        for model in self.__selectionModels:
-            for idx in model.selectedRows():
-                selectedPyObjs.add(idx.data(Qt.UserRole + 1))
+        selectedPyObjs = {idx.data(Qt.UserRole + 1) for idx in self.__selectionModel.selectedRows()}
 
         painter = QPainter(self)
         for item in self.__graphicsItems:
