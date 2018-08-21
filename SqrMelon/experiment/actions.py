@@ -1,5 +1,4 @@
-from experiment.enums import ETangentMode
-from experiment.curvemodel import HermiteKey, EInsertMode
+from experiment.curvemodel import HermiteKey, EInsertMode, ETangentMode
 from qtutil import *
 
 

@@ -5,7 +5,7 @@ from experiment.actions import KeyEdit, CurveModelEdit
 from experiment.curvemodel import HermiteCurve
 from experiment.curveview import CurveView
 from experiment.delegates import UndoableSelectionView
-from experiment.enums import ETangentMode, ELoopMode
+from experiment.enum import ETangentMode, ELoopMode
 from experiment.model import Shot, Clip, Event
 from qtutil import *
 

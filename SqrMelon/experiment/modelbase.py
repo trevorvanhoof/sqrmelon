@@ -1,4 +1,4 @@
-from experiment.enums import Enum
+from experiment.enum import Enum
 from qtutil import *
 from util import randomColor
 

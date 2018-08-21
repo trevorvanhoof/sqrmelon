@@ -3,7 +3,7 @@ import functools
 import icons
 from experiment.actions import RecursiveCommandError, MoveTimeAction, MoveTangentAction, MoveKeyAction, InsertKeys, DeleteKeys
 from experiment.curvemodel import HermiteKey
-from experiment.enums import ETangentMode
+from experiment.enum import ETangentMode
 from experiment.gridview import GridView
 from experiment.keyselection import KeySelection, KeyMarqueeAction, KeySelectionEdit
 from experiment.model import Event

@@ -1,6 +1,5 @@
 from qtutil import *
-from experiment.curvemodel import HermiteCurve, HermiteKey
-from experiment.enums import ELoopMode
+from experiment.curvemodel import HermiteCurve, HermiteKey, ELoopMode
 from experiment.model import Clip, Shot, Event
 from experiment.timelineview import TimelineView
 from experiment.timer import Time
