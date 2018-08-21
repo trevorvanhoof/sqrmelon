@@ -1,5 +1,9 @@
+from copy import deepcopy
+
 from experiment.enums import ETangentMode
 from experiment.curvemodel import HermiteKey, EInsertMode
+from experiment.model import Event, Shot
+
 from qtutil import *
 
 
@@ -255,7 +259,71 @@ class MoveTimeAction(object):
         pass
 
 
-class DirectionalAction(object):
+class EventAdd(QUndoCommand):
+    _name = 'Event add'
+
+    def __init__(self, restore, models, parent=None):
+        super(EventAdd, self).__init__(self._name, parent)
+        self._events = {}
+        self._models = models
+        self.applied = True
+
+        # Save event rows and models for insert/remove later on
+        for event in restore:
+            if isinstance(event, Shot):
+                model = self._models[0]
+            elif isinstance(event, Event):
+                model = self._models[1]
+            else:
+                raise AssertionError('Unknown model type')
+
+            for row in xrange(model.rowCount()):
+                ev = model.item(row, 0).data()
+                if ev is event:
+                    self._events[ev] = {'model': model, 'row': row}
+                    break
+            else:
+                raise AssertionError('Event not found in model')
+
+    def redo(self):
+        if self.applied:
+            return
+        self.applied = True
+        for event, data in sorted(self._events.items(), key=lambda items: items[1]['row']):
+            data['model'].insertRow(data['row'], event.items)
+
+    def undo(self):
+        self.applied = False
+
+        for event, data in sorted(self._events.items(), key=lambda items: items[1]['row'], reverse=True):
+            data['model'].takeRow(data['row'])
+
+
+class EventCopy(EventAdd):
+    _name = 'Event copy'
+
+
+class Action(object):
+    def mousePressEvent(self, event):
+        pass
+
+    def mouseReleaseEvent(self, event):
+        pass
+
+    def mouseMoveEvent(self, event):
+        pass
+
+    def keyPressEvent(self, event):
+        pass
+
+    def keyReleaseEvent(self, event):
+        pass
+
+    def draw(self, painter):
+        pass
+
+
+class DirectionalAction(Action):
     def __init__(self, reproject, mask=3):
         self._reproject = reproject
         self._dragStartPx = None
@@ -534,3 +602,52 @@ class InsertKeys(QUndoCommand):
             else:
                 curve.removeKeys([key])
         self.triggerRepaint()
+
+
+class DuplicateEventAction(Action):
+    def __init__(self, items, models, undoStack=None):
+        self._events = items
+        self._models = models
+        self._undoStack = undoStack
+        self._copyCounter = 0
+
+    def keyPressEvent(self, _):
+        copiedEvents = []
+
+        for event in self._events:
+            copy = deepcopy(event)
+            if self._copyCounter:
+                copy.name = '%s (Copy %s)' % (copy.name, self._copyCounter)
+            else:
+                copy.name = '%s (Copy)' % copy.name
+            self._copyCounter += 1
+
+            if isinstance(event, Shot):
+                model = self._models[0]
+            elif isinstance(event, Event):
+                model = self._models[1]
+            else:
+                raise AssertionError('Unknown model type')
+
+            # Place copied item at the end of the timeline
+            end = 0
+            for row in xrange(model.rowCount()):
+                event = model.item(row, 0).data()
+
+                if event.track != copy.track:
+                    continue
+                if event.end > end:
+                    end = event.end
+
+            copy.start = end
+            copy.end = copy.start + copy.duration
+
+            copiedEvents.append(copy)
+            model.appendRow(copy.items)
+
+        if copiedEvents:
+            if self._undoStack:
+                self._undoStack.push(EventCopy(copiedEvents, self._models))
+            return True
+        else:
+            return False

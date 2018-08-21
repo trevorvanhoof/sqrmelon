@@ -1,7 +1,6 @@
 import functools
-from copy import deepcopy
 
-from experiment.actions import MarqueeActionBase, MoveTimeAction, MoveEventAction
+from experiment.actions import MarqueeActionBase, MoveTimeAction, MoveEventAction, DuplicateEventAction
 from experiment.gridview import GridView
 from experiment.model import Shot
 from experiment.model import Event
@@ -190,6 +189,8 @@ class TimelineView(GridView):
             slModel.selectionChanged.connect(self.repaint)
         for model in models:
             model.dataChanged.connect(self.layout)
+            model.rowsInserted.connect(self.layout)
+            model.rowsRemoved.connect(self.layout)
 
         self._timer = timer
         timer.changed.connect(self.repaint)
@@ -199,7 +200,7 @@ class TimelineView(GridView):
         self.frameAll()
         self._viewRect.changed.connect(self.layout)
         self._viewRect.changed.disconnect(self.repaint)  # layout already calls repaint
-        self._copyCounter = 0
+        self._copyPasteAction = None
 
     def frameAll(self):
         start = float('inf')
@@ -343,40 +344,26 @@ class TimelineView(GridView):
         if event.key() == Qt.Key_D and event.modifiers() & Qt.ControlModifier:
             # Duplicate items
             selected = list(self._selectedItems())
-            for item in selected:
-                copy = deepcopy(item)
-                if self._copyCounter:
-                    copy.name = '%s (Copy %s)' % (copy.name, self._copyCounter)
-                else:
-                    copy.name = '%s (Copy)' % copy.name
-                self._copyCounter += 1
+            if self._action is None:
+                self._action = DuplicateEventAction(selected, self.__models, self._undoStack)
 
-                if isinstance(item, Shot):
-                    model = self.__models[0]
-                elif isinstance(item, Event):
-                    model = self.__models[1]
-                else:
-                    raise AssertionError('Unknown model type')
+            if self._action.keyPressEvent(event):
+                self.layout()
 
-                # Place copied item at the end of the timeline
-                end = 0
-                for row in xrange(model.rowCount()):
-                    item = model.item(row, 0).data()
+        if event.matches(QKeySequence.Copy):
+            # Copy items
+            # TODO: What happens when we copy something somewhere else in the UI?
+            selected = list(self._selectedItems())
+            self._copyPasteAction = DuplicateEventAction(selected, self.__models, self._undoStack)
 
-                    if item.track != copy.track:
-                        continue
-                    if item.end > end:
-                        end = item.end
-
-                copy.start = end
-                copy.end = copy.start + copy.duration
-
-                model.appendRow(copy.items)
-
-            self.layout()
+        if event.matches(QKeySequence.Paste) and self._copyPasteAction:
+            # Paste items
+            if self._copyPasteAction.keyPressEvent(event):
+                self.layout()
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Control:
-            self._copyCounter = 0
+            if isinstance(self._action, DuplicateEventAction):
+                self._action = None
 
 
