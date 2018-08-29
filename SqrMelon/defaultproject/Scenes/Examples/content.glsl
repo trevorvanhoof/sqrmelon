@@ -1,9 +1,3 @@
-// Change linear fog to something else
-float FogRemap(float fog)
-{
-    return fog;
-}
-
 // Background color from ray and remapped fog distance
 vec3 FogColor(Ray ray, float fog)
 {

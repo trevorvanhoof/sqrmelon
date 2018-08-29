@@ -1,7 +1,7 @@
 #version 410
 
 // Precision of the distance field & normal calculation.
-const float EPSILON = 0.001;
+const float EPSILON = 0.0001;
 
 // Current render target size in pixels (width, height)
 uniform vec2 uResolution;
@@ -9,7 +9,7 @@ uniform vec2 uResolution;
 // Image input as defined in the template.
 // Because this header is included everywhere the array size just matches the max input count in the shader graph.
 // Some passes may not use all indices (or otherwise access inactive texture IDs).
-uniform sampler2D uImages[3];
+uniform sampler2D uImages[8];
 
 // Time from the tool
 uniform float uBeats;
@@ -61,13 +61,55 @@ Material MixMaterial(Material a, Material b, float w)
 }
 
 // Shoots a ray through the current pixel based on uV and uFrustum
+uniform vec3 uShake;
+uniform float uFishEye;
+const float PI=3.1415926535897;
 Ray ScreenRayUV(vec2 uv)
 {
+    vec2 suv=vec2(uBeats*uShake.x,uShake.y);
     vec3 direction = mix(mix(uFrustum[0].xyz, uFrustum[1].xyz, uv.x), mix(uFrustum[2].xyz, uFrustum[3].xyz, uv.x), uv.y);
-    return Ray(uV[3].xyz, normalize(direction * mat3(uV)));
+    return Ray(uV[3].xyz
+             + uV[0].xyz*(texture(uImages[3],suv).y-.5)*uShake.z
+             + uV[1].xyz*(texture(uImages[3],suv+.5).y-.5)*uShake.z,
+               normalize(direction * mat3(uV)));
 }
 // Shoots a ray through the current pixel based on uV and uFrustum
-Ray ScreenRay(){return ScreenRayUV(gl_FragCoord.xy/uResolution);}
+vec2 FishEyeUV(float amount, float factor)
+{
+    //normalized coords with some cheat
+    vec2 uv = gl_FragCoord.xy / (uResolution.x / factor);
+	float aspectRatio = uResolution.x / uResolution.y;
+	vec2 center = vec2(0.5, 0.5 / aspectRatio);
+	vec2 direction = uv - center;
+	float radius = length(direction);
+
+	// stick to corners
+	float bind = length(center);
+	float power = PI / bind * amount;
+	/*if (power < 0.0)
+	{
+	    // stick to borders
+	    if (aspectRatio < 1.0) bind = center.x;
+	    else bind = center.y;
+	}*/
+
+	// if (power > 0.0) // fisheye
+    uv = center + (direction / radius) * tan(radius * power) * bind / tan( bind * power);
+	// else if (power < 0.0) // antifisheye
+	//	   uv = center + normalize(direction) * atan(radius * -power * 10.0) * bind / atan(-power * bind * 10.0);
+	// else
+	//     uv = uv;
+
+    return vec2(uv.x, uv.y * aspectRatio);
+}
+Ray ScreenRay(float factor)
+{
+    return ScreenRayUV((uFishEye > 0.) ? FishEyeUV(uFishEye, factor) : (gl_FragCoord.xy / (uResolution / factor)));
+}
+Ray ScreenRay()
+{
+    return ScreenRay(1.0);
+}
 
 /// Utilities ///
 #define sat(x) clamp(x,0.,1.)
@@ -78,11 +120,13 @@ float vmax(vec4 v){return max(vmax(v.xy),vmax(v.zw));}
 float vmin(vec2 v){return min(v.x,v.y);}
 float vmin(vec3 v){return min(v.x,vmin(v.yz));}
 
-const float PI=3.1415926535897;
 const float TAU=PI+PI;
 float sqr(float x){return x*x;}
 float cub(float x){return sqr(x)*x;}
 float quad(float x){return sqr(sqr(x));}
+
+float stepPass(float a,float b){return step(a,b)*b;}
+float stepNormalized(float a,float b){return stepPass(0.,(b-a)/(1.-a));}
 
 /// Color conversions ///
 // https://gist.github.com/sugi-cho/6a01cae436acddd72bdf

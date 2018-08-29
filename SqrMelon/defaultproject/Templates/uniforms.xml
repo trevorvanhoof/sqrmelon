@@ -1,0 +1,26 @@
+<templates>
+    <template name="default">
+        <channel name="uOrigin.x" value="0.0"/>
+        <channel name="uOrigin.y" value="1.0"/>
+        <channel name="uOrigin.z" value="-10.0"/>
+        <channel name="uAngles.x" value="0.0"/>
+        <channel name="uAngles.y" value="0.0"/>
+        <channel name="uAngles.z" value="0.0"/>
+        <channel name="uFovBias" value="0.32"/>
+        <channel name="uShake.x" value="0.1"/>
+        <channel name="uShake.y" value="0.5"/>
+        <channel name="uShake.z" value="0.0"/>
+        <channel name="uFishEye" value="0.0"/>
+        <channel name="uChromaticAberrationRadius" value="0.1"/>
+        <channel name="uBlack" value="0.0"/>
+        <channel name="uWhite" value="0.0"/>
+        <channel name="uSaturation" value="1.0"/>
+        <channel name="uLuminance" value="1.0"/>
+        <channel name="uGamma" value="1.0"/>
+        <channel name="uGlitchAmountA" value="0.0"/>
+        <channel name="uSharpDist" value="25.0"/>
+        <channel name="uSharpRange" value="0.0"/>
+        <channel name="uBlurFalloff" value="500.0"/>
+        <channel name="uMaxBlur" value="0.0"/>
+    </template>
+</templates>

@@ -128,5 +128,11 @@ vec3 PointLight(LightData data, vec3 point, vec3 color, float lightRadius)
 // Point light with radius & shadow, light radius is not used by shadowing function, only for falloff.
 vec3 PointLight(LightData data, vec3 point, vec3 color, float lightRadius, ShadowArgs shadow)
 {
-    return _PointLight(data, point, color, lightRadius, Shadow(Ray(data.hit.point, normalize(data.hit.point - point)), shadow));
+    vec3 line = point - data.hit.point;
+    shadow.far = length(line);
+    line /= shadow.far;
+    return _PointLight(data, point, color, lightRadius, Shadow(Ray(data.hit.point, line), shadow));
 }
+
+const vec2 e=vec2(EPSILON+EPSILON,0.0);
+#define IMPL_EMISSIVE_LIGHT(r,f) {vec4 cl;float dE=f(data.hit.point,cl);vec4 taps=vec4(f(data.hit.point+e.xyy),f(data.hit.point+e.yxy),f(data.hit.point+e.yyx),dE);vec3 nE=normalize(taps.xyz-taps.w);r+=DirectionalLight(data,-nE,cl.xyz)/max(1,1+cub(dE));}
