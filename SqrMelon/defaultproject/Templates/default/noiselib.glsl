@@ -150,7 +150,7 @@ float billows(vec3 v,float s,int n,float f, float w){return billows(v,vec3(s),n,
 #undef FBM
 #undef FBM_TILED
 
-vec4 voronoiFast(vec2 x)
+vec3 voronoiFast(vec2 x)
 {
     vec2 n = floor(x);
     vec2 f = fract(x);
@@ -187,5 +187,5 @@ vec4 voronoiFast(vec2 x)
     }
 
     // md1 is worley
-    return vec4(md, s, mr);
+    return vec3(md, s);
 }
