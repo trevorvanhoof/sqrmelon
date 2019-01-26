@@ -4,8 +4,10 @@ Widget that manages & displays the list of scenes and editable shader sections i
 import fileutil
 from util import *
 import icons
+import os
 from send2trash import send2trash
 import subprocess
+import sys
 
 
 class MimeDataItemModel(QStandardItemModel):
@@ -108,8 +110,12 @@ class SceneList(QWidget):
     def __onOpenFile(self, current):
         if not current.parent().isValid():
             return
-        path = self.__model.itemFromIndex(current).data()
-        os.startfile(path.replace('\\', '/'))
+        path = self.__model.itemFromIndex(current).data().replace('\\', '/')
+        if sys.platform == "win32":
+            os.startfile(path)
+        else:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.call([opener, path])
 
     def __onCurrentChanged(self, current, __):
         if not current.parent().isValid():
