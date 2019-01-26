@@ -50,7 +50,7 @@ def ScenesPath(sub=''):
 
 def TemplateForScene(sceneFile, sub=''):
     xScene = ParseXMLWithIncludes(sceneFile)
-    return os.path.abspath(os.path.join(sceneFile, '..', xScene.attrib['template']))
+    return os.path.abspath(os.path.join(sceneFile, '..', xScene.attrib['template'])).replace('\\', '/')
 
 
 def Scenes(sub=''):
