@@ -10,13 +10,13 @@ def exists(filePath):
 @contextmanager
 def edit(filePath, flag='w'):
     """
-    Forces a file to be writable & opens it.
+    Forces a file to be readable and writable, then opens it.
     :type filePath: str
     :param str flag: IO mode, one of r(ead), w(rite), x(create), a(ppend), suffix with + for read-write, suffix with b for binary IO.
     """
     filePath = filePath.replace('\\', '/')
     if os.path.exists(filePath):
-        os.chmod(filePath, stat.S_IWRITE)
+        os.chmod(filePath, stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH)
     fh = open(filePath, flag)
     yield fh
     fh.close()
