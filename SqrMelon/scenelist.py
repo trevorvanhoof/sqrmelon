@@ -76,7 +76,7 @@ class SceneList(QWidget):
         if self.__contextMenuItem is None:
             return
         data = self.__contextMenuItem.data()
-        assert isinstance(data, (FilePath, None))
+        assert data is None or isinstance(data, FilePath)
         if not data or not data.exists():
             # try navigation by file name
             data = currentScenesDirectory().join(self.__contextMenuItem.text())

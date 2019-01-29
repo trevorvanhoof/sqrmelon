@@ -487,7 +487,7 @@ class Scene(object):
             if userFile.exists():
                 xRoot = parseXMLWithIncludes(userFile)
                 for xSub in xRoot:
-                    if xSub.attrib['name'] == os.path.splitext(os.path.basename(self.__filePath))[0]:
+                    if xSub.attrib['name'] == self.__filePath.name():
                         xCamera = xSub
                         break
             if xCamera is None:  # legacy support
