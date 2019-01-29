@@ -5,8 +5,8 @@ import struct
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from build.codeoptimize import optimizeText
-import fileutil
-from util import ParseXMLWithIncludes, ScenesPath, SCENE_EXT
+from fileutil import FilePath
+from util import parseXMLWithIncludes, SCENE_EXT, currentScenesDirectory
 
 gAnimEntriesMax = 0.0
 
@@ -41,9 +41,8 @@ class TextPool(object):
         self.keys = []
 
     def addFile(self, filePath):
-        with fileutil.read(filePath) as fh:
-            text = fh.read()
-        text = optimizeText(text)
+        assert isinstance(filePath, FilePath)
+        text = optimizeText(filePath.content())
         return self.addString(text.replace('\n', '\\n\\\n') + '\\n\\0')
 
     def addString(self, value):
@@ -353,12 +352,13 @@ _templates = {}
 
 
 def Template(templatePath):
+    assert isinstance(templatePath, FilePath)
     global _templates
     key = os.path.abspath(templatePath).lower()
     try:
         return _templates[key]
     except:
-        xTemplate = ParseXMLWithIncludes(templatePath)
+        xTemplate = parseXMLWithIncludes(templatePath)
         if _templates:
             raise RuntimeError('Found multiple templates in project, this is currently not supported by the player code.')
         _templates[key] = xTemplate
@@ -368,17 +368,16 @@ def Template(templatePath):
 def run():
     shots = []
     scenes = []
-    scenesDir = ScenesPath()
+    scenesDir = currentScenesDirectory()
 
-    for scene in os.listdir(scenesDir):
-        if not scene.endswith(SCENE_EXT):
+    for scenePath in scenesDir.iter(join=True):
+        if not scenePath.hasExt(SCENE_EXT):
             continue
-        scenePath = os.path.join(scenesDir, scene)
-        sceneDir = os.path.splitext(scenePath)[0]
-        xScene = ParseXMLWithIncludes(scenePath)
+        sceneDir = scenePath.strip()
+        xScene = parseXMLWithIncludes(scenePath)
 
-        templatePath = os.path.join(scenesDir, xScene.attrib['template'])
-        templateDir = os.path.splitext(templatePath)[0]
+        templatePath = scenesDir.join(scenesDir, xScene.attrib['template'])
+        templateDir = templatePath.stripExt()
         xTemplate = Template(templatePath)
 
         scene = []
@@ -390,7 +389,7 @@ def run():
                 baseDir = sceneDir
                 if xSection.tag in ('global', 'shared'):
                     baseDir = templateDir
-                shaderFile = os.path.join(baseDir, xSection.attrib['path'])
+                shaderFile = baseDir.join(xSection.attrib['path'])
                 stitchIds.append(text.addFile(shaderFile))
                 for xUniform in xSection:
                     name = xUniform.attrib['name']
@@ -451,8 +450,8 @@ def run():
                         j = i % 8
                         if j == 0 or j == 4 or j > 5:
                             continue
-                        if j == 5: # out tangent y
-                            if v == float('inf'): # stepped tangents are implemented as out tangentY = positive infinity
+                        if j == 5:  # out tangent y
+                            if v == float('inf'):  # stepped tangents are implemented as out tangentY = positive infinity
                                 v = 'FLT_MAX'
                         keyframes.append(v)
                     assert len(keyframes) / 4.0 == int(len(keyframes) / 4), len(keyframes)
@@ -571,8 +570,8 @@ def run():
 #define gProgramCount %s
 """ % (gAnimEntriesMax, gShotAnimationDataIds, gShotScene, gScenePassIds, gPassProgramsAndTargets, gShotUniformData, gFrameBufferData, FrameBufferPool.BLOCK_SIZE, len(shaders.offsets)))
 
-    dst = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Player', 'generated.hpp')
-    with fileutil.edit(dst, 'w') as fh:
+    dst = FilePath(__file__).abs().parent().parent().join('Player', 'generated.hpp')
+    with dst.edit() as fh:
         fh.write(''.join(data))
 
 

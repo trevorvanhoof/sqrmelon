@@ -477,7 +477,7 @@ class CurveView(QWidget):
         x = (self.__localTime() - rect[0]) * scalex
         painter.setPen(Qt.red)
         painter.drawLine(QPoint(x, 2), QPoint(x, self.height()))
-        markerTop = icons.getImage('TimeMarkerTop', 24)
+        markerTop = icons.getImage('TimeMarkerTop-24')
         painter.drawPixmap(QPoint(x - 4.0, 2), markerTop)
 
     def _drawFocus(self, painter, scalex, scaley, rect):
@@ -660,14 +660,14 @@ class CurveEditor(QWidget):
 
         tools = hlayout(spacing=4.0)
 
-        add = QPushButton(icons.get('Add Node'), '')
+        add = QPushButton(icons.get('Add Node-48'), '')
         add.setToolTip('Add channels')
         add.setStatusTip('Add channels')
         add.setIconSize(QSize(24, 24))
         add.clicked.connect(self._onAddChannel)
         tools.addWidget(add)
 
-        delete = QPushButton(icons.get('Delete Node'), '')
+        delete = QPushButton(icons.get('Delete Node-48'), '')
         delete.setToolTip('Delete channels')
         delete.setStatusTip('Delete channels')
         delete.setIconSize(QSize(24, 24))
@@ -712,14 +712,14 @@ class CurveEditor(QWidget):
         self.__tangentMode.valueChanged.connect(self.__setSelectedKeyTangents)
         # self.__tangentMode.tangentBrokenChanged.connect(self.__toggleBreakSelectedKeyTangents)
 
-        positionKey = QPushButton(icons.get('Move'), '', self)
+        positionKey = QPushButton(icons.get('Move-48'), '', self)
         positionKey.setToolTip('Key camera position into selection')
         positionKey.setStatusTip('Key camera position into selection')
         positionKey.setShortcut(QKeySequence(Qt.SHIFT + Qt.Key_I))
         tools.addWidget(positionKey)
         self.requestPositionKey = positionKey.clicked
 
-        rotationKey = QPushButton(icons.get('3D Rotate'), '', self)
+        rotationKey = QPushButton(icons.get('3D Rotate-48'), '', self)
         rotationKey.setToolTip('Key camera rotation into selection')
         rotationKey.setStatusTip('Key camera rotation into selection')
         rotationKey.setShortcut(QKeySequence(Qt.SHIFT + Qt.Key_O))

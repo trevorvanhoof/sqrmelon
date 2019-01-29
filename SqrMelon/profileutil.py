@@ -24,22 +24,24 @@ QCACHEGRIND = r'os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\qcac
 
 def runctx(cmdstr, globals={}, locals={}, outpath=None, executable=None):
     tmp = tempfile.mktemp()
+    target = tmp
+
+    # profile to a file
     if outpath is not None:
-        path = os.path.splitext(outpath)[0] + '.callgrind'
-        dirpath = os.path.dirname(path)
-        if not fileutil.exists(dirpath):
-            os.makedirs(dirpath.replace('\\', '/'))
+        target = fileutil.FilePath(outpath).ensureExt('callgrind')
 
-        cProfile.runctx(cmdstr, globals, locals, filename=tmp)
-        pyprof2calltree.convert(pstats.Stats(tmp), path)
+        # ensure out folder exists
+        target.parent().ensureExists()
 
-        if executable is not None:
-            subprocess.Popen([executable, path])
-        os.unlink(tmp)
-        return path
-
+    # profile into out file
     cProfile.runctx(cmdstr, globals, locals, filename=tmp)
-    pyprof2calltree.convert(pstats.Stats(tmp), tmp)
+    pyprof2calltree.convert(pstats.Stats(tmp), target)
+
+    # open
     if executable is not None:
-        subprocess.Popen([executable, tmp])
-    return tmp
+        subprocess.Popen([executable, target])
+
+    # clean up & return result
+    if tmp != target:
+        os.unlink(tmp)
+    return target

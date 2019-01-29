@@ -1,5 +1,4 @@
 import datetime
-import time
 import sys
 import shutil
 import ctypes
@@ -7,6 +6,7 @@ import functools
 import traceback
 
 from camerawidget import Camera
+from fileutil import FileDialog, FilePath
 from overlays import Overlays
 
 from animationgraph.curveview import CurveEditor
@@ -16,8 +16,8 @@ from scenelist import SceneList
 from sceneview3d import SceneView
 from shots import ShotManager
 from timeslider import Timer, TimeSlider
-from util import PROJ_EXT, SCENE_EXT, gSettings, ScenesPath, ProjectDir
-import fileutil
+from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory,setCurrentProjectFilePath, currentScenesDirectory
+import os
 from qtutil import *
 import icons
 
@@ -51,9 +51,9 @@ class App(QMainWindowState):
     def __init__(self):
         super(App, self).__init__(gSettings)
         self.setAnimated(False)
-        
+
         if datetime.datetime.month == '12':
-            self.setWindowIcon(icons.get('Candy Cane'))
+            self.setWindowIcon(icons.get('Candy Cane-48'))
         else:
             self.setWindowIcon(icons.get('SqrMelon'))
         self.setWindowTitle('SqrMelon')
@@ -259,8 +259,10 @@ class App(QMainWindowState):
         data = (ctypes.c_ubyte * (WIDTH * HEIGHT * 3))()  # alloc buffer once
         flooredStart = self._timer.secondsToBeats(int(self._timer.beatsToSeconds(self._timer.start) * FPS) / float(FPS))
         duration = self._timer.beatsToSeconds(self._timer.end - flooredStart)
-        if not fileutil.exists('capture'):
-            os.makedirs('capture')
+
+        captureDir = currentProjectDirectory().join('capture')
+        captureDir.ensureExists(isFolder=True)
+
         progress = QProgressDialog(self)
         progress.setMaximum(int(duration * FPS))
         prevFrame = 0
@@ -276,7 +278,7 @@ class App(QMainWindowState):
             shot = self.__shotsManager.shotAtTime(beats)
             if shot is None:
                 continue
-            sceneFile = os.path.join(ScenesPath(), shot.sceneName + SCENE_EXT)
+            sceneFile = currentScenesDirectory().join(shot.sceneName.ensureExt(SCENE_EXT))
             scene = Scene.getScene(sceneFile)
             scene.setSize(WIDTH, HEIGHT)
 
@@ -285,9 +287,9 @@ class App(QMainWindowState):
             self.__sceneView._cameraInput.setData(*(uniforms['uOrigin'] + uniforms['uAngles']))  # feed animation into camera so animationprocessor can read it again
             cameraData = self.__sceneView._cameraInput.data()
 
-            modifier = os.path.join(ProjectDir(), 'animationprocessor.py')
-            if fileutil.exists(modifier):
-                execfile(modifier, globals(), locals())
+            modifier = currentProjectDirectory().join('animationprocessor.py')
+            if modifier.exists():
+                execfile(str(modifier), globals(), locals())
 
             for name in self.__sceneView._textures:
                 uniforms[name] = self.__sceneView._textures[name]._id
@@ -301,17 +303,19 @@ class App(QMainWindowState):
             QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save('capture/dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT))
         progress.close()
 
-        if not fileutil.exists('convertcapture'):
-            os.makedirs('convertcapture')
-        with fileutil.edit('convertcapture/convert.bat') as fh:
+        convertCaptureDir = currentProjectDirectory().join('convertcapture')
+        convertCaptureDir.ensureExists(isFolder=True)
+
+        with convertCaptureDir.join('convert.bat').edit() as fh:
             start = ''
             start2 = ''
             if int(self._timer.start * FPS) > 0:
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
-            fh.write('cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FPS, start, FPS, FMT, start2, FPS))
-
-        with fileutil.edit('convertcapture/convertGif.bat') as fh:
+            fh.write(
+                'cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FPS, start, FPS, FMT,
+                                                                                                                                                                                  start2, FPS))
+        with convertCaptureDir.join('convertGif.bat').edit() as fh:
             start = ''
             start2 = ''
             if int(self._timer.start * FPS) > 0:
@@ -322,7 +326,8 @@ class App(QMainWindowState):
         sound = self.timeSlider.soundtrackPath()
         if not sound:
             return
-        with fileutil.edit('convertcapture/merge.bat') as fh:
+
+        with convertCaptureDir.join('merge.bat').edit() as fh:
             startSeconds = self._timer.beatsToSeconds(self._timer.start)
             fh.write('ffmpeg -i output.mp4 -itsoffset {} -i "{}" -vcodec copy -shortest merged.mp4'.format(-startSeconds, sound))
 
@@ -396,21 +401,22 @@ class App(QMainWindowState):
             self.__sceneView.setScene(None)
             self.__profiler.setScene(None)
             return
-        sceneFile = os.path.join(ScenesPath(), shot.sceneName + SCENE_EXT)
+        sceneFile = currentScenesDirectory().join(shot.sceneName + SCENE_EXT)
         sc = Scene.getScene(sceneFile)
         self.__sceneView.setScene(sc)
         self.__profiler.setScene(sc)
 
     def __openProject(self, path):
-        gSettings.setValue('currentproject', path)
+        assert isinstance(path, FilePath)
+        setCurrentProjectFilePath(path)
         self.__sceneList.projectOpened()
         self.__shotsManager.projectOpened()
         self._timer.projectOpened()
 
     def __initializeProject(self):
-        if gSettings.contains('currentproject'):
-            project = str(gSettings.value('currentproject'))
-            if fileutil.exists(project):
+        project = currentProjectFilePath()
+        if project is not None:
+            if project.exists():
                 self.__openProject(project)
                 return
         project = [x for x in list(os.listdir(os.getcwd())) if x.endswith(PROJ_EXT)]
@@ -418,39 +424,39 @@ class App(QMainWindowState):
             self.__openProject(os.path.join(os.getcwd(), project[0]))
             return
 
+    def __changeProjectHelper(self, title):
+        """
+        Utility that shows a dialog if we're changing projects with potentially unsaved changes.
+        Returns the current project directory, or the current working directory if no such project.
+        """
+        currentPath = FilePath(os.getcwd())
+
+        project = currentProjectFilePath()
+        if project is not None:
+            # propose to save near current project
+            dir = project.parent()
+            if dir.exists():
+                currentPath = dir
+
+            # check if unsaved changes
+            if QMessageBox.No == QMessageBox.warning(self, title, 'Any unsaved changes will be lost. Continue?', QMessageBox.Yes | QMessageBox.No):
+                return
+
+        return currentPath
+
     def __onNewProject(self):
-        if gSettings.contains('currentproject') and QMessageBox.warning(self, 'Creating new project',
-                                                                        'Any unsaved changes will be lost. Continue?',
-                                                                        QMessageBox.Yes | QMessageBox.No) == QMessageBox.No:
-            return
-
-        currentPath = os.getcwd()
-        if gSettings.contains('currentproject'):
-            project = str(gSettings.value('currentproject'))
-            if fileutil.exists(project):
-                currentPath = os.path.dirname(project)
-
-        res = QFileDialog.getSaveFileName(self, 'Create new project', currentPath, 'Project folder')
+        currentPath = self.__changeProjectHelper('Creating new project')
+        res = FileDialog.getSaveFileName(self, 'Create new project', currentPath, 'Project folder')
         if not res:
             return
         shutil.copytree(DEFAULT_PROJECT, res, ignore=lambda p, f: [] if os.path.basename(p).lower() == 'Scenes' else [n for n in f if os.path.splitext(n)[-1].lower() in IGNORED_EXTENSIONS])
-        projectFile = os.path.join(res, os.path.basename(res) + PROJ_EXT)
-        fileutil.create(projectFile)
+        projectFile = FilePath(res).join(os.path.basename(res) + PROJ_EXT)
+        projectFile.ensureExists()
         self.__openProject(projectFile)
 
     def __onOpenProject(self):
-        if gSettings.contains('currentproject') and QMessageBox.warning(self, 'Changing project',
-                                                                        'Any unsaved changes will be lost. Continue?',
-                                                                        QMessageBox.Yes | QMessageBox.No) == QMessageBox.No:
-            return
-
-        currentPath = os.getcwd()
-        if gSettings.contains('currentproject'):
-            project = str(gSettings.value('currentproject'))
-            if fileutil.exists(project):
-                currentPath = os.path.dirname(project)
-
-        res = QFileDialog.getOpenFileName(self, 'Open project', currentPath, 'Project files (*%s)' % PROJ_EXT)
+        currentPath = self.__changeProjectHelper('Changing project')
+        res = FileDialog.getOpenFileName(self, 'Open project', currentPath, 'Project files (*%s)' % PROJ_EXT)
         if not res:
             return
         self.__openProject(res)

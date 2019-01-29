@@ -1,11 +1,11 @@
 from qtutil import *
-import fileutil
+from fileutil import FilePath
 import os
 
-__iconCache = {None: {}}
+__iconCache = {}
 
 
-def get(iconName, size=48):
+def get(iconName):
     """
     Retrieves an bitmap from the icon stash and
     returns a new QIcon using a cached version of the bitmap.
@@ -13,34 +13,31 @@ def get(iconName, size=48):
     @param iconName: filename without .png extension
     @return: QtGui.QIcon
     """
-    return QIcon(getImage(iconName, size))
+    return QIcon(getImage(iconName))
 
 
 FORMATS = ['svg', 'png', 'ico']
 
 
 def getPath(iconName):
-    folder = os.path.dirname(__file__)
+    folder = FilePath(os.path.dirname(__file__))
     for fmt in FORMATS:
-        o = '%s/%s.%s' % (folder, iconName, fmt)
-        if fileutil.exists(o):
-            return o
+        path = folder.join(iconName + '.' + fmt)
+        if path.exists():
+            return path
     raise Exception('Icon not found: %s' % iconName)
 
 
-def getImage(iconName, size=48):
-    if not __iconCache.has_key(size):
-        __iconCache[size] = {}
-    if not __iconCache[size].has_key(iconName):
-        try:
-            iconPath = getPath('%s-%s' % (iconName, size))
-        except:
-            iconPath = getPath(iconName)
-            size = None
-        image = QPixmap(iconPath)
+def getImage(iconName):
+    if not __iconCache.has_key(iconName):
+        iconPath = getPath(iconName)
+        if iconPath.hasExt('ico'):
+            image = QIcon(iconPath)
+        else:
+            image = QPixmap(iconPath)
         if image is None or image.isNull():
-            raise Exception('Icon not found: %s' % iconPath)
-        __iconCache[size][iconName] = image
+            raise Exception('Icon not loaded: %s' % iconPath)
+        __iconCache[iconName] = image
     else:
-        image = __iconCache[size][iconName]
+        image = __iconCache[iconName]
     return image

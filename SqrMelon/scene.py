@@ -2,8 +2,9 @@ import sys
 import re
 import time
 from collections import OrderedDict
-from fileutil import FileSystemWatcher
+from fileutil import FileSystemWatcher, FilePath
 from profileui import Profiler
+from multiplatformutil import canValidateShaders
 
 from OpenGL.GL import shaders
 from OpenGL.GL.EXT import texture_filter_anisotropic
@@ -11,7 +12,7 @@ from OpenGL.GL.EXT import texture_filter_anisotropic
 from heightfield import loadHeightfield
 from buffers import *
 from qtutil import *
-from util import TemplateForScene, ProjectFile, ParseXMLWithIncludes
+from util import currentProjectFilePath, parseXMLWithIncludes, currentProjectDirectory, templatePathFromScenePath
 from gl_shaders import compileProgram
 
 
@@ -24,12 +25,14 @@ class TexturePool(object):
 
     @staticmethod
     def fetchAndUse(fileName):
-        key = fileName.lower().replace('\\', '/').replace('//', '/')
+        assert not '\\' in fileName
+
+        key = fileName.lower().replace('//', '/')
         if key in TexturePool.__cache:
             glBindTexture(GL_TEXTURE_2D, TexturePool.__cache[key])
             return TexturePool.__cache[key]
-        parentPath = os.path.dirname(ProjectFile())
-        fullName = os.path.join(parentPath, fileName)
+        parentPath = currentProjectDirectory()
+        fullName = parentPath.join(fileName)
 
         # texture is a single channel raw32 heightmap
         if fileName.endswith('.r32'):
@@ -89,13 +92,14 @@ class PassData(object):
 
 def _deserializePasses(sceneFile):
     """
-    :type sceneFile: str
+    :type sceneFile: FilePath
     :rtype: list[PassData]
     """
-    sceneDir = os.path.splitext(sceneFile)[0]
-    templatePath = TemplateForScene(sceneFile)
-    templateDir = os.path.splitext(templatePath)[0]
-    xTemplate = ParseXMLWithIncludes(templatePath)
+    assert isinstance(sceneFile, FilePath)
+    sceneDir = sceneFile.stripExt()
+    templatePath = templatePathFromScenePath(sceneFile)
+    templateDir = templatePath.stripExt()
+    xTemplate = parseXMLWithIncludes(templatePath)
     passes = []
     frameBufferMap = {}
     for xPass in xTemplate:
@@ -132,13 +136,13 @@ def _deserializePasses(sceneFile):
         i = 0
         key = 'input%s' % i
         while key in xPass.attrib:
-
             # input is filename?
-            parentPath = os.path.dirname(ProjectFile())
-            fullName = os.path.join(parentPath, xPass.attrib[key])
-            if fileutil.exists(fullName):
-                inputs.append(xPass.attrib[key])
+            parentPath = currentProjectFilePath()
+            fullName = parentPath.join(xPass.attrib[key])
+            if fullName.exists():
+                inputs.append(FilePath(xPass.attrib[key]))
             else:
+                # input is buffer
                 if '.' in xPass.attrib[key]:
                     frameBuffer, subTexture = xPass.attrib[key].split('.')
                     frameBuffer, subTexture = frameBuffer, int(subTexture)
@@ -155,13 +159,12 @@ def _deserializePasses(sceneFile):
         fragStitches = []
         uniforms = {}
         for xElement in xPass:
-            stitches = vertStitches if xElement.attrib['path'].lower().endswith('.vert') else fragStitches
+            path = FilePath(xElement.attrib['path'])
+            stitches = vertStitches if path.hasExt('vert') else fragStitches
             if xElement.tag.lower() == 'section':
-                stitches.append(os.path.join(sceneDir, xElement.attrib['path']))
-            elif xElement.tag.lower() == 'shared':
-                stitches.append(os.path.join(templateDir, xElement.attrib['path']))
-            elif xElement.tag.lower() == 'global':
-                stitches.append(os.path.join(templateDir, xElement.attrib['path']))
+                stitches.append(sceneDir.join(path))
+            elif xElement.tag.lower() in ('shared', 'global'):
+                stitches.append(templateDir.join(path))
             else:
                 raise ValueError('Unknown XML tag in pass: "%s"' % xElement.tag)
             for xUniform in xElement:
@@ -212,13 +215,10 @@ class _ShaderPool(object):
         program = self.__cache.get((vertCode, fragCode), None)
         if program:
             return program
-        # skip shader validation step on linux
-        validate = 'linux' not in sys.platform.lower()
-
         program = compileProgram(
             shaders.compileShader(vertCode, GL_VERTEX_SHADER),
             shaders.compileShader(fragCode, GL_FRAGMENT_SHADER),
-            validate=validate
+            validate=canValidateShaders()
         )
         self.__cache[(vertCode, fragCode)] = program
         return program
@@ -228,16 +228,14 @@ gShaderPool = _ShaderPool()
 
 
 def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
-    search = re.compile(r'(?![^/\*]*\*/)^[\t ]*(#include "[a-z0-9_]+")[\t ]*$', re.MULTILINE | re.IGNORECASE | re.DOTALL)
-    baseDir = os.path.dirname(glslPath)
-    with fileutil.read(glslPath) as fh:
-        text = fh.read()
+    assert isinstance(glslPath, FilePath)
+    search = re.compile(r'(?![^/*]*\*/)^[\t ]*(#include "[a-z0-9_]+")[\t ]*$', re.MULTILINE | re.IGNORECASE | re.DOTALL)
+    text = glslPath.content()
     for res in list(search.finditer(text)):
         inc = res.group(1)
         idx = inc.find('"') + 1
         name = inc[idx:inc.find('"', idx + 1)]
-        path = os.path.join(baseDir, name)
-        path = os.path.normpath(path).lower().replace('/', '\\')
+        path = glslPath.join('..', name).abs().lower()
         assert path not in ioIncludePaths, 'Recursive or duplicate include "%s" found while parsing "%s"' % (path, glslPath)
         ioIncludePaths.add(path)
         text = '\n'.join([text[:res.start(1)], _loadGLSLWithIncludes(path, ioIncludePaths), text[res.end(1):]])
@@ -302,12 +300,14 @@ class Scene(object):
 
     @classmethod
     def getScene(cls, sceneFile):
+        assert isinstance(sceneFile, FilePath)
         # avoid compiler hick-ups during playback by caching the scenes once they were compiled
         if sceneFile in cls.cache:
             return cls.cache[sceneFile]
         return cls(sceneFile)
 
     def __init__(self, sceneFile):
+        assert isinstance(sceneFile, FilePath)
         Scene.cache[sceneFile] = self
         self.__w = 0
         self.__h = 0
@@ -323,7 +323,7 @@ class Scene(object):
         self.__filePath = sceneFile
         self.fileSystemWatcher_scene = FileSystemWatcher()
         self.fileSystemWatcher_scene.fileChanged.connect(self._reload)
-        templatePath = TemplateForScene(self.__filePath)
+        templatePath = templatePathFromScenePath(sceneFile)
         self.fileSystemWatcher_scene.addPath(templatePath)
 
         self.__errorDialog = QDialog()  # error log
@@ -349,8 +349,9 @@ class Scene(object):
 
     def _reload(self, path):
         if path:
+            assert isinstance(path, FilePath)
             time.sleep(0.01)
-            if not fileutil.exists(path):
+            if not path.exists():
                 # the scene has been deleted, stop watching it
                 return
             self.fileSystemWatcher_scene.addPath(path)
@@ -369,35 +370,15 @@ class Scene(object):
         self._rebuild(None)
         self.__cameraData = None
 
-    def setCameraData(self, data):
-        self.__cameraData = data
-
-    def cameraData(self):
-        return self.__cameraData
-
-    def readCameraData(self):
-        if self.__cameraData is None:
-            userFile = ProjectFile() + '.user'
-            xCamera = None
-            if fileutil.exists(userFile):
-                xRoot = ParseXMLWithIncludes(userFile)
-                for xSub in xRoot:
-                    if xSub.attrib['name'] == os.path.splitext(os.path.basename(self.__filePath))[0]:
-                        xCamera = xSub
-                        break
-            if xCamera is None:  # legacy support
-                xCamera = ParseXMLWithIncludes(self.__filePath)
-            self.__cameraData = CameraTransform(*[float(x) for x in xCamera.attrib['camera'].split(',')])
-        return self.__cameraData
-
     def _rebuild(self, path, index=None):
         if path:
+            assert isinstance(path, FilePath)
             time.sleep(0.01)
-            if not fileutil.exists(path):
+            if not path.exists():
                 # the scene has been deleted, stop watching it
                 return
             self.fileSystemWatcher.addPath(path)
-            path = os.path.abspath(path)
+            path = path.abs()
 
         for i, passData in enumerate(self.passes):
             vert = True
@@ -405,9 +386,9 @@ class Scene(object):
 
             # make sure the changed path is in our dependencies
             if path:
-                if not path in (os.path.abspath(stitch) for stitch in passData.vertStitches):
+                if not path in (stitch.abs() for stitch in passData.vertStitches):
                     vert = False
-                if not path in (os.path.abspath(stitch) for stitch in passData.fragStitches):
+                if not path in (stitch.abs() for stitch in passData.fragStitches):
                     frag = False
                 if not vert and not frag:
                     continue
@@ -423,14 +404,14 @@ class Scene(object):
                 try:
                     vertCode.append(_loadGLSLWithIncludes(stitch, includePaths))
                 except IOError as e:
-                    errors.append(stitch)
+                    errors.append(stitch.abs())
 
             fragCode = []
             for stitch in passData.fragStitches:
                 try:
                     fragCode.append(_loadGLSLWithIncludes(stitch, includePaths))
                 except IOError as e:
-                    errors.append(os.path.abspath(stitch))
+                    errors.append(stitch.abs())
 
             if errors:
                 QMessageBox.critical(None, 'Missing files', 'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(errors))
@@ -492,6 +473,27 @@ class Scene(object):
 
         self.__passDirtyState = [True] * len(self.passes)
         self.__errorDialog.close()
+
+    def setCameraData(self, data):
+        self.__cameraData = data
+
+    def cameraData(self):
+        return self.__cameraData
+
+    def readCameraData(self):
+        if self.__cameraData is None:
+            userFile = FilePath(currentProjectFilePath() + '.user')
+            xCamera = None
+            if userFile.exists():
+                xRoot = parseXMLWithIncludes(userFile)
+                for xSub in xRoot:
+                    if xSub.attrib['name'] == os.path.splitext(os.path.basename(self.__filePath))[0]:
+                        xCamera = xSub
+                        break
+            if xCamera is None:  # legacy support
+                xCamera = parseXMLWithIncludes(self.__filePath)
+            self.__cameraData = CameraTransform(*[float(x) for x in xCamera.attrib['camera'].split(',')])
+        return self.__cameraData
 
     def setSize(self, w, h):
         if w == self.__w and h == self.__h:
@@ -701,7 +703,7 @@ class Scene(object):
             maxActiveInputs = max(maxActiveInputs, activeInputs)
 
             if self.passes[i].drawCommand is not None:
-                exec (self.passes[i].drawCommand)
+                exec self.passes[i].drawCommand
             else:
                 FullScreenRectSingleton.instance().draw()
 

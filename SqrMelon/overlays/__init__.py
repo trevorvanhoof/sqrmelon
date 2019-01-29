@@ -2,7 +2,7 @@
 Module to load and manage the textures on this folder.
 Loads all PNG files into GL textures on initialization.
 """
-import fileutil
+from fileutil import FilePath
 from util import gSettings
 from qtutil import *
 import os
@@ -10,19 +10,17 @@ from buffers import *
 
 
 def loadImage(filePath, tile=True):
+    assert isinstance(filePath, FilePath)
     texId = glGenTextures(1)
     glBindTexture(GL_TEXTURE_2D, texId)
-
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-
-    tex = QGLWidget.convertToGLFormat(QImage(filePath.replace('\\', '/')))
-
+    tex = QGLWidget.convertToGLFormat(QImage(filePath))
     return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, ctypes.c_void_p(int(tex.bits())))
 
 
 class Overlays(QWidget):
-    _overlayDir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-    _overlayNames = ['None'] + list(sorted(os.path.splitext(x)[0] for x in os.listdir(_overlayDir) if x.endswith('.png')))
+    _overlayDir = FilePath(__file__).abs().parent()
+    _overlayNames = ['None'] + list(sorted(os.path.splitext(x)[0] for x in _overlayDir.iter() if x.endswith('.png')))
     _overlayCache = {}
 
     changed = pyqtSignal()
@@ -50,8 +48,8 @@ class Overlays(QWidget):
         img = Overlays._overlayCache.get(idx, None)
         if img:
             return img
-        fpath = os.path.join(Overlays._overlayDir, Overlays._overlayNames[idx] + '.png')
-        if not fileutil.exists(fpath):
+        fpath = Overlays._overlayDir.join(Overlays._overlayNames[idx] + '.png')
+        if not fpath.exists():
             return
         img = loadImage(fpath)
         Overlays._overlayCache[idx] = img

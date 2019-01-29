@@ -118,7 +118,7 @@ def _stripWhitespace(text):
     # remove indentation to make macro & newline matching easier
     text = re.sub(r'[ \t]*([\n])[ \t]*', r'\1', text)
     # because the newline removal doesnt remove the first newline after an else, make sure we pre-emptively remove those when unnecessary (directly followed by a {)
-    text = re.sub(r'(else)\n+(\{)', r'\1\2', text)
+    text = re.sub(r'(else)\n+({)', r'\1\2', text)
 
     text = text.strip('\n')
 

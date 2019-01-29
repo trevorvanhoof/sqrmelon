@@ -1,7 +1,6 @@
 from OSC import OSCClientError
 
 from qtutil import *
-import os
 import time
 from math import floor
 from xml.etree import cElementTree
@@ -9,9 +8,9 @@ from xml.etree import cElementTree
 import pyglet
 import OSC
 
-import fileutil
+from fileutil import FilePath
 import icons
-from util import gSettings, toPrettyXml, ProjectDir, ProjectFile
+from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
 
 
 class OSCClient(object):
@@ -140,14 +139,15 @@ class Timer(object):
         endTime = float(gSettings.value('TimerEndTime', 8.0))
         self.time = float(gSettings.value('TimerTime', 0.0))
 
-        project = ProjectFile()
-        if project and fileutil.exists(project):
-            with fileutil.read(project) as fh:
-                text = fh.read()
+        project = currentProjectFilePath()
+        if project and project.exists():
+            text = project.content()
+
             try:
                 root = cElementTree.fromstring(text)
             except:
                 root = None
+
             if root is not None:
                 self.minTime = float(root.attrib.get('TimerMinTime', 0.0))
                 self.maxTime = float(root.attrib.get('TimerMaxTime', 8.0))
@@ -172,8 +172,8 @@ class Timer(object):
         gSettings.setValue('TimerEndTime', self.__end)
         gSettings.setValue('TimerTime', self.__time)
 
-        project = ProjectFile()
-        if not project or not fileutil.exists(project):
+        project = currentProjectFilePath()
+        if not project or not project.exists():
             # legacy project or no project open
             gSettings.setValue('TimerMinTime', self.__minTime)
             gSettings.setValue('TimerMaxTime', self.__maxTime)
@@ -183,7 +183,7 @@ class Timer(object):
         root.attrib['TimerMinTime'] = str(self.__minTime)
         root.attrib['TimerMaxTime'] = str(self.__maxTime)
         root.attrib['TimerBPS'] = str(self.__BPS)
-        with fileutil.edit(project, 'w') as fh:
+        with project.edit() as fh:
             fh.write(toPrettyXml(root))
 
     def goToStart(self):
@@ -399,7 +399,7 @@ class TimeLine(QWidget):
         painter.setPen(Qt.red)
         painter.drawLine(pixelX, 0, pixelX, self.height() - 3)
 
-        painter.drawPixmap(pixelX - 4, 0, icons.getImage("TimeMarkerTop", 24))
+        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))
 
 
 class RangeSlider(QWidget):
@@ -578,21 +578,21 @@ class TimeSlider(QWidget):
         timer.bpmChanged.connect(bpm.setValueSilent)
         layout.addWidget(bpm)
 
-        goToStart = QPushButton(icons.get('Rewind'), '')
+        goToStart = QPushButton(icons.get('Rewind-48'), '')
         goToStart.setToolTip('Go to start')
         goToStart.setStatusTip('Go to start')
         goToStart.clicked.connect(timer.goToStart)
         goToStart.setFixedWidth(24)
         layout.addWidget(goToStart)
 
-        stepBack = QPushButton(icons.get('Skip to Start'), '')
+        stepBack = QPushButton(icons.get('Skip to Start-48'), '')
         stepBack.setToolTip('Step back')
         stepBack.setStatusTip('Step back')
         stepBack.clicked.connect(timer.stepBack)
         stepBack.setFixedWidth(24)
         layout.addWidget(stepBack)
 
-        self.__playPause = QPushButton(icons.get('Play'), '')
+        self.__playPause = QPushButton(icons.get('Play-48'), '')
         self.__playPause.setToolTip('Play')
         self.__playPause.setStatusTip('Play')
         self.__playPause.setFixedWidth(24)
@@ -610,14 +610,14 @@ class TimeSlider(QWidget):
         shortcut1.activated.connect(self.__togglePlayPause)
         shortcut1.activated.connect(timer.playPause)
 
-        stepNext = QPushButton(icons.get('End'), '')
+        stepNext = QPushButton(icons.get('End-48'), '')
         stepNext.setToolTip('Step forwards')
         stepNext.setStatusTip('Step forwards')
         stepNext.clicked.connect(timer.stepNext)
         stepNext.setFixedWidth(24)
         layout.addWidget(stepNext)
 
-        goToEnd = QPushButton(icons.get('Fast Forward'), '')
+        goToEnd = QPushButton(icons.get('Fast Forward-48'), '')
         goToEnd.setToolTip('Go to end')
         goToEnd.setStatusTip('Go to end')
         goToEnd.clicked.connect(timer.goToEnd)
@@ -678,7 +678,7 @@ class TimeSlider(QWidget):
         layout.addWidget(maxTime)
 
         isMuted = muteState()
-        self.__mute = QPushButton(icons.get('Mute') if isMuted else icons.get('Medium Volume'), '')
+        self.__mute = QPushButton(icons.get('Mute-48') if isMuted else icons.get('Medium Volume-48'), '')
         self.__mute.setToolTip('Un-mute' if isMuted else 'Mute')
         self.__mute.setStatusTip('Un-mute' if isMuted else 'Mute')
         self.__mute.clicked.connect(self.__toggleMute)
@@ -694,12 +694,12 @@ class TimeSlider(QWidget):
 
     def __togglePlayPause(self):
         if self.__playPause.toolTip() == 'Play':
-            self.__playPause.setIcon(icons.get('Pause'))
+            self.__playPause.setIcon(icons.get('Pause-48'))
             self.__playPause.setToolTip('Pause')
             self.__playPause.setStatusTip('Pause')
             self.__playSoundtrack()
         else:
-            self.__playPause.setIcon(icons.get('Play'))
+            self.__playPause.setIcon(icons.get('Play-48'))
             self.__playPause.setToolTip('Play')
             self.__playPause.setStatusTip('Play')
             self.__stopSoundtrack()
@@ -715,15 +715,15 @@ class TimeSlider(QWidget):
         path = None
         song = None
         for ext in ('.wav', '.mp3'):
-            for fname in os.listdir(ProjectDir()):
-                if fname.lower().endswith(ext):
-                    try:
-                        path = os.path.join(ProjectDir(), fname)
-                        song = pyglet.media.load(path)
-                    except Exception, e:
-                        print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
-                        return
-                    break
+            for path in currentProjectDirectory().iter(join=True):
+                if not path.hasExt(ext):
+                    continue
+                try:
+                    song = pyglet.media.load(path)
+                except Exception, e:
+                    print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
+                    return
+                break
             if song:
                 break
         if not song:
@@ -755,7 +755,7 @@ class TimeSlider(QWidget):
         isMuted = not muteState()
         setMuteState(isMuted)
 
-        self.__mute.setIcon(icons.get('Mute') if isMuted else icons.get('Medium Volume'))
+        self.__mute.setIcon(icons.get('Mute-48') if isMuted else icons.get('Medium Volume-48'))
         self.__mute.setToolTip('Un-mute' if isMuted else 'Mute')
         self.__mute.setStatusTip('Un-mute' if isMuted else 'Mute')
 
@@ -764,11 +764,3 @@ class TimeSlider(QWidget):
 
     def soundtrackPath(self):
         return self.__soundtrackPath
-
-
-if __name__ == '__main__':
-    app = QApplication([])
-    timer = Timer()
-    win = TimeSlider(timer)
-    win.show()
-    app.exec_()

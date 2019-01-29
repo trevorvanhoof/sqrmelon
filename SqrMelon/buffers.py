@@ -1,13 +1,9 @@
 """
 Utility that wraps OpenGL textures, frame buffers and render buffers.
 """
-
-
 import contextlib
-
 from OpenGL.GL import *
 
-import fileutil
 
 class Texture(object):
     """
@@ -114,13 +110,13 @@ class Texture(object):
         return self._height
 
     def save(self, filePath, ch=None):
-        if filePath.endswith('.r32'):
+        if filePath.hasExt('.r32'):
             import struct
             # heightfield export
             pixels = self._width * self._height
             buffer = (ctypes.c_float * pixels)()
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, buffer)
-            with fileutil.edit(filePath, 'wb') as fh:
+            with filePath.edit(flag='wb') as fh:
                 fh.write(struct.pack('%sf' % pixels, *buffer))
             return
         from PyQt4.QtGui import QImage
@@ -136,8 +132,9 @@ class Texture(object):
         QImage(mirror, self._width, self._height, QImage.Format_ARGB32).save(filePath)
 
 
-class Texture3D(Texture):
+class Texture3D(object):
     def __init__(self, channels, resolution, tile=True, data=None):
+        # for channels refer to the options in Texture
         self._width = resolution
         self._height = resolution
         self._depth = resolution
@@ -156,8 +153,17 @@ class Texture3D(Texture):
     def use(self):
         glBindTexture(GL_TEXTURE_3D, self._id)
 
+    def width(self):
+        return self._width
+
+    def height(self):
+        return self._height
+
     def depth(self):
         return self._depth
+
+    def id(self):
+        return self._id
 
 
 class Cubemap(object):
@@ -244,6 +250,7 @@ class FrameBuffer(object):
 
     Call use() to render into the buffer and automatically bind all the color buffers as well as adjust glViewport.
     """
+
     def __init__(self, width, height):
         self.__id = glGenFramebuffers(1)
         self.__stats = [None]

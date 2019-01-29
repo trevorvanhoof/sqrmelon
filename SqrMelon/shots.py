@@ -1,21 +1,21 @@
 from qtutil import *
 import icons
-import fileutil
+from fileutil import FilePath
 from textures import TextureManager
 from animationgraph.curvedata import Curve, Key
 from collections import OrderedDict
 from scene import Scene
 from xml.etree import cElementTree
-from util import randomColor, ScenesPath, ParseXMLWithIncludes, toPrettyXml, SCENE_EXT, ProjectFile, Scenes, TemplatesPath
+from util import randomColor, parseXMLWithIncludes, toPrettyXml, SCENE_EXT, currentProjectFilePath, currentScenesDirectory, currentTemplatesDirectory, iterSceneNames
 
 
 def readChannelTemplates():
-    templatesDir = TemplatesPath()
-    channelTemplates = os.path.join(templatesDir, 'uniforms.xml')
+    templatesDir = currentTemplatesDirectory()
+    channelTemplates = templatesDir.join('uniforms.xml')
     result = OrderedDict()
 
     # legacy fallback
-    if not os.path.exists(channelTemplates):
+    if not channelTemplates.exists():
         curves = OrderedDict()
         curves['uOrigin.x'] = Curve()
         curves['uOrigin.y'] = Curve()
@@ -26,7 +26,7 @@ def readChannelTemplates():
         result['default'] = curves
         return result
 
-    xRoot = ParseXMLWithIncludes(channelTemplates)
+    xRoot = parseXMLWithIncludes(channelTemplates)
     for xTemplate in xRoot:
         name = xTemplate.attrib['name']
         curves = OrderedDict()
@@ -54,7 +54,7 @@ class Shot(object):
         self.items[0].setData(self, Qt.UserRole + 1)
         self._enabled = True
         self._pinned = False
-        self.items[0].setIcon(icons.get('Checked Checkbox'))
+        self.items[0].setIcon(icons.get('Checked Checkbox-48'))
 
     @property
     def enabled(self):
@@ -65,9 +65,9 @@ class Shot(object):
         self._enabled = value
         self.pinned = False
         if not value:
-            self.items[0].setIcon(icons.get('Unchecked Checkbox'))
+            self.items[0].setIcon(icons.get('Unchecked Checkbox-48'))
         else:
-            self.items[0].setIcon(icons.get('Checked Checkbox'))
+            self.items[0].setIcon(icons.get('Checked Checkbox-48'))
 
     @property
     def pinned(self):
@@ -79,12 +79,12 @@ class Shot(object):
             self.enabled = True
         self._pinned = value
         if value:
-            self.items[0].setIcon(icons.get('Pin'))
+            self.items[0].setIcon(icons.get('Pin-48'))
         else:
             if not self._enabled:
-                self.items[0].setIcon(icons.get('Unchecked Checkbox'))
+                self.items[0].setIcon(icons.get('Unchecked Checkbox-48'))
             else:
-                self.items[0].setIcon(icons.get('Checked Checkbox'))
+                self.items[0].setIcon(icons.get('Checked Checkbox-48'))
 
     def evaluate(self, time):
         time -= self.start
@@ -230,8 +230,8 @@ class FloatItemDelegate(QItemDelegate):
 
 
 def _deserializeSceneShots(sceneName):
-    sceneFile = os.path.join(ScenesPath(), sceneName + SCENE_EXT)
-    xScene = ParseXMLWithIncludes(sceneFile)
+    sceneFile = currentScenesDirectory().join(sceneName.ensureExt(SCENE_EXT))
+    xScene = parseXMLWithIncludes(sceneFile)
 
     for xShot in xScene:
         name = xShot.attrib['name']
@@ -254,7 +254,7 @@ def _deserializeSceneShots(sceneName):
                 curves[curveName] = curve
 
             if xEntry.tag.lower() == 'texture':
-                textures[xEntry.attrib['name']] = xEntry.attrib['path']
+                textures[xEntry.attrib['name']] = FilePath(xEntry.attrib['path'])
 
         shot = Shot(name, sceneName, start, end, curves, textures, speed, preroll)
         if 'enabled' in xShot.attrib:
@@ -263,13 +263,13 @@ def _deserializeSceneShots(sceneName):
 
 
 def _saveSceneShots(sceneName, shots):
-    sceneFile = os.path.join(ScenesPath(), sceneName + SCENE_EXT)
-    xScene = ParseXMLWithIncludes(sceneFile)
+    sceneFile = currentScenesDirectory().join(sceneName.ensureExt(SCENE_EXT))
+    xScene = parseXMLWithIncludes(sceneFile)
 
     # save user camera position per scene
-    userFile = ProjectFile() + '.user'
-    if fileutil.exists(userFile):
-        xUser = ParseXMLWithIncludes(userFile)
+    userFile = currentProjectFilePath().ensureExt('user')
+    if userFile.exists():
+        xUser = parseXMLWithIncludes(userFile)
     else:
         xUser = cElementTree.Element('user')
     if sceneFile in Scene.cache:
@@ -281,7 +281,8 @@ def _saveSceneShots(sceneName, shots):
                     break
             else:
                 cElementTree.SubElement(xUser, 'scene', {'name': sceneName, 'camera': ','.join([str(x) for x in cameraData])})
-    with fileutil.edit(userFile) as fh:
+
+    with userFile.edit() as fh:
         fh.write(toPrettyXml(xUser))
 
     # remove old shots
@@ -297,7 +298,12 @@ def _saveSceneShots(sceneName, shots):
             targets.append(shot)
 
     for shot in targets:
-        xShot = cElementTree.SubElement(xScene, 'Shot', {'name': shot.name, 'scene': sceneName, 'start': str(shot.start), 'end': str(shot.end), 'enabled': str(shot.enabled), 'speed': str(shot.speed),
+        xShot = cElementTree.SubElement(xScene, 'Shot', {'name'   : shot.name,
+                                                         'scene'  : sceneName,
+                                                         'start'  : str(shot.start),
+                                                         'end'    : str(shot.end),
+                                                         'enabled': str(shot.enabled),
+                                                         'speed'  : str(shot.speed),
                                                          'preroll': str(shot.preroll)})
         for curveName in shot.curves:
             xChannel = cElementTree.SubElement(xShot, 'Channel', {'name': curveName, 'mode': 'hermite'})
@@ -315,7 +321,7 @@ def _saveSceneShots(sceneName, shots):
         for texName in shot.textures:
             cElementTree.SubElement(xShot, 'Texture', {'name': texName, 'path': shot.textures[texName]})
 
-    with fileutil.edit(sceneFile) as fh:
+    with sceneFile.edit() as fh:
         fh.write(toPrettyXml(xScene))
 
 
@@ -329,12 +335,12 @@ class ShotView(QTableView):
     def __init__(self):
         super(ShotView, self).__init__()
         self.__menu = QMenu()
-        self.__menu.addAction(icons.get('Visible'), 'View').triggered.connect(self.__onViewShot)
-        self.__menu.addAction(icons.get('Pin'), 'Pin').triggered.connect(self.onPinShot)
-        self.__menu.addAction(icons.get('Checked Checkbox'), 'Enable').triggered.connect(self.__onEnableShot)
-        self.__menu.addAction(icons.get('Unchecked Checkbox'), 'Disable').triggered.connect(self.__onDisableShot)
-        self.__menu.addAction(icons.get('Link'), 'Select scene').triggered.connect(self.__onSelectScene)
-        self.__menu.addAction(icons.get('Picture'), 'Edit textures').triggered.connect(self.__onManageTextures)
+        self.__menu.addAction(icons.get('Visible-48'), 'View').triggered.connect(self.__onViewShot)
+        self.__menu.addAction(icons.get('Pin-48'), 'Pin').triggered.connect(self.onPinShot)
+        self.__menu.addAction(icons.get('Checked Checkbox-48'), 'Enable').triggered.connect(self.__onEnableShot)
+        self.__menu.addAction(icons.get('Unchecked Checkbox-48'), 'Disable').triggered.connect(self.__onDisableShot)
+        self.__menu.addAction(icons.get('Link-48'), 'Select scene').triggered.connect(self.__onSelectScene)
+        self.__menu.addAction(icons.get('Picture-48'), 'Edit textures').triggered.connect(self.__onManageTextures)
         self.__menu.addAction(icons.get('Bake'), 'Bake preroll && speed').triggered.connect(self.__onBakeShot)
         self.__row = -1
 
@@ -416,25 +422,25 @@ class ShotManager(QWidget):
         mainLayout = vlayout()
         self.setLayout(mainLayout)
         beltLayout = hlayout()
-        btn = QPushButton(icons.get('Film Reel Create'), '')
-        btn.setToolTip('Create shot')
-        btn.setStatusTip('Create shot')
+        btn = QPushButton(icons.get('Film Reel Create-48'), '')
+        btn.setToolTip('Create shot-48')
+        btn.setStatusTip('Create shot-48')
         btn.clicked.connect(self.createShot)
         beltLayout.addWidget(btn)
-        btn = QPushButton(icons.get('Film Reel Copy'), '')
-        btn.setToolTip('Duplicate shot')
-        btn.setStatusTip('Duplicate shot')
+        btn = QPushButton(icons.get('Film Reel Copy-48'), '')
+        btn.setToolTip('Duplicate shot-48')
+        btn.setStatusTip('Duplicate shot-48')
         btn.clicked.connect(self.__duplicateSelectedShots)
         beltLayout.addWidget(btn)
-        # btn = QPushButton(icons.get('Film Reel Merge'), '') # what do we do when selected shots are not adjacent?
+        # btn = QPushButton(icons.get('Film Reel Merge-48'), '') # what do we do when selected shots are not adjacent?
         # btn.setToolTip('Merge shots')
         # beltLayout.addWidget(btn)
-        # btn = QPushButton(icons.get('Film Reel Cut'), '')
+        # btn = QPushButton(icons.get('Film Reel Cut-48'), '')
         # btn.setToolTip('Cut shots')
         # beltLayout.addWidget(btn)
-        btn = QPushButton(icons.get('Film Reel Delete'), '')
-        btn.setToolTip('Delete shots')
-        btn.setStatusTip('Delete shots')
+        btn = QPushButton(icons.get('Film Reel Delete-48'), '')
+        btn.setToolTip('Delete shots-48')
+        btn.setStatusTip('Delete shots-48')
         btn.clicked.connect(self.__deleteSelectedShots)
         beltLayout.addWidget(btn)
         mainLayout.addLayout(beltLayout)
@@ -514,15 +520,14 @@ class ShotManager(QWidget):
         self.__loadAllShots()
 
     def __loadAllShots(self):
-        if ProjectFile() is None:
+        if currentProjectFilePath() is None:
             self.setEnabled(False)
             return
         self.setEnabled(True)
         self.__model.clear()
         # model.clear() removes the header labels
         self.__model.setHorizontalHeaderLabels(['Name', 'Scene', 'Start', 'End', 'Duration', 'Speed', 'Preroll'])
-        for sceneName in Scenes():
-            sceneName = os.path.splitext(sceneName)[0]
+        for sceneName in iterSceneNames():
             for shot in _deserializeSceneShots(sceneName):
                 self.__model.appendRow(shot.items)
 
@@ -539,8 +544,7 @@ class ShotManager(QWidget):
         self.__table.selectRow(idx.row())
 
     def saveAllShots(self):
-        for sceneName in Scenes():
-            sceneName = os.path.splitext(sceneName)[0]
+        for sceneName in iterSceneNames():
             _saveSceneShots(sceneName, self.shots())
 
     def __onCurrentChanged(self, current, previous):
@@ -561,7 +565,7 @@ class ShotManager(QWidget):
             yield shot.name
 
     def createShot(self, initialSceneName=None):
-        sceneNames = [str(os.path.splitext(scene)[0]) for scene in Scenes()]
+        sceneNames = list(iterSceneNames())
         if not sceneNames:
             QMessageBox.warning(self, 'Can\'t create shot!', 'Can not create shots before creating at least 1 scene.')
             return

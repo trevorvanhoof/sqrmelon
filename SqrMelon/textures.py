@@ -1,8 +1,7 @@
-import fileutil
-import os
-from util import ProjectDir
+from util import currentProjectDirectory
 from qtutil import *
 import icons
+from fileutil import FileDialog
 
 
 class TextureManager(QDialog):
@@ -21,14 +20,14 @@ class TextureManager(QDialog):
         belt = hlayout()
         main.addLayout(belt)
 
-        addImage = QPushButton(icons.get('Add Image'), '')
+        addImage = QPushButton(icons.get('Add Image-48'), '')
         addImage.clicked.connect(self.__onAddImage)
         addImage.setIconSize(QSize(24, 24))
         addImage.setToolTip('Add texture')
         addImage.setStatusTip('Add texture')
         belt.addWidget(addImage)
 
-        delImage = QPushButton(icons.get('Remove Image'), '')
+        delImage = QPushButton(icons.get('Remove Image-48'), '')
         delImage.clicked.connect(self.__onDeleteImages)
         delImage.setIconSize(QSize(24, 24))
         delImage.setToolTip('Delete selected images')
@@ -50,7 +49,7 @@ class TextureManager(QDialog):
         for uniformName in target.textures:
             relPath = target.textures[uniformName]
             nameItem = QStandardItem(uniformName)
-            nameItem.setIcon(QIcon(os.path.join(ProjectDir(), relPath)))
+            nameItem.setIcon(QIcon(currentProjectDirectory().join(relPath)))
             pathItem = QStandardItem(relPath)
             pathItem.setFlags(pathItem.flags() & ~Qt.ItemIsEditable)
             self.__model.appendRow([nameItem, pathItem])
@@ -61,9 +60,9 @@ class TextureManager(QDialog):
             return
         uniformName = uniformName[0]
 
-        imagePath = QFileDialog.getOpenFileName(self, ProjectDir(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')
-        if imagePath and fileutil.exists(imagePath):
-            relPath = os.path.relpath(imagePath, ProjectDir())
+        imagePath = FileDialog.getOpenFileName(self, currentProjectDirectory(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')
+        if imagePath and imagePath.exists():
+            relPath = imagePath.relativeTo(currentProjectDirectory())
             self.__target.textures[uniformName] = relPath
 
             nameItem = QStandardItem(uniformName)

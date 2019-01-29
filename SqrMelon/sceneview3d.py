@@ -1,9 +1,8 @@
-import fileutil
+from fileutil import FilePath
 from qtutil import *
 import time
-import os
 from overlays import loadImage
-from util import gSettings, ProjectDir
+from util import gSettings, currentProjectDirectory
 from scene import Scene
 from OpenGL.GL import *
 
@@ -35,7 +34,7 @@ class SceneView(QGLWidget):
         glFormat = QGLFormat()
         glFormat.setVersion(4, 1)
         glFormat.setProfile(QGLFormat.CoreProfile)
-        glFormat.setDefaultFormat(glFormat);
+        glFormat.setDefaultFormat(glFormat)
         super(SceneView, self).__init__()
 
         self._timer = timer
@@ -118,12 +117,11 @@ class SceneView(QGLWidget):
         # glDepthMask(GL_TRUE)
 
         IMAGE_EXTENSIONS = '.png', '.bmp', '.tga'
-        textureFolder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Textures')
-        if fileutil.exists(textureFolder):
-            for texture in os.listdir(textureFolder.replace('\\', '/')):
-                fname, ext = os.path.splitext(texture)
-                if ext.lower() in IMAGE_EXTENSIONS:
-                    self._textures[fname] = loadImage(os.path.join(textureFolder, texture))
+        textureFolder = FilePath(__file__).join('..', 'Textures').abs()
+        if textureFolder.exists():
+            for texture in textureFolder.iter():
+                if texture.ext() in IMAGE_EXTENSIONS:
+                    self._textures[texture.name()] = loadImage(textureFolder.join(texture))
 
         self._prevTime = time.time()
         self._timer.kick()
@@ -133,7 +131,7 @@ class SceneView(QGLWidget):
         aspectW = h / 9 * 16
 
         newW = w
-        if (aspectH > h):
+        if aspectH > h:
             aspectH = h
             newW = aspectW
 
@@ -161,8 +159,8 @@ class SceneView(QGLWidget):
 
             cameraData = self._cameraData
             scene = self._scene
-            modifier = os.path.join(ProjectDir(), 'animationprocessor.py')
-            if fileutil.exists(modifier):
+            modifier = currentProjectDirectory().join('animationprocessor.py')
+            if modifier.exists():
                 beats = self._timer.time
                 execfile(modifier, globals(), locals())
 
@@ -175,7 +173,7 @@ class SceneView(QGLWidget):
             # no scene active, time cursor outside any enabled shots?
             global _noSignalImage
             if _noSignalImage is None:
-                _noSignalImage = loadImage(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons/nosignal.png'))
+                _noSignalImage = loadImage(FilePath(__file__).parent().join('icons', 'nosignal.png'))
             glDisable(GL_DEPTH_TEST)
             if _noSignalImage:
                 glEnable(GL_BLEND)

@@ -1,13 +1,11 @@
 """
 Widget that manages & displays the list of scenes and editable shader sections in each scene.
 """
-import fileutil
 from util import *
 import icons
 import os
 from send2trash import send2trash
-import subprocess
-import sys
+from multiplatformutil import selectInFileBrowser, openFileWithDefaultApplication
 
 
 class MimeDataItemModel(QStandardItemModel):
@@ -25,28 +23,23 @@ class SceneList(QWidget):
     currentChanged = pyqtSignal(QStandardItem)
     requestCreateShot = pyqtSignal(str)
 
-    def __init__(self, subFolder=''):
-        """"
-        @param subFolder: make this scene list represent a "Scenes, Templates"
-        folder pair in a sub-folder instead of the project root.
-        """
+    def __init__(self):
         super(SceneList, self).__init__()
 
-        self.__subFolder = subFolder
         self.__shotsManager = None
 
         main = vlayout()
         self.setLayout(main)
         belt = hlayout()
 
-        addScene = QPushButton(icons.get('Add Image'), '')
+        addScene = QPushButton(icons.get('Add Image-48'), '')
         addScene.clicked.connect(self.__onAddScene)
         addScene.setIconSize(QSize(24, 24))
         addScene.setToolTip('Add scene')
         addScene.setStatusTip('Add scene')
         belt.addWidget(addScene)
 
-        delScene = QPushButton(icons.get('Remove Image'), '')
+        delScene = QPushButton(icons.get('Remove Image-48'), '')
         delScene.clicked.connect(self.__onDeleteScene)
         delScene.setIconSize(QSize(24, 24))
         delScene.setToolTip('Delete scene')
@@ -83,12 +76,13 @@ class SceneList(QWidget):
         if self.__contextMenuItem is None:
             return
         data = self.__contextMenuItem.data()
-        if not data or not fileutil.exists(data):
-            data = os.path.join(ScenesPath(), self.__contextMenuItem.text())
-        if not data or not fileutil.exists(data):
+        assert isinstance(data, (FilePath, None))
+        if not data or not data.exists():
+            # try navigation by file name
+            data = currentScenesDirectory().join(self.__contextMenuItem.text())
+        if not data or not data.exists():
             return
-        data = os.path.abspath(data)
-        subprocess.Popen('explorer /select,"%s"' % data)
+        selectInFileBrowser(data)
 
     def __createShot(self):
         for idx in self.view.selectionModel().selectedIndexes():
@@ -110,12 +104,8 @@ class SceneList(QWidget):
     def __onOpenFile(self, current):
         if not current.parent().isValid():
             return
-        path = self.__model.itemFromIndex(current).data().replace('\\', '/')
-        if sys.platform == "win32":
-            os.startfile(path)
-        else:
-            opener = "open" if sys.platform == "darwin" else "xdg-open"
-            subprocess.call([opener, path])
+        path = self.__model.itemFromIndex(current).data()
+        openFileWithDefaultApplication(path)
 
     def __onCurrentChanged(self, current, __):
         if not current.parent().isValid():
@@ -129,8 +119,8 @@ class SceneList(QWidget):
         self.setEnabled(True)
         self.clear()
         self.initShared()
-        for scene in Scenes(self.__subFolder):
-            self.appendSceneItem(os.path.splitext(scene)[0])
+        for scene in iterSceneNames():
+            self.appendSceneItem(scene)
 
     def __onDeleteScene(self):
         if QMessageBox.warning(self, 'Deleting scene', 'This action is not undoable! Continue?', QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
@@ -141,7 +131,7 @@ class SceneList(QWidget):
             item = self.__model.itemFromIndex(idx)
             sceneName = str(item.text())
             self.__shotsManager.onDeleteScene(sceneName)
-            sceneDir = os.path.join(ScenesPath(), sceneName)
+            sceneDir = currentScenesDirectory().join(sceneName)
             sceneFile = sceneDir + SCENE_EXT
             send2trash(sceneFile)
             send2trash(sceneDir)
@@ -151,72 +141,73 @@ class SceneList(QWidget):
 
     def __onAddScene(self):
         # request user for a template if there are multiple options
-        templates = list(Templates(self.__subFolder))
+        templates = list(iterTemplateNames())
 
         if not templates:
             QMessageBox.critical(self, 'Could not create scene', 'Can not add scenes to this project until a template has been made to base them off.')
             return
 
         if len(templates) == 1:
-            templateDir = TemplateSourceFolderFromName(templates[0], self.__subFolder)
-            templatePath = TemplateFileFromName(templates[0], self.__subFolder)
+            templateDir = templateFolderFromName(templates[0])
+            templatePath = templateFileFromName(templates[0])
         else:
             template = QInputDialog.getItem(self, 'Create scene', 'Select template', templates, 0, False)
             if not template[1] or not template[0] in templates:
                 return
-            templateDir = TemplateSourceFolderFromName(template[0], self.__subFolder)
-            templatePath = TemplateFileFromName(template[0], self.__subFolder)
+            templateDir = templateFolderFromName(template[0])
+            templatePath = templateFileFromName(template[0])
 
         name = QInputDialog.getText(self, 'Create scene', 'Scene name')
         if not name[1]:
             return
 
-        scenesPath = ScenesPath(self.__subFolder)
-        outFile = os.path.join(scenesPath, name[0] + SCENE_EXT)
-        outDir = os.path.join(scenesPath, name[0])
-        if fileutil.exists(outFile):
+        scenesPath = currentScenesDirectory()
+        outFile = scenesPath.join(name[0] + SCENE_EXT)
+        outDir = scenesPath.join(name[0])
+        if outFile.exists():
             QMessageBox.critical(self, 'Could not create scene', 'A scene with name "%s" already exists. No scene was created.' % name[0])
             return
 
-        if fileutil.exists(outDir):
-            if QMessageBox.warning(self, 'Scene not empty', 'A folder with name "%s" already exists. Create scene anyways?' % name[0], QMessageBox.Ok | QMessageBox.Cancel) == QMessageBox.Cancel:
+        if outDir.exists():
+            if QMessageBox.Cancel == QMessageBox.warning(self, 'Scene not empty', 'A folder with name "%s" already exists. Create scene anyways?' % name[0], QMessageBox.Ok | QMessageBox.Cancel):
                 return
         else:
-            os.makedirs(outDir.replace('\\', '/'))
+            outDir.ensureExists(True)
 
-        with fileutil.edit(outFile) as fh:
+        with outFile.edit() as fh:
             fh.write('<scene camera="0,1,-10,0,0,0" template="%s"/>' % os.path.relpath(templatePath, scenesPath))
 
         # find required template inputs (sections)
-        xTemplate = ParseXMLWithIncludes(templatePath)
+        xTemplate = parseXMLWithIncludes(templatePath)
         for xPass in xTemplate:
             for xElement in xPass:
                 if xElement.tag.lower() != 'section':
                     continue
                 # given a section make a stub file so the scene is complete on disk
-                resource = os.path.join(templateDir, xElement.attrib['path'])
-                text = ''
+                resource = templateDir.join(xElement.attrib['path'])
                 # copy template data if there is any
-                if fileutil.exists(resource):
-                    with fileutil.read(resource) as fh:
-                        text = fh.read()
-                with fileutil.edit(os.path.join(outDir, xElement.attrib['path'])) as fh:
+                text = resource.content() if resource.exists() else ''
+                with outDir.join(xElement.attrib['path']).edit() as fh:
                     fh.write(text)
 
         self.appendSceneItem(name[0])
 
     def initShared(self):
-        for templateName in Templates():
+        for templateName in iterTemplateNames():
             item = QStandardItem(':' + templateName)
 
-            filtered = {path.lower(): path for path in sharedPathsFromTemplate(templateName, self.__subFolder)}
-            allPaths = (filtered[key] for key in sorted(filtered.keys()))
+            # grab unique shared items
+            sharedPaths = set(sharedPathsFromTemplate(templateName))
 
-            for path in allPaths:
-                name = os.path.splitext(os.path.basename(path))[0]
-                sub = QStandardItem(name)
+            # order alphabetically (case insensitive)
+            sharedPaths = sorted(sharedPaths, key=lambda path: path.name().lower())
+
+            # add to model
+            for path in sharedPaths:
+                sub = QStandardItem(path.name())
                 sub.setData(path)
                 item.appendRow(sub)
+
             if item.rowCount():
                 self.__model.appendRow(item)
 
@@ -224,11 +215,15 @@ class SceneList(QWidget):
         item = QStandardItem(sceneName)
         self.__model.appendRow(item)
 
-        filtered = {path.lower(): path for path in sectionPathsFromScene(sceneName, self.__subFolder)}
-        allPaths = (filtered[key] for key in sorted(filtered.keys()))
-        for path in allPaths:
-            name = os.path.splitext(os.path.basename(path))[0]
-            sub = QStandardItem(name)
+        # grab unique items
+        sectionPaths = set(sectionPathsFromScene(sceneName))
+
+        # order alphabetically (case insensitive)
+        sectionPaths = sorted(sectionPaths, key=lambda path: path.name().lower())
+
+        # add to model
+        for path in sectionPaths:
+            sub = QStandardItem(path.name())
             sub.setData(path)
             item.appendRow(sub)
 

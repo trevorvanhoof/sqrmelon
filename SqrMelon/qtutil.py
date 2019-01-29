@@ -3,13 +3,11 @@ Imports QT with the right version settings
 Exposes a bunch of useful subclasses and utility functions.
 """
 import sip
-
 sip.setapi('QString', 2)
 sip.setapi('QVariant', 2)
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *  # exposed to other code from here
-import os
 
 
 # TODO: floating dockwidget splitter state does not seem to be saved correctly

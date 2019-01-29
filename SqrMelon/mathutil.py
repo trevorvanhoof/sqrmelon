@@ -146,7 +146,7 @@ class Vec2(object):
 
     def normalize(self):
         f = self.length()
-        self /= f
+        self.__idiv__(f)
 
     def __repr__(self):
         return str('Vec2(%s, %s)' % (self.data[0], self.data[1]))

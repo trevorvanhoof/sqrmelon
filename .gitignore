@@ -12,3 +12,5 @@ SqrMelon/Player/generated\.hpp
 SqrMelon/capture/
 
 SqrMelon/convertcapture/
+
+*.user
