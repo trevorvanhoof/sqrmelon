@@ -349,7 +349,7 @@ class Scene(object):
 
     def _reload(self, path):
         if path:
-            assert isinstance(path, FilePath)
+            path = FilePath(path)
             time.sleep(0.01)
             if not path.exists():
                 # the scene has been deleted, stop watching it
@@ -372,7 +372,7 @@ class Scene(object):
 
     def _rebuild(self, path, index=None):
         if path:
-            assert isinstance(path, FilePath)
+            path = FilePath(path)
             time.sleep(0.01)
             if not path.exists():
                 # the scene has been deleted, stop watching it
