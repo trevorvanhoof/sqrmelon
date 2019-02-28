@@ -160,8 +160,8 @@ class FileDialog(object):
 
 
 class FileSystemWatcher(QObject):
-    fileChanged = pyqtSignal(str)
-    directoryChanged = pyqtSignal(str)
+    fileChanged = pyqtSignal(FilePath)
+    directoryChanged = pyqtSignal(FilePath)
 
     def __init__(self):
         super(FileSystemWatcher, self).__init__()

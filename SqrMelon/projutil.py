@@ -63,19 +63,22 @@ def templateFileFromName(name):
     return currentTemplatesDirectory().join(name + TEMPLATE_EXT)
 
 
-def _pathsFromTemplate(templatePath, tag):
+def _pathsFromTemplate(templatePath, tag, sceneDir=None):
     xTemplate = parseXMLWithIncludes(templatePath)
+    if tag == 'section': assert sceneDir
+    elif tag in ('shared', 'global'): assert not sceneDir
+    baseDir = sceneDir or templatePath.ensureExt(None)
     for xPass in xTemplate:
         for xElement in xPass:
             if xElement.tag.lower() == tag:
-                yield templatePath.ensureExt(None).join(xElement.attrib['path'])
+                yield baseDir.join(xElement.attrib['path'])
 
 
 def sectionPathsFromScene(sceneName):
     sceneDir = currentScenesDirectory().join(sceneName)
     sceneFile = sceneDir.ensureExt(SCENE_EXT)
     templatePath = templatePathFromScenePath(sceneFile)
-    return _pathsFromTemplate(templatePath, 'section')
+    return _pathsFromTemplate(templatePath, 'section', sceneDir)
 
 
 def sharedPathsFromTemplate(templateName):

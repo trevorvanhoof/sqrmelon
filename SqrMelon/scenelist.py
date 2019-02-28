@@ -104,16 +104,16 @@ class SceneList(QWidget):
     def __onOpenFile(self, current):
         if not current.parent().isValid():
             return
-        path = self.__model.itemFromIndex(current).data()
+        path = self.view.model().itemFromIndex(current).data()
         openFileWithDefaultApplication(path)
 
     def __onCurrentChanged(self, current, __):
         if not current.parent().isValid():
-            self.currentChanged.emit(self.__model.itemFromIndex(current))
+            self.currentChanged.emit(self.view.model().itemFromIndex(current))
 
     @property
     def model(self):
-        return self.__model
+        return self.view.model()
 
     def projectOpened(self):
         self.setEnabled(True)
@@ -128,7 +128,7 @@ class SceneList(QWidget):
         rows = []
         for idx in self.view.selectionModel().selectedIndexes():
             rows.append(idx.row())
-            item = self.__model.itemFromIndex(idx)
+            item = self.view.model().itemFromIndex(idx)
             sceneName = str(item.text())
             self.__shotsManager.onDeleteScene(sceneName)
             sceneDir = currentScenesDirectory().join(sceneName)
@@ -137,7 +137,7 @@ class SceneList(QWidget):
             send2trash(sceneDir)
         rows.sort()
         for row in rows[::-1]:
-            self.__model.removeRow(row)
+            self.view.model().removeRow(row)
 
     def __onAddScene(self):
         # request user for a template if there are multiple options
@@ -209,11 +209,11 @@ class SceneList(QWidget):
                 item.appendRow(sub)
 
             if item.rowCount():
-                self.__model.appendRow(item)
+                self.view.model().appendRow(item)
 
     def appendSceneItem(self, sceneName):
         item = QStandardItem(sceneName)
-        self.__model.appendRow(item)
+        self.view.model().appendRow(item)
 
         # grab unique items
         sectionPaths = set(sectionPathsFromScene(sceneName))
@@ -228,4 +228,4 @@ class SceneList(QWidget):
             item.appendRow(sub)
 
     def clear(self):
-        self.__model.clear()
+        self.view.model().clear()

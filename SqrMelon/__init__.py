@@ -23,7 +23,7 @@ import icons
 
 IGNORED_EXTENSIONS = (PROJ_EXT, '.user')
 DEFAULT_PROJECT = 'defaultproject'
-
+FFMPEG_PATH = FilePath(__file__).parent().join('convertcapture', 'ffmpeg.exe')
 
 class PyDebugLog(object):
     """
@@ -278,7 +278,7 @@ class App(QMainWindowState):
             shot = self.__shotsManager.shotAtTime(beats)
             if shot is None:
                 continue
-            sceneFile = currentScenesDirectory().join(shot.sceneName.ensureExt(SCENE_EXT))
+            sceneFile = currentScenesDirectory().join(shot.sceneName).ensureExt(SCENE_EXT)
             scene = Scene.getScene(sceneFile)
             scene.setSize(WIDTH, HEIGHT)
 
@@ -300,7 +300,8 @@ class App(QMainWindowState):
             from OpenGL.GL import glGetTexImage, GL_TEXTURE_2D, GL_RGB, GL_UNSIGNED_BYTE
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
 
-            QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save('capture/dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT))
+            captureDir = currentProjectDirectory().join('capture')
+            QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save(captureDir.join('dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT)))
         progress.close()
 
         convertCaptureDir = currentProjectDirectory().join('convertcapture')
@@ -312,8 +313,8 @@ class App(QMainWindowState):
             if int(self._timer.start * FPS) > 0:
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
-            fh.write(
-                'cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FPS, start, FPS, FMT,
+
+            fh.write('cd "../capture"\n"%s" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FFMPEG_PATH, FPS, start, FPS, FMT,
                                                                                                                                                                                   start2, FPS))
         with convertCaptureDir.join('convertGif.bat').edit() as fh:
             start = ''
@@ -321,7 +322,7 @@ class App(QMainWindowState):
             if int(self._timer.start * FPS) > 0:
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
-            fh.write('cd "../capture"\n"../convertcapture/ffmpeg.exe" -framerate {} {}-i dump_{}_%%05d.{} {}-r {} "../convertcapture/output.gif"'.format(FPS, start, FPS, FMT, start2, FPS))
+            fh.write('cd "../capture"\n"%s" -framerate {} {}-i dump_{}_%%05d.{} {}-r {} "../convertcapture/output.gif"'.format(FFMPEG_PATH, FPS, start, FPS, FMT, start2, FPS))
 
         sound = self.timeSlider.soundtrackPath()
         if not sound:
