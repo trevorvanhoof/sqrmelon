@@ -408,8 +408,7 @@ class App(QMainWindowState):
         self.__profiler.setScene(sc)
 
     def __openProject(self, path):
-        assert isinstance(path, FilePath)
-        setCurrentProjectFilePath(path)
+        setCurrentProjectFilePath(FilePath(path))
         self.__sceneList.projectOpened()
         self.__shotsManager.projectOpened()
         self._timer.projectOpened()

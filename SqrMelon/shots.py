@@ -462,7 +462,7 @@ class ShotManager(QWidget):
         self.__table.setModel(shots)
         self.__table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.__table.setSortingEnabled(True)
-        self.__table.sortByColumn(2)
+        self.__table.sortByColumn(2, Qt.AscendingOrder)
         self.__table.selectionModel().currentChanged.connect(self.__onCurrentChanged)
         self.__loadAllShots()
         # Duration changes end, start changes end, end changes duration.

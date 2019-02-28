@@ -128,8 +128,9 @@ class FilePath(str):
         """
         Forces a file to be readable and writable, then opens it for reading.
         """
-        if self.exists():
-            os.chmod(self, stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH)
+        allFlags = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
+        if self.exists() and (os.stat(self).st_mode & allFlags != allFlags):
+            os.chmod(self, allFlags)
         fh = open(self, flag)
         yield fh
         fh.close()
