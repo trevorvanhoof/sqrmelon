@@ -373,7 +373,7 @@ def run():
     for scenePath in scenesDir.iter(join=True):
         if not scenePath.hasExt(SCENE_EXT):
             continue
-        sceneDir = scenePath.strip()
+        sceneDir = FilePath(scenePath.strip()).stripExt()
         xScene = parseXMLWithIncludes(scenePath)
 
         templatePath = scenesDir.join(scenesDir, xScene.attrib['template'])
@@ -389,7 +389,7 @@ def run():
                 baseDir = sceneDir
                 if xSection.tag in ('global', 'shared'):
                     baseDir = templateDir
-                shaderFile = baseDir.join(xSection.attrib['path'])
+                shaderFile = baseDir.join(xSection.attrib['path']).abs()
                 stitchIds.append(text.addFile(shaderFile))
                 for xUniform in xSection:
                     name = xUniform.attrib['name']
