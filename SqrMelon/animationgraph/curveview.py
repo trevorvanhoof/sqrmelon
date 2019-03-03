@@ -805,7 +805,7 @@ class CurveEditor(QWidget):
         indexes = self.__channels.selectedIndexes()
         assert len(self.__clipboard) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple sources'
         assert len(indexes) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple targets'
-        self.__shot.curves[self.__model.itemFromIndex(indexes).text()] = self.__clipboard[0].clone()
+        self.__shot.curves[self.__model.itemFromIndex(indexes[0]).text()] = self.__clipboard[0][1].clone()
         self.__view.undoStacks()[0].clear()
         self.setShot(self.__shot)
 
