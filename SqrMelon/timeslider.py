@@ -11,6 +11,7 @@ import OSC
 import icons
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
 
+import pyglet
 
 class PhononSong(object):
     # fallback for when pyglet doesn't work

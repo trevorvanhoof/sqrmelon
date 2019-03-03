@@ -170,7 +170,8 @@ def _deserializePasses(sceneFile):
             for xUniform in xElement:
                 uniforms[xUniform.attrib['name']] = [float(x.strip()) for x in xUniform.attrib['value'].split(',')]
 
-        passes.append(PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile, factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None)))
+        passes.append(
+            PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile, factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None)))
     return passes
 
 
@@ -687,11 +688,18 @@ class Scene(object):
                     activeInputs += 1
                 elif isinstance(uniforms[name], float):
                     fn[0](glGetUniformLocation(self.shaders[i], name), uniforms[name])
+                elif isinstance(uniforms[name], type(ctypes.c_int * 2)):
+                    if type(uniforms[name][0]) in (ctypes.c_float, ctypes.c_double):
+                        glUniform1fv(glGetUniformLocation(self.shaders[i], name), len(uniforms[name]), uniforms[name])
+                    elif type(uniforms[name][0]) in (ctypes.c_int, ctypes.c_char, ctypes.c_long, ctypes.c_short):
+                        glUniform1iv(glGetUniformLocation(self.shaders[i], name), len(uniforms[name]), uniforms[name])
+                    else:
+                        glUniform1uiv(glGetUniformLocation(self.shaders[i], name), len(uniforms[name]), uniforms[name])
                 elif len(uniforms[name]) == 9:
                     glUniformMatrix3fv(glGetUniformLocation(self.shaders[i], name), 1, False, (ctypes.c_float * 9)(*uniforms[name]))
                 elif len(uniforms[name]) == 16:
                     glUniformMatrix4fv(glGetUniformLocation(self.shaders[i], name), 1, False, (ctypes.c_float * 16)(*uniforms[name]))
-                else:
+                elif len(uniforms[name]) in (1, 2, 3, 4):
                     fn[len(uniforms[name]) - 1](glGetUniformLocation(self.shaders[i], name), *uniforms[name])
 
             for name in passData.uniforms:
