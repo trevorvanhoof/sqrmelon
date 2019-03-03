@@ -23,7 +23,7 @@ import icons
 
 IGNORED_EXTENSIONS = (PROJ_EXT, '.user')
 DEFAULT_PROJECT = 'defaultproject'
-FFMPEG_PATH = FilePath(__file__).parent().join('convertcapture', 'ffmpeg.exe')
+FFMPEG_PATH = 'ffmpeg.exe'
 
 class PyDebugLog(object):
     """
@@ -314,7 +314,7 @@ class App(QMainWindowState):
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
 
-            fh.write('cd "../capture"\n"%s" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FFMPEG_PATH, FPS, start, FPS, FMT,
+            fh.write('cd "../capture"\n"{}" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FFMPEG_PATH, FPS, start, FPS, FMT,
                                                                                                                                                                                   start2, FPS))
         with convertCaptureDir.join('convertGif.bat').edit() as fh:
             start = ''
@@ -322,7 +322,7 @@ class App(QMainWindowState):
             if int(self._timer.start * FPS) > 0:
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
-            fh.write('cd "../capture"\n"%s" -framerate {} {}-i dump_{}_%%05d.{} {}-r {} "../convertcapture/output.gif"'.format(FFMPEG_PATH, FPS, start, FPS, FMT, start2, FPS))
+            fh.write('cd "../capture"\n"{}" -framerate {} {}-i dump_{}_%%05d.{} {}-r {} "../convertcapture/output.gif"'.format(FFMPEG_PATH, FPS, start, FPS, FMT, start2, FPS))
 
         sound = self.timeSlider.soundtrackPath()
         if not sound:
@@ -330,7 +330,7 @@ class App(QMainWindowState):
 
         with convertCaptureDir.join('merge.bat').edit() as fh:
             startSeconds = self._timer.beatsToSeconds(self._timer.start)
-            fh.write('ffmpeg -i output.mp4 -itsoffset {} -i "{}" -vcodec copy -shortest merged.mp4'.format(-startSeconds, sound))
+            fh.write('{} -i output.mp4 -itsoffset {} -i "{}" -vcodec copy -shortest merged.mp4'.format(FFMPEG_PATH, -startSeconds, sound))
 
     def __restoreUiLock(self, action):
         state = True if gSettings.value('lockui', '0') == '1' else False
