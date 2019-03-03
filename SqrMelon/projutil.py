@@ -52,6 +52,8 @@ def iterTemplateNames():
         # ensure exists
         if not templatePath.isFile():
             continue
+        if templatePath.name() == 'uniforms':
+            continue
         yield templatePath.name()
 
 
