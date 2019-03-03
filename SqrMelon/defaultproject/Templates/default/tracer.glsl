@@ -3,7 +3,7 @@
 Hit Trace(Ray ray, float near, float far, int steps)
 {
     // Compute pixel radius for cone trace
-    float pixelRadius = uFrustum[2].y / uResolution.y * 2.0;
+    float pixelRadius = uFrustum[2].y / uResolution.y * 0.5;
 
     vec4 materialId; // track material metadata of nearest point
     float fudge = 1.6; // over-relaxation to accelerate steps
@@ -42,10 +42,51 @@ Hit Trace(Ray ray, float near, float far, int steps)
     return Hit(t, ray.origin + ray.direction * t, vec3(0.0), materialId);
 }
 
+float DoAO(Hit hit)
+{
+    float ao = 1.0;
+
+    // Ambient occlusion
+    #ifdef AO_WEIGHT
+    const int AO_TAPS = 5;
+    const float AO_DISTANCES[AO_TAPS] = float[](0.05, 0.2, 0.5, 1.5, 3.0);
+    const float AO_WEIGHTS[AO_TAPS] = float[](1.0, 0.5, 0.3, 0.2, 0.1);
+    for(int i = 0; i < AO_TAPS; ++i)
+    {
+        float d = AO_DISTANCES[i] * AO_RADIUS;
+        float tap = sat(fField(hit.point + hit.normal * d) / d);
+        ao *= mix(1.0, tap, AO_WEIGHTS[i] * AO_WEIGHT);
+    }
+    #endif
+
+    return ao;
+}
+
+vec3 TraceAndShadeRefraction(Ray ray, float near, float far, int steps)
+{
+    Hit hit=Trace(ray, near, far, steps);
+
+    // Get fog
+    float fog = sat(FogRemap(sat(hit.totalDistance/FAR)));
+    vec3 color = FogColor(ray, fog);
+
+    // Fully occluded, stop further computation
+    if(fog<1)
+    {
+        hit.normal = Normal(hit);
+        Material material = GetMaterial(hit,ray);
+        float ao = DoAO(hit);
+        LightData data = LightData(ray, hit, material);
+        color = mix(ao * Lighting(data) + material.additive, color, fog);
+    }
+
+    return color;
+}
+
 // TraceAndShade returns the light data to be used in the g buffers.
 LightData TraceAndShade(Ray ray, float near, float far, int steps)
 {
-    Hit hit=Trace(ray, near, FAR, STEPS);
+    Hit hit=Trace(ray, near, far, steps);
 
     // Get fog
     float fog = sat(FogRemap(sat(hit.totalDistance/FAR)));
@@ -61,21 +102,10 @@ LightData TraceAndShade(Ray ray, float near, float far, int steps)
     hit.normal = Normal(hit);
 
     // Compute material
-    Material material = GetMaterial(hit);
+    Material material = GetMaterial(hit, ray);
 
     // Ambient occlusion
-    float ao = 1.0;
-    #ifdef AO_WEIGHT
-    const int AO_TAPS = 5;
-    const float AO_DISTANCES[AO_TAPS] = float[](0.05, 0.2, 0.5, 1.5, 3.0);
-    const float AO_WEIGHTS[AO_TAPS] = float[](1.0, 0.5, 0.3, 0.2, 0.1);
-    for(int i = 0; i < AO_TAPS; ++i)
-    {
-        float d = AO_DISTANCES[i] * AO_RADIUS;
-        float tap = sat(fField(hit.point + hit.normal * d) / d);
-        ao *= mix(1.0, tap, AO_WEIGHTS[i] * AO_WEIGHT);
-    }
-    #endif
+    float ao = DoAO(hit);
 
     // Compute lighting & output shaded pixel
     LightData data = LightData(ray, hit, material);

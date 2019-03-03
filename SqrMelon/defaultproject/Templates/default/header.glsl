@@ -61,8 +61,8 @@ Material MixMaterial(Material a, Material b, float w)
 }
 
 // Shoots a ray through the current pixel based on uV and uFrustum
-uniform vec3 uShake;
-uniform float uFishEye;
+uniform vec3 uShake = vec3(0.0,0.0,0.0);
+uniform float uFishEye = 0.0;
 const float PI=3.1415926535897;
 Ray ScreenRayUV(vec2 uv)
 {
@@ -121,9 +121,12 @@ float vmin(vec2 v){return min(v.x,v.y);}
 float vmin(vec3 v){return min(v.x,vmin(v.yz));}
 
 const float TAU=PI+PI;
-float sqr(float x){return x*x;}
-float cub(float x){return sqr(x)*x;}
-float quad(float x){return sqr(sqr(x));}
+#define ops(T) T sqr(T x){return x*x;} T cub(T x){return sqr(x)*x;} T quad(T x){return sqr(sqr(x));}
+ops(float)
+ops(vec2)
+ops(vec3)
+ops(vec4)
+#undef ops
 
 float stepPass(float a,float b){return step(a,b)*b;}
 float stepNormalized(float a,float b){return stepPass(0.,(b-a)/(1.-a));}
@@ -150,3 +153,6 @@ vec4 textureTri(sampler2D img,vec3 p,vec3 n,float w){n=normalize(pow(abs(n),vec3
 vec2 projectTri(vec3 p,vec3 n){n=abs(n);if(n.x>vmax(n.yz))return p.zy;if(n.y>n.z)return p.xz;return p.xy;}
 // tri-planar projection for UV coordinates without mirrored edges on vertical planes
 vec2 projectTri2(vec3 p,vec3 n){vec3 s=sign(n);n=abs(n);if(n.x>vmax(n.yz))return p.zy*vec2(s.x,1);if(n.y>n.z)return p.xz*s.y;return p.xy*vec2(-s.z,1);}
+
+// Clamped remap function (remaps one range to another range)
+float cremap(float x, float imin, float imax, float omin, float omax){return mix(omin,omax,sat((x-imin)/(imax-imin)));}

@@ -31,7 +31,7 @@ float reflectivity
 float blur
 float metallicity
 */
-Material GetMaterial(Hit hit)
+Material GetMaterial(Hit hit, Ray ray)
 {
     int objectId = int(hit.materialId.w);
     if(objectId==-1) // emissive material

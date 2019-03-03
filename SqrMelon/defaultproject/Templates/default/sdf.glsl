@@ -1,5 +1,6 @@
 /// Distance fields and spatial operators ///
 // Many distance functions & operators taken from http://mercury.sexy/hg_sdf/
+// The original hg_sdf.glsl contains additional comments & distance functions you may wish to integrate.
 
 // Rotate
 void pR(inout vec2 p,float a){p=cos(a)*p+sin(a)*vec2(p.y,-p.x);}
@@ -23,7 +24,7 @@ float fBox(vec3 p,vec3 s){return vmax(abs(p)-s);}
 float fDiamond(vec3 p,float s){return dot(abs(p),normalize(vec3(1)))-s;}
 
 // Subtract from the result to get a chamfered edge
-float fBoxChamfer(vec3 p,vec3 s){p=abs(p)-s;s=max(p,0);return(s.x+s.y+s.z)*sqrt(0.5)+vmax(p-s);}
+float fBoxChamfer(vec3 p,vec3 s){p=abs(p)-s;s=max(p,0);return(s.x+s.y+s.z)*sqrt(0.333)+vmax(p-s);}
 float fBoxChamfer(vec2 p,vec2 s){p=abs(p)-s;s=max(p,0);return(s.x+s.y)*sqrt(0.5)+vmax(p-s);}
 
 // Subtract from the result to get a round edge
@@ -61,11 +62,11 @@ float fCylinder(vec3 p,float r,float h){return max(fTube(p.xz,r),fSlab(p.y,h));}
 float fCapsule(vec3 p,float r,float h){p.y=max(0,abs(p.y)-h);return length(p)-r;}
 float fCapsule(vec2 p,float r,float h){p.y=max(0,abs(p.y)-h);return length(p)-r;}
 
-// 2D triangle
+// 2D triangle, r = edge length
 float fTriangle(vec2 p,float r){vec2 a=vec2(.25,-.144),b=normalize(a);return max(dot(vec2(abs(p.x),p.y)-a*r,b),p.y-.289*r);}
 
-// 2D hexagon
-float fHexagon(vec2 p,float s){s*=sqrt(2);return max(fTriangle(p.yx,s),fTriangle(-p.yx,s));}
+// 2D hexagon, r = edge length
+float fHexagon(vec2 p,float r){r*=3;return max(fTriangle(p.yx,r),fTriangle(-p.yx,r));}
 
 /// Spatial modifiers ///
 // Mod P by S, keeping 0 in the center of the segment, return cell ID
@@ -82,9 +83,9 @@ P(vec4,vec4)
 float pModPolar(inout vec2 x,float n){float a=atan(x.x,x.y),b=length(x),c=pMod(a,TAU/n);x=vec2(cos(a),sin(a))*b;return mod(c,n);}
 
 // Modulo functions but mirror adjacent cells
-float pModMirror(inout float x,float s){s=pMod(x,s);if(int(s)%2==1)x=-x;return s;}
-vec2 pModMirror(inout vec2 x,vec2 s){s=pMod(x,s);x=mix(x,-x,ivec2(s)%2);return s;}
-vec3 pModMirror(inout vec3 x,vec3 s){s=pMod(x,s);x=mix(x,-x,ivec3(s)%2);return s;}
+float pModMirror(inout float x,float s){s=pMod(x,s);if(mod(s,2.0)==1.0)x=-x;return s;}
+vec2 pModMirror(inout vec2 x,vec2 s){s=pMod(x,s);x=mix(x,-x,mod(s,vec2(2.0)));return s;}
+vec3 pModMirror(inout vec3 x,vec3 s){s=pMod(x,s);x=mix(x,-x,mod(s,vec3(2.0)));return s;}
 float pModPolarMirror(inout vec2 x,float n){float a=atan(x.x,x.y),b=length(x),c=pMod(a,TAU/n);if(int(c)%2==1)a=-a;x=vec2(cos(a),sin(a))*b;return mod(c,n);}
 
 /// Combinational operators ///
@@ -184,89 +185,42 @@ float fOpUnionStairs(float a, float b, float r, float n) {
 }
 
 // Polyhedra
-#define PHI 0.5+sqrt(5)*0.5
-const vec3 GDFVectors[19] = vec3[](
-	vec3(1, 0, 0),
-	vec3(0, 1, 0),
-	vec3(0, 0, 1),
+const vec2 GDFa=vec2(sqrt(1./3.),-sqrt(1./3.));const vec3 GDFb=vec3(0.85065080835,0.52573111211,0);const vec3 GDFc=vec3(0.93417235896,0.35682208977,0);vec3 GDFVectors[19] = vec3[19](vec3(1,0,0),vec3(0,1,0),vec3(0,0,1),GDFa.xxx,GDFa.yxx,GDFa.xyx,GDFa.xxy,GDFc.zyx,GDFc.zyx*vec3(1,-1,1),GDFc.xzy,GDFc.xzy*vec3(-1,1,1),GDFc.yxz,GDFc.yxz*vec3(-1,1,1),GDFb.zxy,GDFb.zxy*vec3(1,-1,1),GDFb.yzx,GDFb.yzx*vec3(-1,1,1),GDFb,GDFb*vec3(-1,1,1));
+float fGDF(vec3 p,float r,int s,int e){float d=0;for(int i=s;i<=e;++i)d=max(d,abs(dot(p,GDFVectors[i])));return d-r;}
+float fIcosahedron(vec3 p,float r){return fGDF(p,r,3,12);}
+float fDodecahedron(vec3 p,float r){return fGDF(p,r,13,18);}
+float fTruncatedOctahedron(vec3 p,float r){return fGDF(p,r,0,6);}
+float fOctahedron(vec3 p,float r){return fGDF(p,r,3,6);}
+float fTruncatedIcosahedron(vec3 p,float r){return fGDF(p,r,3,18);}
 
-	vec3(1, 1, 1)/sqrt(3),
-	vec3(-1, 1, 1)/sqrt(3),
-	vec3(1, -1, 1)/sqrt(3),
-	vec3(1, 1, -1)/sqrt(3),
 
-	normalize(vec3(0, 1, PHI+1)),
-	normalize(vec3(0, -1, PHI+1)),
-	normalize(vec3(PHI+1, 0, 1)),
-	normalize(vec3(-PHI-1, 0, 1)),
-	normalize(vec3(1, PHI+1, 0)),
-	normalize(vec3(-1, PHI+1, 0)),
-
-	normalize(vec3(0, PHI, 1)),
-	normalize(vec3(0, -PHI, 1)),
-	normalize(vec3(1, 0, PHI)),
-	normalize(vec3(-1, 0, PHI)),
-	normalize(vec3(PHI, 1, 0)),
-	normalize(vec3(-PHI, 1, 0))
-);
-
-// Version with variable exponent.
-// This is slow and does not produce correct distances, but allows for bulging of objects.
-float fGDF(vec3 p, float r, float e, int begin, int end) {
-	float d = 0;
-	for (int i = begin; i <= end; ++i)
-		d += pow(abs(dot(p, GDFVectors[i])), e);
-	return pow(d, 1/e) - r;
+// Distance to line segment between <a> and <b>, used for fCapsule() version 2below
+float fLineSegment(vec2 p, vec2 a, vec2 b) {
+	vec2 ab = b - a;
+	float t = sat(dot(p - a, ab) / dot(ab, ab));
+	return length((ab * t + a) - p);
 }
 
-// Version with without exponent, creates objects with sharp edges and flat faces
-float fGDF(vec3 p, float r, int begin, int end) {
-	float d = 0;
-	for (int i = begin; i <= end; ++i)
-		d = max(d, abs(dot(p, GDFVectors[i])));
-	return d - r;
+// Capsule version 2: between two end points <a> and <b> with radius r
+float fCapsule(vec2 p, vec2 a, vec2 b, float r) {
+	return fLineSegment(p, a, b) - r;
 }
 
-float fOctahedron(vec3 p, float r, float e) {
-	return fGDF(p, r, e, 3, 6);
+// Distance to line segment between <a> and <b>, used for fCapsule() version 2below
+float fLineSegment(vec3 p, vec3 a, vec3 b) {
+	vec3 ab = b - a;
+	float t = sat(dot(p - a, ab) / dot(ab, ab));
+	return length((ab * t + a) - p);
 }
 
-float fDodecahedron(vec3 p, float r, float e) {
-	return fGDF(p, r, e, 13, 18);
+// Capsule version 2: between two end points <a> and <b> with radius r
+float fCapsule(vec3 p, vec3 a, vec3 b, float r) {
+	return fLineSegment(p, a, b) - r;
 }
 
-float fIcosahedron(vec3 p, float r, float e) {
-	return fGDF(p, r, e, 3, 12);
-}
-
-float fTruncatedOctahedron(vec3 p, float r, float e) {
-	return fGDF(p, r, e, 0, 6);
-}
-
-float fTruncatedIcosahedron(vec3 p, float r, float e) {
-	return fGDF(p, r, e, 3, 18);
-}
-
-float fOctahedron(vec3 p, float r) {
-	return fGDF(p, r, 3, 6);
-}
-
-float fDodecahedron(vec3 p, float r) {
-	return fGDF(p, r, 13, 18);
-}
-
-float fIcosahedron(vec3 p, float r) {
-	return fGDF(p, r, 3, 12);
-}
-
-float fTruncatedOctahedron(vec3 p, float r) {
-	return fGDF(p, r, 0, 6);
-}
-
-float fTruncatedIcosahedron(vec3 p, float r) {
-	return fGDF(p, r, 3, 18);
-}
 // end hg_sdf
+
+float fOctahedron(vec3 p, float r){return dot(abs(p),vec3(1.0))/sqrt(3)-r;}
 
 // Engrave with round edges at the sides, like a soft material was pushed down by a thin object.
 float fOpEngraveRound(float a,float b,float r){return max(a,min(r-abs(b),min(a+r,length(abs(vec2(a,b))-r)-r)));}

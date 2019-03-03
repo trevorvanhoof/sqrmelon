@@ -17,9 +17,9 @@ void main()
     // extract packed normal
     int n=floatBitsToInt(gbuf.w);
     // XY component
-    vec2 nc=sat(vec2(n&32767,(n>>15)&32767)/16383.5-1);
+    vec2 nc=clamp(vec2(n&32767,(n>>15)&32767)/16383.5-1,-1,1);
     // Z component
-    vec3 normal=normalize(vec3(nc,sqrt(1.0-dot(nc,nc))*((n>>30)==1?-1:1)));
+    vec3 normal=normalize(vec3(nc,sqrt(max(0.0,1.0-dot(nc,nc)))*((n>>30)==1?-1:1)));
     ray=Ray(gbuf.xyz,reflect(ray.direction,normal));
     TraceAndShade(ray,REFL_NEAR,REFL_FAR,REFL_STEPS);
     // forward specular color and roughness
