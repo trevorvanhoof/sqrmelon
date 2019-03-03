@@ -1,5 +1,5 @@
 <template>
-    <pass buffer="1" static="1" name="Lensdirt texture">
+    <pass buffer="17" static="1" name="Lensdirt texture">
         <global path="header.glsl"/>
         <global path="noiselib.glsl"/>
         <global path="sdf.glsl"/>
@@ -13,7 +13,7 @@
 	</pass>
 	
 	<!-- output 0: shaded pixel, distance in alpha, 1: world point, packed normal in alpha, 2: specular color, roughness in alpha -->
-    <pass buffer="2" outputs="3" input0="1" input1="1" input2="1" input3="16" name="Trace and shade main">
+    <pass buffer="2" outputs="3" input0="16" input1="16" input2="16" input3="16" name="Trace and shade main">
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
@@ -38,7 +38,7 @@
         <global path="rpass.glsl"/>
 	</pass>
 
-    <!-- Blur reflections here -->
+    <!-- Blur reflections -->
 	<pass buffer="4" input0="3" name="Blur refl X 1">
 		<global path="blurheader.glsl"/>
 		<global path="blurhorizontal.glsl"/>
@@ -68,19 +68,26 @@
 		<global path="blurfooter.glsl"/>
 	</pass>
 
+	<!-- Apply reflections -->
     <pass buffer="4" input0="2" input1="3" name="Merge reflection into result">
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
 		<section path="fogremap.glsl"/>
 		<global path="merge.glsl"/>
 	</pass>
+
+	<!-- User defined overlays -->
     <pass buffer="2" outputs="3" input0="4" name="Overlays">
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
         <global path="noiselib.glsl"/>
         <global path="sdf.glsl"/>
+        <shared path="public.glsl"/>
         <section path="prefxoverlay.glsl"/>
+		<shared path="globalprefxoverlay.glsl"/>
 	</pass>
+
+	<!-- Depth of field -->
 	<pass buffer="3" input0="2" name="Bokeh DoF first pass">
 		<global path="bokehheader.glsl"/>
 		<global path="bokehfirst.glsl"/>

@@ -167,6 +167,6 @@
 		<global path="blurfooter.glsl"/>
 	</pass>
 
-	<pass buffer="3" input0="2" input1="5" input2="7" input3="1" input4="10" input5="12" input6="14" input7="1">
+	<pass buffer="3" input0="2" input1="5" input2="7" input3="1" input4="10" input5="12" input6="14" input7="17">
 		<global path="bloom.glsl"/>
 	</pass>
