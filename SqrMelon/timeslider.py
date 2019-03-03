@@ -5,11 +5,9 @@ import time
 from math import floor
 from xml.etree import cElementTree
 
-# import pyglet
 from PyQt4.phonon import *
 import OSC
 
-from fileutil import FilePath
 import icons
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
 
@@ -17,17 +15,15 @@ from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectD
 class PhononSong(object):
     # fallback for when pyglet doesn't work
     def __init__(self, path):
-        self.song = Phonon.MediaSource(path)
+        self.player = Phonon.MediaObject()
         self.output = Phonon.AudioOutput(Phonon.MusicCategory, None)
-        self.player = Phonon.createPlayer(Phonon.MusicCategory, self.song)
-        self.tick = None
         Phonon.createPath(self.player, self.output)
-        # self.player.tick.connect(self.cacheTick)
+        self.song = Phonon.MediaSource(path)
+        self.player.setCurrentSource(self.song)
+        self.tick = None
         self.player.stateChanged.connect(self.__doSeek)
 
-    #def cacheTick(self, tick):
-    #    self.tick = tick
-    def __doSeek(self, state, old):
+    def __doSeek(self, state, __s):
         if self.tick is None:
             return
         if state == Phonon.PlayingState:
