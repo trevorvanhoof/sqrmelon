@@ -5,12 +5,57 @@ import time
 from math import floor
 from xml.etree import cElementTree
 
-import pyglet
+# import pyglet
+from PyQt4.phonon import *
 import OSC
 
 from fileutil import FilePath
 import icons
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
+
+
+class PhononSong(object):
+    # fallback for when pyglet doesn't work
+    def __init__(self, path):
+        self.song = Phonon.MediaSource(path)
+        self.output = Phonon.AudioOutput(Phonon.MusicCategory, None)
+        self.player = Phonon.createPlayer(Phonon.MusicCategory, self.song)
+        self.tick = None
+        Phonon.createPath(self.player, self.output)
+        # self.player.tick.connect(self.cacheTick)
+        self.player.stateChanged.connect(self.__doSeek)
+
+    #def cacheTick(self, tick):
+    #    self.tick = tick
+    def __doSeek(self, state, old):
+        if self.tick is None:
+            return
+        if state == Phonon.PlayingState:
+            self.player.seek(self.tick)
+            self.tick = None
+
+    @property
+    def volume(self):
+        raise NotImplementedError()
+
+    @volume.setter
+    def volume(self, vol):
+        self.output.setMuted(vol == 0.0)
+
+    def seek(self, seconds):
+        # seek silently fails if we're still buffering or loading
+        # so let's store what to seek for later if that's the case
+        if self.player.state() != Phonon.PlayingState:
+            self.tick = int(seconds * 1000)
+            return
+        self.player.seek(int(seconds * 1000))
+
+    def pause(self):
+        self.player.pause()
+
+    def play(self):
+        self.player.play()
+        return self
 
 
 class OSCClient(object):
@@ -721,8 +766,9 @@ class TimeSlider(QWidget):
                 try:
                     song = pyglet.media.load(path)
                 except Exception, e:
-                    print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
-                    return
+                    song = PhononSong(path)
+                    # print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
+                    # return
                 break
             if song:
                 break
