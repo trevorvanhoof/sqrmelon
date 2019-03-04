@@ -1,58 +1,15 @@
 from OSC import OSCClientError
 
+from audioLibs import createSong
 from qtutil import *
 import time
 from math import floor
 from xml.etree import cElementTree
 
-from PyQt4.phonon import *
 import OSC
 
 import icons
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
-
-import pyglet
-
-class PhononSong(object):
-    # fallback for when pyglet doesn't work
-    def __init__(self, path):
-        self.player = Phonon.MediaObject()
-        self.output = Phonon.AudioOutput(Phonon.MusicCategory, None)
-        Phonon.createPath(self.player, self.output)
-        self.song = Phonon.MediaSource(path)
-        self.player.setCurrentSource(self.song)
-        self.tick = None
-        self.player.stateChanged.connect(self.__doSeek)
-
-    def __doSeek(self, state, __s):
-        if self.tick is None:
-            return
-        if state == Phonon.PlayingState:
-            self.player.seek(self.tick)
-            self.tick = None
-
-    @property
-    def volume(self):
-        raise NotImplementedError()
-
-    @volume.setter
-    def volume(self, vol):
-        self.output.setMuted(vol == 0.0)
-
-    def seek(self, seconds):
-        # seek silently fails if we're still buffering or loading
-        # so let's store what to seek for later if that's the case
-        if self.player.state() != Phonon.PlayingState:
-            self.tick = int(seconds * 1000)
-            return
-        self.player.seek(int(seconds * 1000))
-
-    def pause(self):
-        self.player.pause()
-
-    def play(self):
-        self.player.play()
-        return self
 
 
 class OSCClient(object):
@@ -730,6 +687,7 @@ class TimeSlider(QWidget):
         layout.setStretch(2, 1)
 
         self.__timer = timer
+        goToStart.clicked.connect(self.__seekSoundtrack)
         currentTime.valueChanged.connect(self.__seekSoundtrack)
         timer.timeLooped.connect(self.__seekSoundtrack)
         timeline.valueChanged.connect(self.__seekSoundtrack)
@@ -746,12 +704,11 @@ class TimeSlider(QWidget):
             self.__playPause.setStatusTip('Play')
             self.__stopSoundtrack()
 
-    def __initAndStartSoundtrack(self):
+    def __initSoundtrack(self):
         if muteState():
             return
 
         if self.__soundtrack:
-            self.__soundtrack.play()
             return self.__soundtrack
 
         path = None
@@ -761,11 +718,10 @@ class TimeSlider(QWidget):
                 if not path.hasExt(ext):
                     continue
                 try:
-                    song = pyglet.media.load(path)
-                except Exception, e:
-                    song = PhononSong(path)
-                    # print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
-                    # return
+                    song = createSong(path)
+                except:
+                    print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
+                    return
                 break
             if song:
                 break
@@ -773,26 +729,25 @@ class TimeSlider(QWidget):
             return
 
         self.__soundtrackPath = path
-        self.__soundtrack = song.play()
-        self.__soundtrack.volume = 0 if muteState() else 100
+        self.__soundtrack = song
         return self.__soundtrack
 
     def __seekSoundtrack(self, time):
         if self.__playPause.toolTip() == 'Play':
             # no need to seek when not playing
-            self.__stopSoundtrack()
+            # self.__stopSoundtrack()
             return
-        if self.__initAndStartSoundtrack():
-            self.__soundtrack.seek(self.__timer.beatsToSeconds(time))
+        if self.__initSoundtrack():
+            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(time))
 
     def __playSoundtrack(self):
-        if self.__initAndStartSoundtrack():
-            self.__soundtrack.seek(self.__timer.beatsToSeconds(self.__timer.time))
+        if self.__initSoundtrack():
+            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(self.__timer.time))
 
     def __stopSoundtrack(self):
         if self.__soundtrack:
-            self.__soundtrack.pause()
-        self.__soundtrack = None
+            print 'stop'
+            self.__soundtrack.stop()
 
     def __toggleMute(self):
         isMuted = not muteState()
@@ -803,7 +758,12 @@ class TimeSlider(QWidget):
         self.__mute.setStatusTip('Un-mute' if isMuted else 'Mute')
 
         if self.__soundtrack:  # re-applies the mute state if soundtrack already exists
-            self.__soundtrack.volume = 0 if muteState() else 100
+            # self.__soundtrack.volume = 0 if muteState() else 100
+            # play on unmute if already playing
+            if self.__timer.isPlaying() and not isMuted:
+                self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(self.__timer.time))
+            else:
+                self.__soundtrack.stop()
 
     def soundtrackPath(self):
         return self.__soundtrackPath
