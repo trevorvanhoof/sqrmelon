@@ -746,7 +746,6 @@ class TimeSlider(QWidget):
 
     def __stopSoundtrack(self):
         if self.__soundtrack:
-            print 'stop'
             self.__soundtrack.stop()
 
     def __toggleMute(self):
