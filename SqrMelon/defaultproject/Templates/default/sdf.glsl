@@ -190,33 +190,7 @@ float fGDF(vec3 p,float r,int s,int e){float d=0;for(int i=s;i<=e;++i)d=max(d,ab
 float fIcosahedron(vec3 p,float r){return fGDF(p,r,3,12);}
 float fDodecahedron(vec3 p,float r){return fGDF(p,r,13,18);}
 float fTruncatedOctahedron(vec3 p,float r){return fGDF(p,r,0,6);}
-float fOctahedron(vec3 p,float r){return fGDF(p,r,3,6);}
 float fTruncatedIcosahedron(vec3 p,float r){return fGDF(p,r,3,18);}
-
-
-// Distance to line segment between <a> and <b>, used for fCapsule() version 2below
-float fLineSegment(vec2 p, vec2 a, vec2 b) {
-	vec2 ab = b - a;
-	float t = sat(dot(p - a, ab) / dot(ab, ab));
-	return length((ab * t + a) - p);
-}
-
-// Capsule version 2: between two end points <a> and <b> with radius r
-float fCapsule(vec2 p, vec2 a, vec2 b, float r) {
-	return fLineSegment(p, a, b) - r;
-}
-
-// Distance to line segment between <a> and <b>, used for fCapsule() version 2below
-float fLineSegment(vec3 p, vec3 a, vec3 b) {
-	vec3 ab = b - a;
-	float t = sat(dot(p - a, ab) / dot(ab, ab));
-	return length((ab * t + a) - p);
-}
-
-// Capsule version 2: between two end points <a> and <b> with radius r
-float fCapsule(vec3 p, vec3 a, vec3 b, float r) {
-	return fLineSegment(p, a, b) - r;
-}
 
 // end hg_sdf
 
