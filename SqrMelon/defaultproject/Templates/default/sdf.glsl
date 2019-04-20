@@ -194,8 +194,6 @@ float fTruncatedIcosahedron(vec3 p,float r){return fGDF(p,r,3,18);}
 
 // end hg_sdf
 
-float fOctahedron(vec3 p, float r){return dot(abs(p),vec3(1.0))/sqrt(3)-r;}
-
 // Engrave with round edges at the sides, like a soft material was pushed down by a thin object.
 float fOpEngraveRound(float a,float b,float r){return max(a,min(r-abs(b),min(a+r,length(abs(vec2(a,b))-r)-r)));}
 
@@ -241,3 +239,92 @@ vec2 pTriangleSpace(vec2 p,float r){vec2 a=vec2(.25,-.144)*r*2,b=normalize(a),c=
 
 // Pipe / Cylinder with thickness.
 float fHollowTube(vec3 p,float r,float h,float t){return max(abs(length(p.xz)-r)-t,abs(p.y)-h);}
+
+
+float fComplexGreeble(vec3 p, float moduleHeight, float moduleChance)
+{
+    vec2 cell = pMod(p.xz, vec2(2.0));
+    vec4 rand = h4(cell);
+
+    // minimum distance cell contents are away from edge
+    const float padding = 0.2;
+    float result = 1.0 - vmax(abs(p.xz)) + padding, cellBoundary = result;
+
+    if(moduleChance > (rand.x + rand.y + rand.z + rand.w) * 0.25)
+    {
+        float cubeSize = sqr(rand.x) * (1.0 - padding);
+        float pipeSize = sqr(rand.w) * (1.0 - padding);
+        p.xz -= rand.yz * (1.0 - max(pipeSize, cubeSize) - padding);
+
+        vec3 q = abs(p);
+        float sz = cubeSize * (1.0 - rand.y * 0.2);
+        result = min(result, fBoxChamfer(q, vec3(sz, sz * moduleHeight, sz)) - cubeSize * rand.y * 0.2);
+
+        pipeSize *= 0.5;
+        p.x = max(0.0, abs(p.x) - pipeSize);
+        pModInterval(p.z, pipeSize * 0.9, -2, 2);
+        result = min(result, fTorus(p, pipeSize * 0.2, pipeSize * 0.8 * moduleHeight));
+    }
+
+    result = max(abs(p.y - 0.5) - 0.5, result);
+    return min(fOpEngrave(p.y, cellBoundary - padding, 0.07), result);
+}
+float fComplexGreeble(vec3 p){return fComplexGreeble(p,1.0,2.0);}
+
+vec2 pHexagonTiles(inout vec2 uv, out float edgeDist)
+{
+    /** Subdivide 2D space in tiling hexagons **/
+    // hegagon border distance
+    // hexagon aspect ratio
+    uv.x *= sqrt(4.0/3.0);
+
+    // this is how big cells should be so the hexagon corners are ON a circle of radius 1
+    // (as opposed to cells that are 1 unit wide, meaning a circle of radius 1 fits snugly in the hexagon)
+    const float onCircleAdjust = 0.5 / sqrt(0.75);
+
+    // adjust so our hexagons have an oncircle of radius 1
+    uv *= onCircleAdjust;
+    // and align with the center of the screen
+    uv.x -= 0.5;
+
+    // track horizontal tiling
+    float cx = floor(uv.x);
+    // stagger columns
+    uv.y += mod(floor(uv.x), 2.0) * 0.5;
+    // track vertical tiling
+    float cy = floor(uv.y);
+    // get tile-local uv
+    vec2 st = fract(uv) - 0.5;
+    // get hexagon distance
+    uv = abs(st);
+    float s = max(uv.x * 1.5 + uv.y, uv.y + uv.y);
+    // if s > 1.0 it actually belongs to the adjacent hexagon
+    if(s > 1.0)
+    {
+        // this part is just to adjust tile ID for the
+        // adjacent hexagons overlapping this tile
+
+        // vertical tiling is different per column
+        float o = -sign(mod(cx,2.0)-0.5);
+        if(st.y * o > 0.0)
+        {
+            cy += o;
+        }
+
+        // horizontal tiling is pretty straight forward
+        cx += sign(st.x);
+
+        // adjust local UVs as well so they are now fully hexagon local
+		st.x -= sign(st.x);
+        st.y -= sign(st.y) * 0.5;
+    }
+    // hexagon distance accros tile boundaries
+    s = abs(s - 1.0);
+    // invert the aspect ratio and size correction of the local uvs
+    st.x *= sqrt(0.75);
+    st /= onCircleAdjust;
+
+    uv = st;
+    edgeDist = s;
+    return vec2(cx, cy);
+}
