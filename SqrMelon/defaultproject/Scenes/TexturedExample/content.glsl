@@ -25,15 +25,6 @@ float fField(vec3 p, out vec4 m)
 }
 
 /*
-Returns the color in the distance.
-You can use ray direction to composite sky gradients and sun discs.
-*/
-vec3 FogColor(Ray ray, float fog)
-{
-    return mix(vec3(1.0), vec3(0.1, 0.2, 1.0), smoothstep(-1.0, 0.2, ray.direction.y)) * sat(1.1-ray.direction.y);
-}
-
-/*
 Returns a Material struct with the following info:
 vec3 albedo
 vec3 additive
@@ -42,6 +33,16 @@ float roughness
 float reflectivity
 float blur
 float metallicity
+
+Ray has the following members:
+vec3 origin
+vec3 direction
+
+Hit has the following members:
+float totalDistance;
+vec3 point
+vec3 normal
+vec4 materialId
 */
 Material GetMaterial(Hit hit, Ray ray)
 {
@@ -94,7 +95,16 @@ vec3 Lighting(LightData data)
 
 /*
 Bump mapping function, it is entirely optional so for the sake of template usability
-it returns immediately, with the extra example code there but not doing anything
+it returns immediately, with the extra example code there but not doing anything.
+
+Generally returns a world space distance from hit.point + offset (often using fField)
+with additional detail added to it.
+
+Hit has the following members:
+float totalDistance;
+vec3 point
+vec3 normal
+vec4 materialId
 */
 float fBump(Hit hit, vec3 offset)
 {
@@ -127,4 +137,20 @@ void Normal(inout Hit hit)
     vec4 bump = vec4(fBump(hit,e.xyy),fBump(hit,e.yxy),fBump(hit,e.yyx),fBump(hit,vec3(0)));
     hit.normal = normalize(bump.xyz-bump.w);
     // end bump mapping
+}
+
+/*
+Returns the color in the distance. Fog is the current fog amount, it can be used
+to only render additional details at a certain distance (like sun disk and clouds)
+to avoid those details from bleeding through objects.
+
+You can use ray direction to composite sky gradients and sun discs.
+
+Ray has the following members:
+vec3 origin
+vec3 direction
+*/
+vec3 FogColor(Ray ray, float fog)
+{
+    return mix(vec3(1.0), vec3(0.1, 0.2, 1.0), smoothstep(-1.0, 0.2, ray.direction.y)) * sat(1.1-ray.direction.y);
 }
