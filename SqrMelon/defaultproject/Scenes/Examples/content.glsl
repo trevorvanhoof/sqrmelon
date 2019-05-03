@@ -1,10 +1,6 @@
-// Background color from ray and remapped fog distance
-vec3 FogColor(Ray ray, float fog)
-{
-    return mix(vec3(1.0), vec3(0.2), smoothstep(-0.2, 0.2, ray.direction.y));
-}
-
-// Distance field describing the scene
+/*
+Signed distance field, place to do 3D scene modeling.
+*/
 float fField(vec3 p, out vec4 m)
 {
     // declare 2 distance variables, add a floor & default material
@@ -117,8 +113,17 @@ float fField(vec3 p, out vec4 m)
     return r;
 }
 
-// Material based on traced point, normal, distance & materialId derived from fField above.
-Material GetMaterial(Hit hit)
+/*
+Returns a Material struct with the following info:
+vec3 albedo
+vec3 additive
+float specularity
+float roughness
+float reflectivity
+float blur
+float metallicity
+*/
+Material GetMaterial(Hit hit, Ray ray)
 {
     int objectId = int(hit.materialId.w);
 
@@ -142,7 +147,28 @@ Material GetMaterial(Hit hit)
     return Material(hsv2rgb(h1(objectId), 1.0, 1.0), vec3(0.0), 0.0, 0.0, 0.0, 0.0, 0.0);
 }
 
-// Compute shaded pixel
+/*
+Lighting & shading is done here, after all material and ray intersection data have been collected.
+These are the currently implemented lighting functions:
+
+vec3 AmbientLight(LightData data, vec3 color)
+vec3 RimLight(LightData data, vec3 color, float power)
+vec3 DirectionalLight(LightData data, vec3 direction, vec3 color)
+vec3 DirectionalLight(LightData data, vec3 direction, vec3 color, ShadowArgs shadow)
+vec3 PointLight(LightData data, vec3 point, vec3 color)
+vec3 PointLight(LightData data, vec3 point, vec3 color, float lightRadius)
+vec3 PointLight(LightData data, vec3 point, vec3 color, float lightRadius, ShadowArgs shadow)
+
+ShadowArgs control the shadow ray settings, when no ShadowArgs are provided no shadow ray is traced.
+For reasonable quality default shaodws you can use the shadowArgs() helper function. Else
+you may manually provide these settings:
+
+ShadowArgs(float near, float far, float hardness, int steps)
+
+The final notable feature is "IMPL_EMISSIVE_LIGHT" which edits the result and
+requires a distance field function of the form fEmissive(vec3 point, vec4 color)
+where color.w is ignored.
+*/
 vec3 Lighting(LightData data)
 {
     vec3 result = vec3(0);
@@ -156,34 +182,23 @@ vec3 Lighting(LightData data)
     return result;
 }
 
-// Compute hit.normal, note it is vec3(0) at the start of this function
-float Bump(vec3,Hit); // part of bump mapping example in Normal function below
-vec3 Normal(Hit hit)
+/*
+Bump mapping function, it is entirely optional so for the sake of template usability
+it returns immediately, with the extra example code there but not doing anything
+*/
+float fBump(Hit hit, vec3 offset)
 {
-    const vec2 e=vec2(EPSILON+EPSILON,0.0);
-    vec3 point=hit.point;
-    vec4 taps = vec4(fField(point+e.xyy),fField(point+e.yxy),fField(point+e.yyx),fField(point));
-    hit.normal = normalize(taps.xyz-taps.w); // store inside hit.normal so Bump function does not need additional arguments
+    // First we get original distance
+    // note that the offset vector is important here!
+    float result = fField(hit.point + offset);
 
-    // it is possible to change the result of fField for bump mapping
-    // in this example I first compute a regular normal to use as mask and only bump map horizontal surfaces
-    taps.x += Bump(e.xyy, hit);
-    taps.y += Bump(e.yxy, hit);
-    taps.z += Bump(e.yyx, hit);
-    taps.w += Bump(vec3(0), hit);
-
-    return normalize(taps.xyz-taps.w);
-}
-
-float Bump(vec3 offset, Hit hit)
-{
-    // Important to offset whatever we derive UVs from!
-    vec2 uv = hit.point.xz + offset.xz;
-
-    // the hit.materialId can be used to not bump all objects the same
+    // The hit.materialId can be used to not bump all objects the same
     int objectId = int(hit.materialId.w);
     if(objectId%2==1)
-        return 0.;
+        return result;
+
+    // Important to offset whatever we derive UVs from!
+    vec2 uv = hit.point.xz + offset.xz;
 
     // enhance the checkers pattern by introducing bumped tiles
     // scale uvs to match material
@@ -193,5 +208,32 @@ float Bump(vec3 offset, Hit hit)
     vec2 tilt = fract(uv * 0.5) * (h2(floor(uv * 0.5)) - 0.5);
     bump += (tilt.x + tilt.y) * 0.4;
     // mask result by original normal
-    return smoothstep(0.6, 0.7, hit.normal.y) * bump;
+    result += smoothstep(0.6, 0.7, hit.normal.y) * bump;
+    return result;
+}
+
+/*
+The Normal function implements the fBump function above, and edits the given hit data.
+It's up to you to remove bump mapping, add normal mapping, or do other Normal related things.
+*/
+void Normal(inout Hit hit)
+{
+    const vec2 e=vec2(EPSILON+EPSILON,0.0);
+    vec3 point=hit.point;
+    vec4 taps = vec4(fField(point+e.xyy),fField(point+e.yxy),fField(point+e.yyx),fField(point));
+    hit.normal = normalize(taps.xyz-taps.w);
+
+    // begin bump mapping
+    vec4 bump = vec4(fBump(hit,e.xyy),fBump(hit,e.yxy),fBump(hit,e.yyx),fBump(hit,vec3(0)));
+    hit.normal = normalize(bump.xyz-bump.w);
+    // end bump mapping
+}
+
+/*
+Returns the color in the distance.
+You can use ray direction to composite sky gradients and sun discs.
+*/
+vec3 FogColor(Ray ray, float fog)
+{
+    return mix(vec3(1.0), vec3(0.2), smoothstep(-0.2, 0.2, ray.direction.y));
 }

@@ -1,1 +1,2 @@
-<scene camera="0,1,-10,0,0,0" template="..\Templates\default.xml"/>
+<?xml version="1.0" ?>
+<scene camera="0,1,-10,0,0,0" template="../Templates/default.xml"/>

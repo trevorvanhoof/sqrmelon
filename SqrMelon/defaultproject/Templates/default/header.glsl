@@ -94,7 +94,7 @@ vec2 FishEyeUV(float amount, float factor)
 	}*/
 
 	// if (power > 0.0) // fisheye
-    uv = center + (direction / radius) * tan(radius * power) * bind / tan( bind * power);
+    uv = center + (direction / radius) * tan(radius * power) * bind / tan(bind * power);
 	// else if (power < 0.0) // antifisheye
 	//	   uv = center + normalize(direction) * atan(radius * -power * 10.0) * bind / atan(-power * bind * 10.0);
 	// else

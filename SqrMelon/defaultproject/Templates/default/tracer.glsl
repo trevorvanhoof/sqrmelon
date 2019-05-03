@@ -62,27 +62,6 @@ float DoAO(Hit hit)
     return ao;
 }
 
-vec3 TraceAndShadeRefraction(Ray ray, float near, float far, int steps)
-{
-    Hit hit=Trace(ray, near, far, steps);
-
-    // Get fog
-    float fog = sat(FogRemap(sat(hit.totalDistance/FAR)));
-    vec3 color = FogColor(ray, fog);
-
-    // Fully occluded, stop further computation
-    if(fog<1)
-    {
-        hit.normal = Normal(hit);
-        Material material = GetMaterial(hit,ray);
-        float ao = DoAO(hit);
-        LightData data = LightData(ray, hit, material);
-        color = mix(ao * Lighting(data) + material.additive, color, fog);
-    }
-
-    return color;
-}
-
 // TraceAndShade returns the light data to be used in the g buffers.
 LightData TraceAndShade(Ray ray, float near, float far, int steps)
 {
@@ -99,7 +78,7 @@ LightData TraceAndShade(Ray ray, float near, float far, int steps)
     }
 
     // Compute normal
-    hit.normal = Normal(hit);
+    Normal(hit);
 
     // Compute material
     Material material = GetMaterial(hit, ray);

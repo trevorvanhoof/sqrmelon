@@ -20,8 +20,8 @@
         <global path="sdf.glsl"/>
         <global path="lighting.glsl"/>
         <shared path="public.glsl"/>
-		<section path="fogremap.glsl"/>
         <section path="content.glsl"/>
+        <section path="fogremap.glsl"/>
         <global path="tracer.glsl"/>
         <global path="main.glsl"/>
 	</pass>
@@ -32,8 +32,8 @@
         <global path="sdf.glsl"/>
         <global path="lighting.glsl"/>
         <shared path="public.glsl"/>
-		<section path="fogremap.glsl"/>
         <section path="content.glsl"/>
+        <section path="fogremap.glsl"/>
         <global path="tracer.glsl"/>
         <global path="rpass.glsl"/>
 	</pass>
@@ -72,9 +72,9 @@
     <pass buffer="4" input0="2" input1="3" name="Merge reflection into result">
         <global path="header.glsl"/>
 		<section path="settings.glsl"/>
-		<section path="fogremap.glsl"/>
-		<global path="merge.glsl"/>
-	</pass>
+        <section path="fogremap.glsl"/>
+        <global path="merge.glsl"/>
+    </pass>
 
 	<!-- User defined overlays -->
     <pass buffer="2" outputs="3" input0="4" name="Overlays">

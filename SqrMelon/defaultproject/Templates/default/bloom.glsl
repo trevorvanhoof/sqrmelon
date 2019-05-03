@@ -5,8 +5,8 @@ out vec4 g;
 uniform vec2 uResolution;
 
 uniform sampler2D uImages[8];
-uniform float uBloom = 0.2,
-uLensDirt = 0.3;
+uniform float uBloom = 0.08,
+uLensDirt = 0.1;
 
 void main()
 {

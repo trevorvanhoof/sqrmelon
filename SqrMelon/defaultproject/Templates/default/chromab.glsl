@@ -33,12 +33,12 @@ vec3 Vignette(vec2 clipUv, vec3 col)
 }
 */
 
-uniform float uChromaticAberrationRadius = 0.1;
+uniform float uChromaticAberrationRadius = 0.0;
 const float ChromaticAberration = 1.0;
 const int ChromaticAberrationSteps = 50;
 const float ChromaticAberrationShape = 0.125;
 
-// I mean, duh: https://www.shadertoy.com/view/MdsyDX
+// https://www.shadertoy.com/view/MdsyDX
 vec3 AberrationColor(float f)
 {
     f = f * 3.0 - 1.5;

@@ -3,12 +3,17 @@ uniform float uWhite = 0.0;
 uniform float uMirrorX = 0.0;
 
 uniform float uSaturation = 1.0;
-uniform float uExposure = 1.0;
+uniform float uExposure = 0.0;
 uniform float uGamma = 1.0;
+
+uniform float uVignetting = 0.0;
+uniform vec3 uVignetteColor = vec3(0);
 
 uniform float uGlitchAmountA = 0.0;
 // X tiles, Y tiles, intensity, animation speed in beats
 uniform vec4 uGlitchAmountB = vec4(9.0, 16.0, 0.0, 9.0);
+
+uniform float uFilmGrain = 0.0;
 
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm( vec3 x )
@@ -35,7 +40,9 @@ void main()
         uv.x = 1.0 - uv.x;
 
     // jittering horizontal bars
-    uv.x += uGlitchAmountA * quad(snoise(uBeats * 8.0 + floor(uv.y * 10.0) * 100.0));
+    float line = floor(uv.y * 10.0);
+    line = floor(uv.y * mix(10.0, 30.0, h1(line)));
+    uv.x += uGlitchAmountA * cub(snoise(uBeats * 8.0 + line * 100.0) - 0.5);
 
     vec3 color = texture(uImages[0], uv).xyz;
 
@@ -46,11 +53,9 @@ void main()
     color = mix(color, vec3(0.0), 1.0 - sqr(1.0 - black));
     color = mix(color, vec3(1.0), sqr(white));
 
-    // Shit film grain
-    float grainAmount = 0.8;
-    float grainStrength = 50.0 * grainAmount;
+    // Film grain
     float x = (uv.x + 4.0) * (uv.y + 4.0) * (uSeconds + 10.0) * 10.0;
-    float grain = clamp(mod((mod(x, 13.0) + 1.0) * (mod(x, 123.0) + 1.0), 0.01) - 0.005, 0.0, 1.0) * grainStrength;
+    float grain = clamp(mod((mod(x, 13.0) + 1.0) * (mod(x, 123.0) + 1.0), 0.01) - 0.005, 0.0, 1.0) * 50.0 * uFilmGrain;
     color *= 1.0 - grain;
 
     // additional color correction
@@ -61,7 +66,7 @@ void main()
 
 	// vigneting
 	vec2 q = gl_FragCoord.xy / uResolution;
-    //color *= pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.25);
+    color = mix(uVignetteColor, color, mix(1.0, pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.25), uVignetting));
 
     outColor0 = vec4(color,1.0);
 }
