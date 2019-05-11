@@ -1,5 +1,5 @@
 	<!-- bloom -->
-	<pass buffer="5" input0="2" factor="2">
+	<pass buffer="5" input0="3" factor="2">
 		<global path="downsample.glsl"/>
 	</pass>
 	<pass buffer="6" input0="5" factor="2">
@@ -167,6 +167,6 @@
 		<global path="blurfooter.glsl"/>
 	</pass>
 
-	<pass buffer="3" input0="2" input1="5" input2="7" input3="1" input4="10" input5="12" input6="14" input7="17">
+	<pass buffer="4" input0="3" input1="5" input2="7" input3="1" input4="10" input5="12" input6="14" input7="17" name="bloom">
 		<global path="bloom.glsl"/>
 	</pass>
