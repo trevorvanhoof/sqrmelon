@@ -92,15 +92,15 @@ class ShaderPool(object):
         for offset in self.offsets:
             flat += [offset[1], offset[0]]
         cursor = ints.addInts(flat)
-        yield '__forceinline void TickLoader();\n'
-        yield '__forceinline void initPrograms()\n{\n'
+        yield '__forceinline void TickLoader(int, int);\n'
+        yield '__forceinline void initPrograms(int width, int height)\n{\n'
         yield '\tint i = 0;\n'
         yield '\tconst char* gShaderStitchOrder[] = {gTextPool[%s]};\n' % '], gTextPool['.join(str(x) for x in self.data)
         yield '\tdo\n\t{\n'
         yield """\t\t#ifdef _DEBUG\n\t\tOutputDebugString("\\n\\n\\n--------------------------------\\n\\n\\n");\n\t\tfor (int j = 0; j < gIntData[%s + i * 2]; ++j)\n\t\t{\n\t\t\tOutputDebugString(gShaderStitchOrder[gIntData[%s + i * 2] + j]);\n\t\t}\n\t\tOutputDebugString("\\n\\n\\n--------------------------------\\n\\n\\n");\n\t\t#endif\n""" % (
             cursor, cursor + 1)
         yield '\t\tgPrograms[i] = glCreateShaderProgramv(GL_FRAGMENT_SHADER, gIntData[%s + i * 2], &gShaderStitchOrder[gIntData[%s + i * 2]]);\n' % (cursor, cursor + 1)
-        yield '\t\tTickLoader();\n'
+        yield '\t\tTickLoader(width, height);\n'
         yield '\t}\n\twhile(++i < %s);\n' % len(self.offsets)
         yield '}\n'
 
@@ -278,22 +278,17 @@ class PassPool(object):
         yield '\tglUniform2f(glGetUniformLocation(shader, "uResolution"), (float)w, (float)h);\n'
         yield '\tglUniform1f(glGetUniformLocation(shader, "uSeconds"), seconds);\n'
         yield '\tglUniform1f(glGetUniformLocation(shader, "uBeats"), beats);\n'
+
         if framebuffers.hasData():
-            yield '\tint j3d = 0;\n\tint j2d = 0;\n\tfor(int j = 0 ; j < gIntData[passIndex * %s + %s]; ++j)\n\t{\n' % (maxInputs * 2 + 1, gPassInputs)
+            yield '#ifdef SUPPORT_3D_TEXTURE\n\tint j3d = -1, j2d = -1;\n#endif\n\tchar formatStr[] = "uImages[0]\\0\\0\\0";\n\tfor(int j = 0 ; j < gIntData[passIndex * %s + %s]; ++j)\n\t{\n' % (maxInputs * 2 + 1, gPassInputs)
             yield '\t\tglActiveTexture(GL_TEXTURE0 + j);\n'
+            yield '\t\tint b, o = 7;\n'
             yield '#ifdef SUPPORT_3D_TEXTURE\n'
             yield '\t\tint mode = gIntData[passIndex * %s + %s + j * 2];\n' % (maxInputs * 2 + 1, gPassInputs + 2)
             yield '\t\tglBindTexture(mode ? GL_TEXTURE_3D : GL_TEXTURE_2D, gTextures[gIntData[passIndex * %s + %s + j * 2]]);\n' % (maxInputs * 2 + 1, gPassInputs + 1)
-            yield '\t\tsprintf_s(gFormatBuffer, mode ? "uImages3D[%i]" : "uImages[%i]", mode ? j3d : j2d);\n'
-            yield '\t\tglUniform1i(glGetUniformLocation(shader, gFormatBuffer), j);\n'
-            yield '\t\tif(mode) ++j3d; else ++j2d;\n'
-            yield '#else\n'
+            yield """\t\tif (mode)\n\t\t{\n\t\t\tb = j3d++;\n\t\t\tformatStr[o++] = '3';\n\t\t\tformatStr[o++] = 'D';\n\t\t}\n\t\telse\n\t\t\tb = j2d++;\n#else\n"""
             yield '\t\tglBindTexture(GL_TEXTURE_2D, gTextures[gIntData[passIndex * %s + %s + j * 2]]);\n' % (maxInputs * 2 + 1, gPassInputs + 1)
-            yield '\t\tsprintf_s(gFormatBuffer, "uImages[%i]", j2d);\n'
-            yield '\t\tglUniform1i(glGetUniformLocation(shader, gFormatBuffer), j);\n'
-            yield '\t\t++j2d;\n'
-            yield '#endif\n'
-            yield '\t}\n'
+            yield """\t\tb = j;\n#endif\n\t\tformatStr[o++] = '[';\n\t\tif (j >= 10)\n\t\t\tformatStr[o++] = '0' + (b / 10);\n\t\tformatStr[o++] = '0' + (b % 10);\n\t\tformatStr[o++] = ']';\n\t\tformatStr[o] = '\\0';\n\t\tglUniform1i(glGetUniformLocation(shader, formatStr), j);\n\t}"""
 
         if constUniformData:
             yield '\tfor(int j = 0; j < gIntData[passIndex * %s + %s]; ++j)\n\t{\n' % (3 * maxConstUniforms + 1, gPassConstUniforms)

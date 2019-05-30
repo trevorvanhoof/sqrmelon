@@ -1,7 +1,3 @@
-#include "settings.h"
-
-
-
 #if defined(_DEBUG)
 GLuint __stdcall glCreateShaderProgramv(GLenum type, GLsizei count, const char** strings)
 {

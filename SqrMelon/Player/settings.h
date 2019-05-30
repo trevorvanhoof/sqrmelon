@@ -1,15 +1,24 @@
 #pragma once
 
-#define _CRT_SECURE_NO_WARNINGS
-#define WIN32_LEAN_AND_MEAN
-#define VC_EXTRALEAN
+// NOTICE: due to the /nodefaultlib flag, #pragma comment(lib, "mylib.lib") syntax is ignored, so we must edit the release config to include (& exclude) the required dependencies manually
+// #define NO_AUDIO
+// #define AUDIO_64KLANG2
+#define AUDIO_BASS
+// #define SUPPORT_3D_TEXTURE
+// #define SUPPORT_PNG
+// #define AUDIO_WAVESABRE
 
-#include "wglext.h"
+#define DEMO_WIDTH 1920 // defaults to 1280
+#define DEMO_HEIGHT 1080 // defaults to 720
 
-#ifndef DEMO
-	#include <assert.h>
-#else
-	#define assert(IGNORED)
+#ifdef AUDIO_BASS
+#define BPM 98
 #endif
 
-#pragma comment(lib, "opengl32.lib")
+#ifdef NO_AUDIO
+#define BPM 124.0f
+#define START_BEAT 0.0f
+#define SPEED 1.0f
+#endif
+
+const char* gWindowTitle = "Kladderadatsch von Kunst Kollektiv Wuppertal";

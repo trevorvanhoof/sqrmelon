@@ -137,7 +137,7 @@ def _deserializePasses(sceneFile):
         key = 'input%s' % i
         while key in xPass.attrib:
             # input is filename?
-            parentPath = currentProjectFilePath()
+            parentPath = currentProjectDirectory()
             fullName = parentPath.join(xPass.attrib[key])
             if fullName.exists():
                 inputs.append(FilePath(xPass.attrib[key]))
