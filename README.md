@@ -17,8 +17,8 @@ SqrMelon is written with Python2.7 (64 bit) and PyQt4, it also depends on some t
 It comes with an install.txt with the right download links to help you get started.
 The C++ Player project has some other dependencies, listed below:
 
-We included 64klang for music, but adding different synths should be trivial.
-SqrMelon/Player/64klang2 already contains the necessary files, but you may find the latest version at:
+We support 64klang for music, but adding different synths should be trivial.
+You may find the latest version at:
 https://github.com/hzdgopher/64klang
 
 In Release it also calls a post-build step which gives the .exe to kkrunchy to get the compressed final binary.
