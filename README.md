@@ -17,13 +17,61 @@ SqrMelon is written with Python2.7 (64 bit) and PyQt4, it also depends on some t
 It comes with an install.txt with the right download links to help you get started.
 The C++ Player project has some other dependencies, listed below:
 
-We support 64klang for music, but adding different synths should be trivial.
-You may find the latest version at:
-https://github.com/hzdgopher/64klang
-
 In Release it also calls a post-build step which gives the .exe to kkrunchy to get the compressed final binary.
 http://www.farbrausch.de/~fg/kkrunchy/
 Get the "a" version and put it in SqrMelon/Player/
+
+For audio we nowadays have various defines in "settings.h" that can open up dependencies you can download and use:
+
+#### define AUDIO_64KLANG2
+Requires the following files from https://github.com/hzdgopher/64klang
+out of Player/Player to be placed in the 64klang2 sub folder like so:
+ 64klang2/sample_t.cpp
+ 64klang2/sample_t.h
+ 64klang2/Synth.cpp
+ 64klang2/Synth.h
+ 64klang2/SynthAllocator.cpp
+ 64klang2/SynthAllocator.h
+ 64klang2/SynthNode.cpp
+ 64klang2/SynthNode.h
+ 64klang2/SynthPlayer.cpp
+ 64klang2/SynthPlayer.h
+
+64klang songs also export a 64k2Patch.h and 64k2Song.h which should be placed in the same folder
+
+#### define AUDIO_BASS
+Requires the following files from Bass 2.4 (from https://www.un4seen.com/download.php?bass24)
+to be placed next to the other source files:
+ bass.dll
+ bass.h
+ bass.lib
+
+#### define AUDIO_WAVESABRE
+Requires the following files from https://github.com/logicomacorp/WaveSabre
+to be placed next to the other source files:
+ wavesabreplayerlib.h
+ wavesabrecore.h
+
+#### define SUPPORT_PNG
+Requires the following files from https://github.com/lvandeve/lodepng
+to be placed next to the other source files:
+ lodepng.h
+ lodepng.cpp
+
+In addition it requires WaveSabreCore.Lib and WaveSabrePlayer.lib, which
+may easily be built by cloning the entire WaveSabre repo.
+As of this moment there are no public pre-built release distrubtions.
+
+## Other defines
+#### define RESOLUTION_SELECTOR
+This requires dialog.rc to be in the project resources. If it is missing or for othe reasons
+the resource can not be resolved at runtime the app immediately exits before creating any windows.
+
+Feel free to edit Dialog.rc so the resolution selector title matches the title in settings.h!
+
+#### define SUPPORT_3D_TEXTURE
+I have not used this in ages, but it should still work! It allows you to render a pass as horizontal strip of 3D texture slices,
+which will automatically be rendered and cast to 3D texture. I used it to create static 3D volume textures for clouds in Eidolon.
 
 ## Success stories
 SqrMelon has been used for the following productions:
