@@ -1,9 +1,9 @@
 #pragma once
 
 // NOTICE: due to the /nodefaultlib flag, #pragma comment(lib, "mylib.lib") syntax is ignored, so we must edit the release config to include (& exclude) the required dependencies manually
-// #define NO_AUDIO
+#define NO_AUDIO
 // #define AUDIO_64KLANG2
-#define AUDIO_BASS
+// #define AUDIO_BASS
 // #define SUPPORT_3D_TEXTURE
 // #define SUPPORT_PNG
 // #define AUDIO_WAVESABRE
@@ -21,4 +21,6 @@
 #define SPEED 1.0f
 #endif
 
-const char* gWindowTitle = "Kladderadatsch von Kunst Kollektiv Wuppertal";
+const char* gWindowTitle = "Made with SqrMelon";
+
+#define RESOLUTION_SELECTOR

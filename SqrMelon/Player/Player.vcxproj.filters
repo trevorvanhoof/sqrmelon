@@ -13,9 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="64klang2">
-      <UniqueIdentifier>{3b85536d-1f66-4372-a37c-5a3597ab06bc}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="generated.hpp">
@@ -30,54 +27,25 @@
     <ClInclude Include="windowdump.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="64klang2\SynthPlayer.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="64klang2\Synth.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="64klang2\SynthAllocator.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="64klang2\SynthNode.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="64klang2\64k2Song.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="64klang2\64k2Patch.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="64klang2\sample_t.h">
-      <Filter>64klang2</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wglext.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="64klang2\Synth.cpp">
-      <Filter>64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="64klang2\SynthAllocator.cpp">
-      <Filter>64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="64klang2\SynthNode.cpp">
-      <Filter>64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="64klang2\SynthPlayer.cpp">
-      <Filter>64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="64klang2\sample_t.cpp">
-      <Filter>64klang2</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="sinf.asm">
       <Filter>Source Files</Filter>
     </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="wglext.inc">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Dialog.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
