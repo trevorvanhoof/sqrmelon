@@ -1,3 +1,4 @@
+from pycompat import *
 import re
 from xml.etree import cElementTree
 from fileutil import FilePath
@@ -9,7 +10,7 @@ def xmlFixSlashesRecursively(xElement):
     if xElement.text:
         xElement.text = xElement.text.replace('\\', '/')
 
-    for key, value in xElement.attrib.iteritems():
+    for key, value in xElement.attrib.items():
         xElement.attrib[key] = value.replace('\\', '/')
 
     for xChild in xElement:

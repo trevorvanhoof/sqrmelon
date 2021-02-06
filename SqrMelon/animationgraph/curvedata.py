@@ -1,3 +1,4 @@
+from pycompat import *
 from mathutil import Vec2
 
 
@@ -12,7 +13,8 @@ class Key(object):
     def __init__(self, time, value, parent):
         self.__point = Vec2(time, value)
         self.__parent = parent
-        # note that tangent X values have been deprecated and is not exported; they were for cubic bezier curves that never got made
+        # note that tangent X values have been deprecated and is not exported;
+        #   they were for cubic bezier curves that never got made
         self.inTangent = Vec2(0.0, 0.0)
         self.outTangent = Vec2(0.0, 0.0)
         self.__inTangentType = Key.TYPE_LINEAR
@@ -51,7 +53,8 @@ class Key(object):
         if self.__tangentMode == Key.TANGENT_USER:
             return
         if self.__tangentMode == Key.TANGENT_STEPPED:
-            # this leave the input tangent as is, so you can go set e.g. "linear" to get the input, then back to "stepped"
+            # this leave the input tangent as is, so you can go set e.g.
+            #   "linear" to get the input, then back to "stepped"
             # TODO: have "output is stepped" as separate state ("in tangent" with "stepped output" control is tedious)
             self.outTangent = Vec2(0.0, float('inf'))
             return
@@ -123,7 +126,11 @@ class Curve(object):
         if idx != len(self.__keys):
             self.__keys[idx].updateTangents()
 
-    def addKeyWithTangents(self, inTangentX, inTangentY, time, value, outTangentX, outTangentY, tangentBroken, tangentMode):
+    def addKeyWithTangents(self,
+                           inTangentX, inTangentY,
+                           time, value,
+                           outTangentX, outTangentY,
+                           tangentBroken, tangentMode):
         k = Key(time, value, self)
         self.__keys.append(k)
         self.sortKeys()
@@ -160,7 +167,7 @@ class Curve(object):
             keyDifference = b.point() - a.point()
             try:
                 keyDifference.normalize()
-            except:
+            except ZeroDivisionError:
                 return Vec2(0.0, 0.0)
             keyDifference.x = abs(keyDifference.x)
             return keyDifference
@@ -170,13 +177,13 @@ class Curve(object):
                 pd = self.__keys[idx].time() - self.__keys[idx - 1].time()
                 try:
                     key.inTangent *= pd / key.inTangent.x
-                except:
+                except ZeroDivisionError:
                     pass
             if not last and key.outTangent.length() != 0:
                 nd = self.__keys[idx + 1].time() - self.__keys[idx].time()
                 try:
                     key.outTangent *= nd / key.outTangent.x
-                except:
+                except ZeroDivisionError:
                     pass
 
         if mode == Key.TANGENT_LINEAR:
@@ -260,7 +267,8 @@ class Curve(object):
         """
         Move the animation by the given addition.
         """
-        if deltaTime > 0.0:  # shifting to the right, reverse application order to avoid auto-sorting messing up anything
+        # shifting to the right, reverse application order to avoid auto-sorting messing up anything
+        if deltaTime > 0.0:
             for key in reversed(self.__keys):
                 key.setTime(key.time() + deltaTime)
         else:

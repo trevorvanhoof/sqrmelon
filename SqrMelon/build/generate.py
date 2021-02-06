@@ -1,3 +1,4 @@
+from pycompat import *
 import os
 import sys
 import struct
@@ -13,13 +14,13 @@ gAnimEntriesMax = 0.0
 
 def nextSubList(mainList, subList, offset=0):
     n = len(subList)
-    for i in xrange(offset, len(mainList) - n + 1):
+    for i in range(offset, len(mainList) - n + 1):
         if mainList[i:i + n] == subList:
             return i
     return -1
 
 
-def rmatch(mainList, subList):
+def rMatch(mainList, subList):
     # returns N where the last N items of mainList match the first N items of subList
     n = len(subList)
     n1 = len(mainList)
@@ -29,7 +30,7 @@ def rmatch(mainList, subList):
         if mainList == subList[:n1]:
             return n1
         return 0
-    for i in xrange(n - 1, -1, -1):
+    for i in range(n - 1, -1, -1):
         if mainList[-i:] == subList[:i]:
             return i
     return 0
@@ -71,7 +72,7 @@ class ShaderPool(object):
         if idx != -1:
             return idx
         # match part of stitches at tail ?
-        idx = rmatch(self.data, stitches)
+        idx = rMatch(self.data, stitches)
         out = len(self.data) - idx
         if idx != len(stitches):
             self.data.extend(stitches[idx:])

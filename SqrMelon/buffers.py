@@ -1,6 +1,7 @@
 """
 Utility that wraps OpenGL textures, frame buffers and render buffers.
 """
+from pycompat import *
 import contextlib
 from OpenGL.GL import *
 
@@ -119,12 +120,12 @@ class Texture(object):
             with filePath.edit(flag='wb') as fh:
                 fh.write(struct.pack('%sf' % pixels, *buffer))
             return
-        from PyQt4.QtGui import QImage
+        from qtutil import QImage
         pixels = self._width * self._height
         buffer = (ctypes.c_ubyte * (pixels * 4))()
         mirror = (ctypes.c_ubyte * (pixels * 4))()
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
-        for i in xrange(0, pixels * 4, 4):
+        for i in range(0, pixels * 4, 4):
             if ch is None:
                 mirror[i:i + 4] = (buffer[i + 2], buffer[i + 1], buffer[i], buffer[i + 3])
             else:
@@ -255,6 +256,8 @@ class FrameBuffer(object):
         self.__id = glGenFramebuffers(1)
         self.__stats = [None]
         self.__buffers = []
+        assert isinstance(width, int)
+        assert isinstance(height, int)
         self.__width = width
         self.__height = height
 

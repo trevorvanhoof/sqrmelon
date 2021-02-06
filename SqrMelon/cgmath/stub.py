@@ -1,3 +1,4 @@
+from pycompat import *
 from math import sin, cos, tan, sqrt
 
 
@@ -28,7 +29,7 @@ def Mat44_IMultiply(ioData, b):
     b1 = Mat44_Row(b, 1)
     b2 = Mat44_Row(b, 2)
     b3 = Mat44_Row(b, 3)
-    for i in xrange(4):
+    for i in range(4):
         x, y, z, w = ioData[i * 4:i * 4 + 4]
         ioData[i * 4:i * 4 + 4] = (b0 * x) + (b1 * y) + (b2 * z) + (b3 * w)
 
@@ -78,11 +79,13 @@ class VectorBase(object):
             elif isinstance(args[0], self.__class__):
                 self._data = args[0][:]
             else:
-                assert len(args) == self.__class__._size and self.__class__._size <= 4, 'Attempting to constructor vector of size {} with either wrong number of arguments {} or beyond maximum size 4.'.format(self.__class__._size, args)
+                msg = 'Attempting to constructor vector of size {} with either wrong number of arguments {} or ' \
+                      'beyond maximum size 4.'.format(self.__class__._size, args)
+                assert len(args) == self.__class__._size and self.__class__._size <= 4, msg
                 self._data[:self.__class__._size] = args
 
-    def __getitem__(self, slice):
-        return self._data[slice]
+    def __getitem__(self, key):
+        return self._data[key]
 
     def dot(self, other):
         assert isinstance(other, self.__class__)
@@ -90,7 +93,7 @@ class VectorBase(object):
 
     def normalize(self):
         f = 1.0 / sqrt(self.dot(self))
-        for i in xrange(4):
+        for i in range(4):
             self._data[i] /= f
 
     def normalized(self):
@@ -99,46 +102,46 @@ class VectorBase(object):
         return copy
 
     def __neg__(self):
-        return self.__class__([-self._data[i] for i in xrange(len(self._data))])
+        return self.__class__([-self._data[i] for i in range(len(self._data))])
 
     def __add__(self, other):
         if isinstance(other, self.__class__):
-            return self.__class__([self._data[i] + other[i] for i in xrange(4)])
-        return self.__class__([self._data[i] + other for i in xrange(4)])
+            return self.__class__([self._data[i] + other[i] for i in range(4)])
+        return self.__class__([self._data[i] + other for i in range(4)])
 
     def __sub__(self, other):
         if isinstance(other, self.__class__):
-            return self.__class__([self._data[i] - other[i] for i in xrange(4)])
-        return self.__class__([self._data[i] - other for i in xrange(4)])
+            return self.__class__([self._data[i] - other[i] for i in range(4)])
+        return self.__class__([self._data[i] - other for i in range(4)])
 
     def __mul__(self, other):
         if isinstance(other, Mat44):
             return self.__class__(Mat44_MultiplyVector(other, self))
         if isinstance(other, self.__class__):
-            return self.__class__([self._data[i] * other[i] for i in xrange(4)])
-        return self.__class__([self._data[i] * other for i in xrange(4)])
+            return self.__class__([self._data[i] * other[i] for i in range(4)])
+        return self.__class__([self._data[i] * other for i in range(4)])
 
     def __div__(self, other):
         if isinstance(other, self.__class__):
-            return self.__class__([self._data[i] / other[i] for i in xrange(4)])
-        return self.__class__([self._data[i] / other for i in xrange(4)])
+            return self.__class__([self._data[i] / other[i] for i in range(4)])
+        return self.__class__([self._data[i] / other for i in range(4)])
 
     def __iadd__(self, other):
         if isinstance(other, self.__class__):
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] += other[i]
         else:
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] += other
         self._data = None
         return self
 
     def __isub__(self, other):
         if isinstance(other, self.__class__):
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] -= other[i]
         else:
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] -= other
         self._data = None
         return self
@@ -148,20 +151,20 @@ class VectorBase(object):
             res = Mat44_MultiplyVector(other, self)
             self._data = res._data
         elif isinstance(other, self.__class__):
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] *= other[i]
         else:
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] *= other
         self._data = None
         return self
 
     def __idiv__(self, other):
         if isinstance(other, self.__class__):
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] /= other[i]
         else:
-            for i in xrange(4):
+            for i in range(4):
                 self._data[i] /= other
         self._data = None
         return self
@@ -176,7 +179,9 @@ class Vec3(VectorBase):
 
     def cross(self, other):
         assert isinstance(other, Vec3)
-        return Vec3(self._data[2] * other[1] - self._data[1] * other[2], self._data[0] * other[2] - self._data[2] * other[0], self._data[1] * other[0] - self._data[0] * other[1])
+        return Vec3(self._data[2] * other[1] - self._data[1] * other[2],
+                    self._data[0] * other[2] - self._data[2] * other[0],
+                    self._data[1] * other[0] - self._data[0] * other[1])
 
 
 class Mat44(object):
@@ -192,16 +197,19 @@ class Mat44(object):
                 assert len(args) == 16
                 self._data = list(args)
 
-    def __getitem__(self, slice):
-        return self._data[slice]
+    def __getitem__(self, key):
+        return self._data[key]
 
     def __repr__(self):
-        return 'Mat44({:10.4f} {:10.4f} {:10.4f} {:10.4f}\n      {:10.4f} {:10.4f} {:10.4f} {:10.4f}\n      {:10.4f} {:10.4f} {:10.4f} {:10.4f}\n      {:10.4f} {:10.4f} {:10.4f} {:10.4f})'.format(*self._data)
+        return 'Mat44({:10.4f} {:10.4f} {:10.4f} {:10.4f}\n' \
+               '      {:10.4f} {:10.4f} {:10.4f} {:10.4f}\n' \
+               '      {:10.4f} {:10.4f} {:10.4f} {:10.4f}\n' \
+               '      {:10.4f} {:10.4f} {:10.4f} {:10.4f})'.format(*self._data)
 
     def row(self, index):
         # returns by reference!
         raise NotImplementedError()  # can't return by reference in this stub
-        return Vec4(self._data[index * 4:index * 4 + 4])
+        # return Vec4(self._data[index * 4:index * 4 + 4])
 
     def transpose(self):
         cpy = self._data[:]
@@ -243,49 +251,49 @@ class Mat44(object):
             cpy = self._data[:]
             Mat44_IMultiply(cpy, other)
             return Mat44(cpy)
-        return Mat44([self._data[i] * other for i in xrange(16)])
+        return Mat44([self._data[i] * other for i in range(16)])
 
     def __imul__(self, other):
         if isinstance(other, Mat44):
             Mat44_IMultiply(self._data, other)
         else:
-            for i in xrange(16):
+            for i in range(16):
                 self._data[i] *= other
         return self
 
     def __add__(self, other):
         if isinstance(other, Mat44):
-            return Mat44([self._data[i] + other[i] for i in xrange(16)])
-        return Mat44([self._data[i] + other for i in xrange(16)])
+            return Mat44([self._data[i] + other[i] for i in range(16)])
+        return Mat44([self._data[i] + other for i in range(16)])
 
     def __iadd__(self, other):
         if isinstance(other, Mat44):
-            for i in xrange(16):
+            for i in range(16):
                 self._data[i] += other[i]
         else:
-            for i in xrange(16):
+            for i in range(16):
                 self._data[i] += other
         return self
 
     def __sub__(self, other):
         if isinstance(other, Mat44):
-            return Mat44([self._data[i] - other[i] for i in xrange(16)])
-        return Mat44([self._data[i] - other for i in xrange(16)])
+            return Mat44([self._data[i] - other[i] for i in range(16)])
+        return Mat44([self._data[i] - other for i in range(16)])
 
     def __isub__(self, other):
         if isinstance(other, Mat44):
-            for i in xrange(16):
+            for i in range(16):
                 self._data[i] -= other[i]
         else:
-            for i in xrange(16):
+            for i in range(16):
                 self._data[i] -= other
         return self
 
     def __div__(self, other):
-        return Mat44([self._data[i] / other for i in xrange(16)])
+        return Mat44([self._data[i] / other for i in range(16)])
 
     def __idiv__(self, other):
-        for i in xrange(16):
+        for i in range(16):
             self._data[i] /= other
         return self
 
@@ -337,7 +345,10 @@ class Mat44(object):
         B = (top + bottom) / (top - bottom)
         C = -(far + near) / (far - near)
         D = -(2.0 * far * near) / (far - near)
-        return Mat44([(2.0 * near) / (right - left), 0, A, 0, 0, -(2.0 * near) / (top - bottom), B, 0, 0, 0, C, -1.0, 0, 0, D, 0])
+        return Mat44([(2.0 * near) / (right - left), 0, A, 0,
+                      0, -(2.0 * near) / (top - bottom), B, 0,
+                      0, 0, C, -1.0,
+                      0, 0, D, 0])
 
     @staticmethod
     def perspective(fovRadians, aspect, near, far):
@@ -346,7 +357,7 @@ class Mat44(object):
         return Mat44.frustum(-fW, fW, -fH, fH, near, far)
 
     @staticmethod
-    def translateRotateScale(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0, sx=1.0, sy=1.0, sz=1.0):
+    def translateRotateScale(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0, scx=1.0, scy=1.0, scz=1.0):
         sx = sin(rx)
         sy = sin(ry)
         sz = sin(rz)
@@ -354,9 +365,9 @@ class Mat44(object):
         cy = cos(ry)
         cz = cos(rz)
         return Mat44([
-            sx * (cz * cy + sz * sx * sy), sx * sz * cx, sx * (cz * -sy + sz * sx * cy), 0.0,
-            sy * (-sz * cy + cz * sx * sy), sy * cz * cx, sy * (-sz * -sy + cz * sx * cy), 0.0,
-            sz * cx * sy, sz * -sx, sz * cx * cy, 0.0,
+            scx * (cz * cy + sz * sx * sy), scx * sz * cx, scx * (cz * -sy + sz * sx * cy), 0.0,
+            scy * (-sz * cy + cz * sx * sy), scy * cz * cx, scy * (-sz * -sy + cz * sx * cy), 0.0,
+            scz * cx * sy, scz * -sx, scz * cx * cy, 0.0,
             x, y, z, 1.0])
 
     TRS = translateRotateScale

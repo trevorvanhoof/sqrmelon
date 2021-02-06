@@ -12,7 +12,7 @@ class _ProfileRenderer(QWidget):
         self.setMouseTracking(True)
 
     def mouseMoveEvent(self, event):
-        for label, rect in self.tooltipinfo.iteritems():
+        for label, rect in self.tooltipinfo.items():
             if rect.contains(event.pos()):
                 QToolTip.showText(QCursor.pos(), label)
 

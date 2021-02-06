@@ -1,4 +1,5 @@
 # TODO: scroll wheel zoom, zoom X and Y equally
+from pycompat import *
 
 from qtutil import *
 
@@ -103,11 +104,11 @@ class CurveView(QWidget):
     def undoStacks(self):
         return self.__undoStack, self.__cameraUndoStack
 
-    def __doRepaint(self, time):
+    def __doRepaint(self, _):
         if self.__camera and self.__timer and self.__timer.isPlaying():
             rect = self.__camera.region()
-            scalex = self.width() / float(rect[2])
-            x = (self.__localTime() - rect[0]) * scalex
+            scaleX = self.width() / float(rect[2])
+            x = (self.__localTime() - rect[0]) * scaleX
             self.repaint(x - 10, 0, 20, self.height())
         else:
             self.repaint()
@@ -131,10 +132,15 @@ class CurveView(QWidget):
             return
 
         # Determine padding on both sides (32 pixels please)
-        paddingX = (32.0 / max(1.0, self.width())) * ((boundsMax.x - boundsMin.x) if (boundsMax.x != boundsMin.x) else 1.0)
-        paddingY = (32.0 / max(1.0, self.height())) * ((boundsMax.y - boundsMin.y) if (boundsMax.y != boundsMin.y) else 1.0)
+        paddingX = (32.0 / max(1.0, self.width())) * (
+            (boundsMax.x - boundsMin.x) if (boundsMax.x != boundsMin.x) else 1.0)
+        paddingY = (32.0 / max(1.0, self.height())) * (
+            (boundsMax.y - boundsMin.y) if (boundsMax.y != boundsMin.y) else 1.0)
 
-        region = boundsMin.x - paddingX, boundsMin.y - paddingY, boundsMax.x - boundsMin.x + 2 * paddingX, boundsMax.y - boundsMin.y + 2 * paddingY
+        region = (boundsMin.x - paddingX,
+                  boundsMin.y - paddingY,
+                  boundsMax.x - boundsMin.x + 2 * paddingX,
+                  boundsMax.y - boundsMin.y + 2 * paddingY)
         self.__cameraUndoStack.push(CameraFrameAction(self.__camera, region))
         self.repaint()
 
@@ -179,22 +185,22 @@ class CurveView(QWidget):
             return self.__timer.time
         return (self.__timer.time - shot.start) * shot.speed - shot.preroll
 
-    def __setLocalTime(self, time):
+    def __setLocalTime(self, t):
         if not self.__timer:
             return
         shot = self.__editor.shot()
         if not shot:
-            self.__timer.time = time
+            self.__timer.time = t
             return
-        self.__timer.time = (time + shot.preroll) / shot.speed + shot.start
+        self.__timer.time = (t + shot.preroll) / shot.speed + shot.start
 
     def insertKey(self):
         curve = [self.__models[0].item(row).data() for row in self.visibleRows()]
 
-        time = self.__localTime()
+        t = self.__localTime()
         if self.__snap[0]:
-            time = round(time * self.__snap[0]) / float(self.__snap[0])
-        self.__undoStack.push(InsertKeyAction(time, curve))
+            t = round(t * self.__snap[0]) / float(self.__snap[0])
+        self.__undoStack.push(InsertKeyAction(t, curve))
 
         self.repaint()
 
@@ -203,10 +209,10 @@ class CurveView(QWidget):
         for channel in channels:
             curves.append(self.__models[0].findItems(channel)[0].data())
 
-        time = self.__localTime()
+        t = self.__localTime()
         if self.__snap[0]:
-            time = round(time * self.__snap[0]) / float(self.__snap[0])
-        self.__undoStack.push(SetKeyAction(time, curves, values))
+            t = round(t * self.__snap[0]) / float(self.__snap[0])
+        self.__undoStack.push(SetKeyAction(t, curves, values))
 
         self.repaint()
 
@@ -429,7 +435,7 @@ class CurveView(QWidget):
 
         return Vec2(point.x + delta.x, point.y + delta.y)
 
-    def _drawBg(self, painter, scalex, scaley, rect):
+    def _drawBg(self, painter, scaleX, scaleY, rect):
         backColor = QColor.fromRgb(96, 96, 96)
         linesColor = QColor.fromRgb(83, 83, 83)
         axisColor = QColor.fromRgb(122, 122, 122)
@@ -440,47 +446,49 @@ class CurveView(QWidget):
         # draw grid and axes
         painter.save()
         painter.setPen(Qt.black)
-        painter.scale(scalex, scaley)
+        painter.scale(scaleX, scaleY)
         painter.translate(-rect[0], -rect[1])
-        painter.scale(1.0 / scalex, 1.0 / scaley)
+        painter.scale(1.0 / scaleX, 1.0 / scaleY)
 
         # draw vertical lines (positive ones first, then negative ones)
-        sx = 150.0 / scalex
+        sx = 150.0 / scaleX
         sx = 5.0 ** round(log10(sx) - log10(5.5) + 0.5)
         x = 0
         for direction in range(2):
-            while ((direction == 0) and (x < int(rect[0]) + int(rect[2]) + 2 * sx)) or ((direction == 1) and (x > int(rect[0]) - sx)):
+            while ((direction == 0) and (x < int(rect[0]) + int(rect[2]) + 2 * sx)) or (
+                    (direction == 1) and (x > int(rect[0]) - sx)):
                 painter.setPen(Qt.black)
-                painter.drawText(x * scalex + 3.0, (rect[1] + rect[3]) * scaley - 5.0, str(round(x, 4)))
+                painter.drawText(x * scaleX + 3.0, (rect[1] + rect[3]) * scaleY - 5.0, str(round(x, 4)))
                 painter.setPen(axisColor if x == 0 else linesColor)
-                painter.drawLine(x * scalex, rect[1] * scaley, x * scalex, (rect[1] + rect[3]) * scaley)
+                painter.drawLine(x * scaleX, rect[1] * scaleY, x * scaleX, (rect[1] + rect[3]) * scaleY)
                 x += sx if direction == 0 else -sx
             x = -sx  # restart on left side
 
         # draw horizontal lines (positive ones first, then negative ones)
-        sy = 80.0 / scaley
+        sy = 80.0 / scaleY
         sy = 5.0 ** round(log10(sy) - log10(5.5) + 0.5)
         y = 0
         for direction in range(2):
-            while ((direction == 0) and (y < int(rect[1]) + int(rect[3]) + 2 * sy)) or ((direction == 1) and (y > int(rect[1]) - sy)):
+            while ((direction == 0) and (y < int(rect[1]) + int(rect[3]) + 2 * sy)) or (
+                    (direction == 1) and (y > int(rect[1]) - sy)):
                 painter.setPen(Qt.black)
-                painter.drawText(rect[0] * scalex + 3.0, y * scaley - 1.0, str(round(y, 4)))
+                painter.drawText(rect[0] * scaleX + 3.0, y * scaleY - 1.0, str(round(y, 4)))
                 painter.setPen(axisColor if y == 0 else linesColor)
-                painter.drawLine(rect[0] * scalex, y * scaley, (rect[0] + rect[2]) * scalex, y * scaley)
+                painter.drawLine(rect[0] * scaleX, y * scaleY, (rect[0] + rect[2]) * scaleX, y * scaleY)
                 y += sy if direction == 0 else -sy
             y = -sy  # restart on top side
 
         painter.restore()
 
-    def _drawCursor(self, painter, scalex, scaley, rect):
+    def _drawCursor(self, painter, scaleX, _, rect):
         # draw time cursor
-        x = (self.__localTime() - rect[0]) * scalex
+        x = (self.__localTime() - rect[0]) * scaleX
         painter.setPen(Qt.red)
         painter.drawLine(QPoint(x, 2), QPoint(x, self.height()))
         markerTop = icons.getImage('TimeMarkerTop-24')
         painter.drawPixmap(QPoint(x - 4.0, 2), markerTop)
 
-    def _drawFocus(self, painter, scalex, scaley, rect):
+    def _drawFocus(self, painter, _, __, ___):
         # outer border
         if self.hasFocus():
             painter.setPen(QPen(self.palette().highlight(), 2.0))
@@ -511,10 +519,10 @@ class CurveView(QWidget):
                 py = y
                 x += precision
 
-    def _drawKeys(self, painter, scalex, scaley, rows):
+    def _drawKeys(self, painter, scaleX, scaleY, rows):
         # draw points
-        pointWidth = 5.0 / scalex
-        pointHeight = 5.0 / scaley
+        pointWidth = 5.0 / scaleX
+        pointHeight = 5.0 / scaleY
         tangentWidth = pointWidth
         tangentHeight = pointHeight
 
@@ -532,9 +540,13 @@ class CurveView(QWidget):
                     else:
                         pointOutTangent = self.mapTangentToScreen(key, False)
 
-                    painter.fillRect(QRectF(pointInTangent.x - tangentWidth / 2.0, pointInTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
+                    painter.fillRect(
+                        QRectF(pointInTangent.x - tangentWidth / 2.0, pointInTangent.y - tangentHeight / 2.0,
+                               tangentWidth, tangentHeight), Qt.magenta)
                     if not isStep:
-                        painter.fillRect(QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
+                        painter.fillRect(
+                            QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0,
+                                   tangentWidth, tangentHeight), Qt.magenta)
                     painter.setPen(Qt.magenta)
                     painter.drawLine(QPointF(pointInTangent.x, pointInTangent.y), QPointF(point.x, point.y))
                     if not isStep:
@@ -544,7 +556,8 @@ class CurveView(QWidget):
                 else:
                     color = Qt.black
 
-                painter.fillRect(QRectF(point.x - pointWidth / 2.0, point.y - pointHeight / 2.0, pointWidth, pointHeight), color)
+                painter.fillRect(
+                    QRectF(point.x - pointWidth / 2.0, point.y - pointHeight / 2.0, pointWidth, pointHeight), color)
 
     def paintEvent(self, event):
         if self.paintTime == time.time():
@@ -559,14 +572,14 @@ class CurveView(QWidget):
             return
 
         # scaling from view space to screen space
-        scalex = self.width() / float(rect[2])
-        scaley = self.height() / float(rect[3])
+        scaleX = self.width() / float(rect[2])
+        scaleY = self.height() / float(rect[3])
 
-        self._drawBg(painter, scalex, scaley, rect)
-        self._drawCursor(painter, scalex, scaley, rect)
-        self._drawFocus(painter, scalex, scaley, rect)
+        self._drawBg(painter, scaleX, scaleY, rect)
+        self._drawCursor(painter, scaleX, scaleY, rect)
+        self._drawFocus(painter, scaleX, scaleY, rect)
 
-        painter.scale(scalex, scaley)
+        painter.scale(scaleX, scaleY)
         painter.translate(-rect[0], -rect[1])
 
         rows = self.visibleRows()
@@ -577,7 +590,7 @@ class CurveView(QWidget):
         precision = (PRECISION / float(self.width())) * w
 
         self._drawCurves(painter, rows, start, end, precision)
-        self._drawKeys(painter, scalex, scaley, rows)
+        self._drawKeys(painter, scaleX, scaleY, rows)
 
         # draw marquee selection area
         if self.__drag and hasattr(self.__drag, 'paint'):
@@ -585,7 +598,7 @@ class CurveView(QWidget):
 
         self.paintTime = time.time()
 
-    def onChannelsChanged(self, *args):
+    def onChannelsChanged(self, *_):
         self.deselectAll()
         self.repaint()
 
@@ -600,15 +613,15 @@ class TangentMode(QWidget):
         super(TangentMode, self).__init__()
 
         self.setLayout(hlayout())
-        icos = ['tangent-auto', 'tangent-spline', 'tangent-linear', 'tangent-flat', 'tangent-stepped']
-        self.__btns = []
-        for i, ico in enumerate(icos):
+        iconNames = ['tangent-auto', 'tangent-spline', 'tangent-linear', 'tangent-flat', 'tangent-stepped']
+        self.__buttons = []
+        for i, ico in enumerate(iconNames):
             btn = QPushButton(icons.get(ico), '')
             btn.setIconSize(QSize(24, 24))
             self.layout().addWidget(btn)
             btn.setCheckable(True)
             btn.clicked.connect(functools.partial(self.__update, i))
-            self.__btns.append(btn)
+            self.__buttons.append(btn)
 
         # remove this button until we can actually drag tangents
         # self.__broken = QPushButton(icons.get('tangent-broken'), '')
@@ -618,10 +631,11 @@ class TangentMode(QWidget):
         # self.tangentBrokenChanged = self.__broken.clicked
 
     def updateDisplayForKeys(self, keys):
-        TRI_STATE = False  # we may opt for a tri-state checkbox or tool icon later on, for now ambiguous-state is just displayed as 'off'
+        # we may opt for a tri-state checkbox or tool icon later on, for now ambiguous-state is just displayed as 'off'
+        TRI_STATE = False
 
         mode = list(set([key.tangentMode for key in keys]))
-        for i, btn in enumerate(self.__btns):
+        for i, btn in enumerate(self.__buttons):
             if len(mode) != 1:
                 btn.setChecked(TRI_STATE)
                 continue
@@ -629,7 +643,7 @@ class TangentMode(QWidget):
                 continue
             btn.setChecked(False)
         for i in mode[:-1]:
-            self.__btns[i].setChecked(True)
+            self.__buttons[i].setChecked(True)
 
         # broken = list(set([key.tangentBroken for key in keys]))
         # if not broken:
@@ -638,7 +652,7 @@ class TangentMode(QWidget):
         #    self.__broken.setChecked(broken[0] if len(broken) == 1 else TRI_STATE)
 
     def __update(self, index):
-        for i, btn in enumerate(self.__btns):
+        for i, btn in enumerate(self.__buttons):
             btn.setChecked(i == index)
         self.valueChanged.emit(index)
 
@@ -748,7 +762,7 @@ class CurveEditor(QWidget):
         self.__value.editingFinished.connect(self.__view.repaint)
         self.__updateSnapping(self.__snapping.value())
 
-        def forwardFocus(event):
+        def forwardFocus(_):
             self.__view.setFocus(Qt.MouseFocusReason)
 
         self.__channels.focusInEvent = forwardFocus
@@ -792,7 +806,8 @@ class CurveEditor(QWidget):
         self.setShot(self.__shot)
 
     def __pasteChannels(self):
-        if QMessageBox.warning(self, 'Warning', 'This action is not undoable. Continue?', QMessageBox.Ok | QMessageBox.Cancel) != QMessageBox.Ok:
+        if QMessageBox.warning(self, 'Warning', 'This action is not undoable. Continue?',
+                               QMessageBox.Ok | QMessageBox.Cancel) != QMessageBox.Ok:
             return
         for name, curve in self.__clipboard:
             self.__shot.curves[name] = curve.clone()
@@ -800,11 +815,15 @@ class CurveEditor(QWidget):
         self.setShot(self.__shot)
 
     def __pasteSelectedChannel(self):
-        if QMessageBox.warning(self, 'Warning', 'This action is not undoable. Continue?', QMessageBox.Ok | QMessageBox.Cancel) != QMessageBox.Ok:
+        if QMessageBox.warning(self, 'Warning', 'This action is not undoable. Continue?',
+                               QMessageBox.Ok | QMessageBox.Cancel) != QMessageBox.Ok:
             return
         indexes = self.__channels.selectedIndexes()
-        assert len(self.__clipboard) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple sources'
-        assert len(indexes) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple targets'
+        assert len(
+            self.__clipboard) == 1, 'Something went wrong when pasting from one channel to another, ' \
+                                    'as it found multiple sources'
+        assert len(
+            indexes) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple targets'
         self.__shot.curves[self.__model.itemFromIndex(indexes[0]).text()] = self.__clipboard[0][1].clone()
         self.__view.undoStacks()[0].clear()
         self.setShot(self.__shot)
@@ -885,27 +904,28 @@ class CurveEditor(QWidget):
             names.append(model.item(idx.row(), 0).text())
         if len(names) == 1:
             if '.' not in names[0] or names[0].rsplit('.', 1)[1] not in 'xyz':
-                print 'Could not key position into channel %s. Channel should end with .x, .y or .z' % names[0]
+                print('Could not key position into channel %s. Channel should end with .x, .y or .z' % names[0])
                 return
             baseName = names[0].rsplit('.', 1)[0]
             attr = 'xyz'
-            for i in xrange(3):
-                try:
-                    self.__view.setKey(['%s.%s' % (baseName, attr[i])], [values[i]])
-                except:
-                    pass
+            for i in range(3):
+                # TODO: Trying to figure out what exception to catch exactly
+                # try:
+                self.__view.setKey(['%s.%s' % (baseName, attr[i])], [values[i]])
+                # except:
+                #    pass
             return
         # filter valid channels (.x, .y, .z suffix only)
-        for i in xrange(len(names) - 1, -1, -1):
+        for i in range(len(names) - 1, -1, -1):
             if '.' not in names[i]:
                 names.pop(i)
             if names[i].rsplit('.', 1)[1] not in 'xyz':
                 names.pop(i)
         if len({name.rsplit('.', 1)[0] for name in names}) != 1:
-            print 'Could not key position into channels %s. Multiple channels selected, ambiguous which one.' % names
+            print('Could not key position into channels %s. Multiple channels selected, ambiguous which one.' % names)
             return
         if len(names) not in (2, 3):
-            print 'Could not key position into channels %s. Only vec2 and vec3 is supported.' % names
+            print('Could not key position into channels %s. Only vec2 and vec3 is supported.' % names)
             return
         self.__view.setKey(names, values)
 
@@ -937,13 +957,15 @@ class CurveEditor(QWidget):
             del self.__shot.curves[name]
 
     def _onAddChannel(self):
-        res = QInputDialog.getText(self, 'Create channel', 'Name with optional [xy], [xyz], [xyzw] suffix\ne.g. "uPosition[xyz]", "uSize[xy]".')
+        msg = 'Name with optional [xy], [xyz], [xyzw] suffix\ne.g. "uPosition[xyz]", "uSize[xy]".'
+        res = QInputDialog.getText(self, 'Create channel', msg)
         if not res[1] or not res[0]:
             return
-        pat = re.compile(r'^[a-zA-Z_0-9]+(\[[x][y]?[z]?[w]?\])?$')
+        pat = re.compile(r'^[a-zA-Z_0-9]+(\[[x][y]?[z]?[w]?])?$')
         if not pat.match(res[0]):
-            QMessageBox.critical(self, 'Could not add attribute',
-                                 'Invalid name or channel pattern given. Please use only alphanumeric characters and undersores; also use only these masks: [x], [xy], [xyz], [xyzw].')
+            msg = 'Invalid name or channel pattern given. Please use only alphanumeric characters and undersores; ' \
+                  'also use only these masks: [x], [xy], [xyz], [xyzw].'
+            QMessageBox.critical(self, 'Could not add attribute', msg)
             return
         if '[' not in res[0]:
             channelNames = [res[0]]
@@ -956,7 +978,8 @@ class CurveEditor(QWidget):
 
         for channelName in channelNames:
             if self.__model.findItems(channelName):
-                QMessageBox.critical(self, 'Could not add attribute', 'An attribute with name "%s" already exists.\nNo attributes were added.' % channelName)
+                msg = 'An attribute with name "%s" already exists.\nNo attributes were added.' % channelName
+                QMessageBox.critical(self, 'Could not add attribute', msg)
                 return
         for channelName in channelNames:
             curve = Curve()

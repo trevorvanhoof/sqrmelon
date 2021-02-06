@@ -110,7 +110,7 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def initializeGL(self):
-        print glGetString(GL_VERSION)
+        print (glGetString(GL_VERSION))
 
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
@@ -133,9 +133,9 @@ class SceneView(QGLWidget):
         newW = w
         if aspectH > h:
             aspectH = h
-            newW = aspectW
+            newW = int(aspectW)
 
-        return newW, aspectH
+        return newW, int(aspectH)
 
     def paintGL(self):
         newTime = time.time()

@@ -2,12 +2,81 @@
 Imports QT with the right version settings
 Exposes a bunch of useful subclasses and utility functions.
 """
-import sip
-sip.setapi('QString', 2)
-sip.setapi('QVariant', 2)
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtOpenGL import *  # exposed to other code from here
+from pycompat import *
+
+qt_wrapper = None
+try:
+    from PySide.QtCore import *
+    from PySide.QtGui import *
+    from PySide.QtOpenGL import *  # exposed to other code from here
+
+    qt_wrapper = 'PySide'
+except ImportError:
+    pass
+try:
+    import sip
+
+    sip.setapi('QString', 2)
+    sip.setapi('QVariant', 2)
+    from PyQt4.QtCore import *
+    from PyQt4.QtGui import *
+    from PyQt4.QtOpenGL import *  # exposed to other code from here
+
+    qt_wrapper = 'PyQt4'
+except ImportError:
+    pass
+try:
+    from PyQt5.QtCore import *
+    from PyQt5.QtGui import *
+    from PyQt5.QtWidgets import *
+    from PyQt5.QtOpenGL import *  # exposed to other code from here
+    import html
+
+    pyqtSignal = Signal
+    Qt.escape = html.escape
+    qt_wrapper = 'PyQt5'
+except ImportError:
+    pass
+try:
+    from PySide2.QtCore import *
+    from PySide2.QtGui import *
+    from PySide2.QtWidgets import *
+    from PySide2.QtOpenGL import *  # exposed to other code from here
+    import html
+
+    Qt.escape = html.escape
+    pyqtSignal = Signal
+    QFileDialog._getSaveFileName = QFileDialog.getSaveFileName
+    QFileDialog._getOpenFileName = QFileDialog.getOpenFileName
+    QFileDialog._getOpenFileNames = QFileDialog.getOpenFileNames
+    QFileDialog._getExistingDirectory = QFileDialog.getExistingDirectory
+
+
+    def _getSaveFileName(*args):
+        return QFileDialog._getSaveFileName(*args)[0]
+
+
+    def _getOpenFileName(*args):
+        return QFileDialog._getOpenFileName(*args)[0]
+
+
+    def _getOpenFileNames(*args):
+        return QFileDialog._getOpenFileNames(*args)[0]
+
+
+    def _getExistingDirectory(*args):
+        return QFileDialog._getExistingDirectory(*args)[0]
+
+
+    QFileDialog.getSaveFileName = _getSaveFileName
+    QFileDialog.getOpenFileName = _getOpenFileName
+    QFileDialog.getOpenFileNames = _getOpenFileNames
+    QFileDialog.getExistingDirectory = _getExistingDirectory
+
+    qt_wrapper = 'PySide2'
+except ImportError:
+    pass
+assert qt_wrapper, 'No Qt wrapper installed, pip install PySide for python 2 or PySide2 for python 3'
 
 
 # TODO: floating dockwidget splitter state does not seem to be saved correctly
@@ -21,24 +90,6 @@ class QMainWindowState(QMainWindow):
         super(QMainWindowState, self).__init__()
         self.settings = settings
         self.setObjectName(self.__class__.__name__)
-        self.progress = QProgressDialog(self)
-        self.progress.setWindowModality(Qt.WindowModal)
-        self.progress.setAutoReset(True)
-
-    def progressBar(self, title, start=0, end=100, caption=''):
-        self.progress.reset()
-        self.progress.setWindowTitle(title)
-        self.progress.setLabelText(caption)
-        self.progress.setMinimum(start)
-        self.progress.setMaximum(end)
-        self.progress.show()
-
-    def updateProgressBar(self, value, caption=None):
-        if caption is not None:
-            self.progress.setLabelText(caption)
-        self.progress.setValue(value)
-        QApplication.processEvents()
-        return not self.progress.wasCanceled()
 
     def _store(self):
         self.settings.setValue('%s/geometry' % self.__class__.__name__, self.saveGeometry())
@@ -46,13 +97,9 @@ class QMainWindowState(QMainWindow):
 
     def _restore(self):
         r = self.settings.value('%s/geometry' % self.__class__.__name__, None)
-        if isinstance(r, QVariant):
-            r = r.toPyObject()
         if r is not None:
             self.restoreGeometry(r)
         s = self.settings.value('%s/state' % self.__class__.__name__, None)
-        if isinstance(s, QVariant):
-            s = s.toPyObject()
         if s is not None:
             self.restoreState(s)
 
@@ -124,7 +171,7 @@ class Signal(object):
     def emit(self, *args, **kwargs):
         if not self.__active:
             return
-        for i in xrange(len(self.__connections) - 1, -1, -1):
+        for i in range(len(self.__connections) - 1, -1, -1):
             try:
                 self.__connections[i](*args, **kwargs)
             except RuntimeError:

@@ -6,7 +6,8 @@ from animationgraph.curvedata import Curve, Key
 from collections import OrderedDict
 from scene import Scene
 from xml.etree import cElementTree
-from util import randomColor, parseXMLWithIncludes, toPrettyXml, SCENE_EXT, currentProjectFilePath, currentScenesDirectory, currentTemplatesDirectory, iterSceneNames
+from util import randomColor, parseXMLWithIncludes, toPrettyXml, SCENE_EXT, currentProjectFilePath, \
+    currentScenesDirectory, currentTemplatesDirectory, iterSceneNames
 
 
 def readChannelTemplates():
@@ -49,6 +50,7 @@ class Shot(object):
                       QStandardItem(str(speed)),
                       QStandardItem(str(preroll))]
         self.curves = curves or OrderedDict()
+        assert isinstance(self.curves, OrderedDict)
         self.textures = textures or OrderedDict()
         self.color = QColor.fromRgb(*randomColor())
         self.items[0].setData(self, Qt.UserRole + 1)
@@ -103,7 +105,7 @@ class Shot(object):
                 assert name not in data
                 data[name] = value
         for name in data:
-            if isinstance(data[name], dict):
+            if data[name].__class__.__name__ == 'dict':
                 v = data[name]
                 if 'w' in v:
                     data[name] = [v['x'],
@@ -250,7 +252,8 @@ def _deserializeSceneShots(sceneName):
                     keys = xEntry.text.split(',')
                 curve = Curve()
                 for i in range(0, len(keys), 8):
-                    curve.addKeyWithTangents(tangentBroken=int(keys[i + 6]), tangentMode=int(keys[i + 7]), *[float(x) for x in keys[i:i + 6]])
+                    curve.addKeyWithTangents(tangentBroken=int(keys[i + 6]), tangentMode=int(keys[i + 7]),
+                                             *[float(x) for x in keys[i:i + 6]])
                 curves[curveName] = curve
 
             if xEntry.tag.lower() == 'texture':
@@ -280,7 +283,8 @@ def _saveSceneShots(sceneName, shots):
                     xSub.attrib['camera'] = ','.join([str(x) for x in cameraData])
                     break
             else:
-                cElementTree.SubElement(xUser, 'scene', {'name': sceneName, 'camera': ','.join([str(x) for x in cameraData])})
+                cElementTree.SubElement(xUser, 'scene',
+                                        {'name': sceneName, 'camera': ','.join([str(x) for x in cameraData])})
 
     with userFile.edit() as fh:
         fh.write(toPrettyXml(xUser))
@@ -298,12 +302,12 @@ def _saveSceneShots(sceneName, shots):
             targets.append(shot)
 
     for shot in targets:
-        xShot = cElementTree.SubElement(xScene, 'Shot', {'name'   : shot.name,
-                                                         'scene'  : sceneName,
-                                                         'start'  : str(shot.start),
-                                                         'end'    : str(shot.end),
+        xShot = cElementTree.SubElement(xScene, 'Shot', {'name': shot.name,
+                                                         'scene': sceneName,
+                                                         'start': str(shot.start),
+                                                         'end': str(shot.end),
                                                          'enabled': str(shot.enabled),
-                                                         'speed'  : str(shot.speed),
+                                                         'speed': str(shot.speed),
                                                          'preroll': str(shot.preroll)})
         for curveName in shot.curves:
             xChannel = cElementTree.SubElement(xShot, 'Channel', {'name': curveName, 'mode': 'hermite'})
@@ -494,7 +498,7 @@ class ShotManager(QWidget):
 
     def shotAtTime(self, time):
         candidate = None
-        for row in xrange(self.__model.rowCount()):
+        for row in range(self.__model.rowCount()):
             shot = self.__model.item(row).data(Qt.UserRole + 1)
             if not shot.enabled:
                 continue
@@ -534,7 +538,7 @@ class ShotManager(QWidget):
         self.__table.sortByColumn(2, Qt.AscendingOrder)
 
     def shots(self):
-        for row in xrange(self.__model.rowCount()):
+        for row in range(self.__model.rowCount()):
             shot = self.__model.item(row).data(Qt.UserRole + 1)
             yield shot
 
@@ -586,7 +590,7 @@ class ShotManager(QWidget):
         layout.addWidget(scenes)
 
         channelTemplates = readChannelTemplates()
-        channelTemplateNames = channelTemplates.keys()
+        channelTemplateNames = list(channelTemplates.keys())
         templateIndex = 0
         if 'default' in channelTemplateNames:
             channelTemplateNames.index('default')
@@ -638,7 +642,7 @@ class ShotManager(QWidget):
             channelTemplateName = channelTemplateSelector.currentText()
             curves = channelTemplates[channelTemplateName]
         else:
-            curves = channelTemplates.values()[0]
+            curves = list(channelTemplates.values())[0]
 
         shot = Shot(name.text(), scenes.currentText(), start, start + 8.0, curves)
         self.__model.appendRow(shot.items)
@@ -663,7 +667,7 @@ class ShotManager(QWidget):
 
     def onDeleteScene(self, sceneName):
         rows = []
-        for row in xrange(self.__model.rowCount()):
+        for row in range(self.__model.rowCount()):
             if sceneName == str(self.__model.item(row, 1).text()):
                 rows.append(row)
         self.__deleteShots(rows)

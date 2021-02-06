@@ -1,3 +1,4 @@
+from pycompat import *
 import datetime
 import sys
 import shutil
@@ -126,29 +127,29 @@ class App(QMainWindowState):
         undo.setShortcutContext(Qt.ApplicationShortcut)
 
         redo = undoStack.createRedoAction(self, '&Redo')
-        redo.setShortcuts(QKeySequence.Redo)
+        redo.setShortcut(QKeySequence.Redo)
         redo.setShortcutContext(Qt.ApplicationShortcut)
 
         camUndo = cameraUndoStack.createUndoAction(self, 'Undo')
-        camUndo.setShortcuts(QKeySequence('['))
+        camUndo.setShortcut(QKeySequence('['))
         camUndo.setShortcutContext(Qt.ApplicationShortcut)
 
         camRedo = cameraUndoStack.createRedoAction(self, 'Redo')
-        camRedo.setShortcuts(QKeySequence(']'))
+        camRedo.setShortcut(QKeySequence(']'))
         camRedo.setShortcutContext(Qt.ApplicationShortcut)
 
         camKey = QAction('&Key camera', self)
-        camKey.setShortcuts(QKeySequence(Qt.Key_K))
+        camKey.setShortcut(QKeySequence(Qt.Key_K))
         camKey.setShortcutContext(Qt.ApplicationShortcut)
         camKey.triggered.connect(cameraView.insertKey)
 
         camToggle = QAction('&Toggle camera control', self)
-        camToggle.setShortcuts(QKeySequence(Qt.Key_T))
+        camToggle.setShortcut(QKeySequence(Qt.Key_T))
         camToggle.setShortcutContext(Qt.ApplicationShortcut)
         camToggle.triggered.connect(cameraView.toggle)
 
         camCopAnim = QAction('Snap came&ra to animation', self)
-        camCopAnim.setShortcuts(QKeySequence(Qt.Key_R))
+        camCopAnim.setShortcut(QKeySequence(Qt.Key_R))
         camCopAnim.setShortcutContext(Qt.ApplicationShortcut)
         camCopAnim.triggered.connect(cameraView.copyAnim)
 
@@ -170,7 +171,7 @@ class App(QMainWindowState):
         lock.toggled.connect(self.__toggleUILock)
 
         fs = toolsMenu.addAction('Full screen viewport')
-        fs.setShortcut(Qt.Key_F11)
+        fs.setShortcut(QKeySequence(Qt.Key_F11))
         fs.setShortcutContext(Qt.ApplicationShortcut)
         fs.triggered.connect(self.__fullScreenViewport)
 
@@ -266,7 +267,7 @@ class App(QMainWindowState):
         progress = QProgressDialog(self)
         progress.setMaximum(int(duration * FPS))
         prevFrame = 0
-        for frame in xrange(int(duration * FPS)):
+        for frame in range(int(duration * FPS)):
             deltaTime = (frame - prevFrame) / float(FPS)
             prevFrame = frame
             progress.setValue(frame)

@@ -1,12 +1,17 @@
-from OSC import OSCClientError
+try:
+    # Python 2 support
+    import OSC
+    from OSC import OSCClientError
+except ImportError:
+    # Python 3 support
+    import pyOSC3 as OSC
+    from pyOSC3 import OSCClientError
 
 from audioLibs import createSong
 from qtutil import *
 import time
 from math import floor
 from xml.etree import cElementTree
-
-import OSC
 
 import icons
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
@@ -720,7 +725,7 @@ class TimeSlider(QWidget):
                 try:
                     song = createSong(path)
                 except:
-                    print 'Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message
+                    print ('Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message)
                     return
                 break
             if song:

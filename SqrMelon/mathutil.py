@@ -119,7 +119,21 @@ class Vec2(object):
         r /= other
         return r
 
+    def __truediv__(self, other):
+        r = Vec2(self)
+        r /= other
+        return r
+
     def __idiv__(self, other):
+        if isinstance(other, Vec2):
+            self.data[0] /= other.data[0]
+            self.data[1] /= other.data[1]
+        else:
+            self.data[0] /= other
+            self.data[1] /= other
+        return self
+
+    def __itruediv__(self, other):
         if isinstance(other, Vec2):
             self.data[0] /= other.data[0]
             self.data[1] /= other.data[1]

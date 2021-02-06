@@ -104,7 +104,7 @@ class SceneList(QWidget):
     def __onOpenFile(self, current):
         if not current.parent().isValid():
             return
-        path = self.view.model().itemFromIndex(current).data()
+        path = FilePath(self.view.model().itemFromIndex(current).data())
         openFileWithDefaultApplication(path)
 
     def __onCurrentChanged(self, current, __):

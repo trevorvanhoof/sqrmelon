@@ -29,7 +29,7 @@ def getPath(iconName):
 
 
 def getImage(iconName):
-    if not __iconCache.has_key(iconName):
+    if iconName not in __iconCache:
         iconPath = getPath(iconName)
         if iconPath.hasExt('ico'):
             image = QIcon(iconPath)

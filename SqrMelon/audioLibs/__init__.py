@@ -6,7 +6,7 @@ def createSong(path):
         # will throw an error if file format is not understood
         from qtwav import QtWavSong
         return QtWavSong(path)
-    except:
+    except ImportError:
         pass
 
     try:
@@ -15,7 +15,7 @@ def createSong(path):
         # We couldn't get it to work on linux.
         from glet import PyGletSong
         return PyGletSong(path)
-    except:
+    except ImportError:
         pass
 
     try:
@@ -23,5 +23,5 @@ def createSong(path):
         # it is the most robust playback we found, but it's plain wrong.
         from phonon import PhononSong
         return PhononSong(path)
-    except:
+    except ImportError:
         pass

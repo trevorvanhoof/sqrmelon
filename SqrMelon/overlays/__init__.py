@@ -7,6 +7,7 @@ from util import gSettings
 from qtutil import *
 import os
 from buffers import *
+import sys
 
 
 def loadImage(filePath, tile=True):
@@ -15,7 +16,10 @@ def loadImage(filePath, tile=True):
     glBindTexture(GL_TEXTURE_2D, texId)
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
     tex = QGLWidget.convertToGLFormat(QImage(filePath))
-    return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, ctypes.c_void_p(int(tex.bits())))
+    if sys.version_info.major == 3:
+        return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, tex.bits())
+    else:
+        return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, ctypes.c_void_p(int(tex.bits())))
 
 
 class Overlays(QWidget):

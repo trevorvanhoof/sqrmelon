@@ -1,3 +1,4 @@
+from pycompat import *
 from qtutil import *
 
 
@@ -19,7 +20,7 @@ class Selection(object):
 
     All items in __keys are of type SelectedKey
     """
-    KEYS, INTANGENT, OUTTANGENT = range(3)
+    KEYS, IN_TANGENT, OUT_TANGENT = range(3)
 
     def __init__(self):
         self.__keys = []
@@ -87,7 +88,7 @@ class MarqueeSelectAction(object):
     def update(self, event):
         self.__cursor = event.pos()
 
-    def finalize(self, event):
+    def finalize(self, _):
         x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
         bounds = min(x, x2), min(y, y2), max(x, x2), max(y, y2)
         first = True
@@ -99,7 +100,7 @@ class MarqueeSelectAction(object):
         # select items in rect
         for row, index, key in self.__parent.iterVisibleKeys():
             point = key.point()
-            if point.x > bounds[0] and point.x < bounds[2] and point.y > bounds[1] and point.y < bounds[3]:
+            if bounds[0] < point.x < bounds[2] and bounds[1] < point.y < bounds[3]:
                 # select
                 self.__parent.select(row, index, self.__shift, self.__ctrl)
                 if first:

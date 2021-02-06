@@ -1,4 +1,3 @@
-import sys
 import re
 import time
 from collections import OrderedDict
@@ -37,19 +36,20 @@ class TexturePool(object):
         # texture is a single channel raw32 heightmap
         if fileName.endswith('.r32'):
             tex = loadHeightfield(fullName)
-            TexturePool.__cache[key] = tex._id
-            return tex._id
+            TexturePool.__cache[key] = tex.id()
+            return tex.id()
 
         # read file into openGL texture
         img = QImage(fullName)
         if img.isNull():
-            print 'Warning, could not load texture %s.' % fullName
+            print('Warning, could not load texture %s.' % fullName)
             TexturePool.__cache[key] = 0  # no texture
             return 0
         img = QGLWidget.convertToGLFormat(img)
         tex = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, ctypes.c_void_p(int(img.bits())))
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     ctypes.c_void_p(int(img.bits())))
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         TexturePool.__cache[key] = tex
@@ -171,7 +171,8 @@ def _deserializePasses(sceneFile):
                 uniforms[xUniform.attrib['name']] = [float(x.strip()) for x in xUniform.attrib['value'].split(',')]
 
         passes.append(
-            PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile, factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None)))
+            PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile,
+                     factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None)))
     return passes
 
 
@@ -237,7 +238,8 @@ def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
         idx = inc.find('"') + 1
         name = inc[idx:inc.find('"', idx + 1)]
         path = glslPath.join('..', name).abs().lower()
-        assert path not in ioIncludePaths, 'Recursive or duplicate include "%s" found while parsing "%s"' % (path, glslPath)
+        assert path not in ioIncludePaths, 'Recursive or duplicate include "%s" found while parsing "%s"' % (
+            path, glslPath)
         ioIncludePaths.add(path)
         text = '\n'.join([text[:res.start(1)], _loadGLSLWithIncludes(path, ioIncludePaths), text[res.end(1):]])
     return text
@@ -312,6 +314,8 @@ class Scene(object):
         Scene.cache[sceneFile] = self
         self.__w = 0
         self.__h = 0
+
+        self.__cameraData = None
 
         self._debugPassId = None
 
@@ -415,7 +419,9 @@ class Scene(object):
                     errors.append(stitch.abs())
 
             if errors:
-                QMessageBox.critical(None, 'Missing files', 'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(errors))
+                QMessageBox.critical(None, 'Missing files',
+                                     'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(
+                                         errors))
                 return
 
             if includePaths:
@@ -433,16 +439,16 @@ class Scene(object):
             try:
                 program = gShaderPool.compileProgram(vertCode, fragCode)
 
-            except RuntimeError, e:
+            except RuntimeError as e:
                 self.shaders = []
                 errors = e.args[0].split('\n')
                 try:
-                    code = e.args[1][0].split('\n')
-                except:
-                    print e.args
-                    print 'pass: ' + passData.name
-                    print 'fragCode:'
-                    print fragCode
+                    code = e.args[1][0].decode('ascii').split('\n')
+                except IndexError:
+                    print(e.args)
+                    print('pass: ' + passData.name)
+                    print('fragCode:')
+                    print(fragCode)
                     return
                 # html escape output
                 errors = [Qt.escape(ln) for ln in errors]
@@ -455,7 +461,8 @@ class Scene(object):
                         continue
                     lineNumber -= 1
                     log.append('<p><font color="red">%s</font><br/>%s<br/><font color="#081">%s</font><br/>%s</p>' % (
-                        error, '<br/>'.join(code[lineNumber - 5:lineNumber]), code[lineNumber], '<br/>'.join(code[lineNumber + 1:lineNumber + 5])))
+                        error, '<br/>'.join(code[lineNumber - 5:lineNumber]), code[lineNumber],
+                        '<br/>'.join(code[lineNumber + 1:lineNumber + 5])))
                 self.__errorDialogText.setHtml('<pre>' + '\n'.join(log) + '</pre>')
                 self.__errorDialog.setGeometry(100, 100, 800, 600)
                 self.__errorDialog.exec_()
@@ -507,7 +514,8 @@ class Scene(object):
         bufferData = OrderedDict()
         for passData in self.passes:
             if passData.targetBufferId not in bufferData:
-                bufferData[passData.targetBufferId] = passData.numOutputBuffers, passData.downSampleFactor, passData.resolution, passData.tile
+                bufferData[
+                    passData.targetBufferId] = passData.numOutputBuffers, passData.downSampleFactor, passData.resolution, passData.tile
             else:
                 numOutputBuffers, downSampleFactor, resolution, tile = bufferData[passData.targetBufferId]
 
@@ -537,7 +545,7 @@ class Scene(object):
             if value[2] is not None:
                 w, h = value[2]
             elif value[1] is not None:
-                w, h = self.__w / value[1], self.__h / value[1]
+                w, h = self.__w // value[1], self.__h // value[1]
             else:
                 w, h = self.__w, self.__h
 
@@ -619,7 +627,8 @@ class Scene(object):
             self.frameBuffers[i].use()
             glClear(GL_DEPTH_BUFFER_BIT)
 
-        maxActiveInputs = max(1, self.draw(seconds, beats, uniforms, additionalTextureUniforms=additionalTextureUniforms))
+        maxActiveInputs = max(1,
+                              self.draw(seconds, beats, uniforms, additionalTextureUniforms=additionalTextureUniforms))
         self._unbindInputs(maxActiveInputs)
 
         glDisable(GL_DEPTH_TEST)
@@ -689,9 +698,11 @@ class Scene(object):
                 elif isinstance(uniforms[name], float):
                     fn[0](glGetUniformLocation(self.shaders[i], name), uniforms[name])
                 elif len(uniforms[name]) == 9:
-                    glUniformMatrix3fv(glGetUniformLocation(self.shaders[i], name), 1, False, (ctypes.c_float * 9)(*uniforms[name]))
+                    glUniformMatrix3fv(glGetUniformLocation(self.shaders[i], name), 1, False,
+                                       (ctypes.c_float * 9)(*uniforms[name]))
                 elif len(uniforms[name]) == 16:
-                    glUniformMatrix4fv(glGetUniformLocation(self.shaders[i], name), 1, False, (ctypes.c_float * 16)(*uniforms[name]))
+                    glUniformMatrix4fv(glGetUniformLocation(self.shaders[i], name), 1, False,
+                                       (ctypes.c_float * 16)(*uniforms[name]))
                 elif len(uniforms[name]) in (1, 2, 3, 4):
                     fn[len(uniforms[name]) - 1](glGetUniformLocation(self.shaders[i], name), *uniforms[name])
                 else:
@@ -708,12 +719,13 @@ class Scene(object):
                 if isinstance(passData.uniforms[name], float):
                     fn[0](glGetUniformLocation(self.shaders[i], name), passData.uniforms[name])
                 else:
-                    fn[len(passData.uniforms[name]) - 1](glGetUniformLocation(self.shaders[i], name), *passData.uniforms[name])
+                    fn[len(passData.uniforms[name]) - 1](glGetUniformLocation(self.shaders[i], name),
+                                                         *passData.uniforms[name])
 
             maxActiveInputs = max(maxActiveInputs, activeInputs)
 
             if self.passes[i].drawCommand is not None:
-                exec self.passes[i].drawCommand
+                exec(self.passes[i].drawCommand)
             else:
                 FullScreenRectSingleton.instance().draw()
 

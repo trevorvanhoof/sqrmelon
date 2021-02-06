@@ -1,3 +1,4 @@
+from pycompat import *
 import os, stat
 from qtutil import *
 from contextlib import contextmanager
@@ -107,6 +108,7 @@ class FilePath(str):
         open(self, 'w').close()
 
     def join(self, *args):
+        # type: (*Union[FilePath, str])->FilePath
         """
         join given segments to this file path
         removing prefix \\ and / of any segment

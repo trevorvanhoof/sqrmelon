@@ -1,6 +1,17 @@
+from pycompat import *
 from qtutil import *
 from audioLibs.base import Song
-from PyQt4.phonon import *
+
+try:
+    from PyQt4.phonon import Phonon
+except ImportError:
+    try:
+        from PyQt5.phonon import Phonon
+    except ImportError:
+        try:
+            from PySide.phonon import Phonon
+        except ImportError:
+            from PySide2.phonon import Phonon
 
 
 class PhononSong(Song):
