@@ -1,5 +1,9 @@
 import re
 import time
+import sys
+
+if sys.version_info.major == 3:
+    time.clock = time.time
 from collections import OrderedDict
 from fileutil import FileSystemWatcher, FilePath
 from profileui import Profiler
@@ -627,8 +631,7 @@ class Scene(object):
             self.frameBuffers[i].use()
             glClear(GL_DEPTH_BUFFER_BIT)
 
-        maxActiveInputs = max(1,
-                              self.draw(seconds, beats, uniforms, additionalTextureUniforms=additionalTextureUniforms))
+        maxActiveInputs = max(1, self.draw(seconds, beats, uniforms, additionalTextureUniforms=additionalTextureUniforms))
         self._unbindInputs(maxActiveInputs)
 
         glDisable(GL_DEPTH_TEST)

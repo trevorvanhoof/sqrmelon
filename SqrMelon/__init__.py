@@ -480,4 +480,7 @@ if __name__ == '__main__':
     try:
         run()
     except Exception as e:
-        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))
+        if sys.version_info.major == 3:
+            QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())
+        else:
+            QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))

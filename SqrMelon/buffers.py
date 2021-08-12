@@ -283,7 +283,8 @@ class FrameBuffer(object):
 
     @staticmethod
     def clear():
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        from sceneview3d import SceneView
+        glBindFramebuffer(GL_FRAMEBUFFER, SceneView.screenFBO)
 
     def id(self):
         return self.__id

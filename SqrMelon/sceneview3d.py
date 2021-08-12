@@ -110,7 +110,9 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def initializeGL(self):
-        print (glGetString(GL_VERSION))
+        # TODO: Handle re-parenting of the widget in PySide6, it invalidates the context so we need to dirty every cache, or maybe just setCentralWidget and not dock the 3D view,
+        #       but it is a fundamental dual monitor or beamer feature so we might just have to deal with it. Lazy choice on Qt's part though, we have to reload EVERY model and texture and buffer.
+        print(glGetString(GL_VERSION))
 
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
@@ -125,6 +127,10 @@ class SceneView(QGLWidget):
 
         self._prevTime = time.time()
         self._timer.kick()
+
+        SceneView.screenFBO = self.defaultFramebufferObject()
+
+    screenFBO = None
 
     def calculateAspect(self, w, h):
         aspectH = w / 16 * 9
@@ -209,6 +215,7 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def resizeGL(self, w, h):
+        SceneView.screenFBO = self.defaultFramebufferObject()
         self.__onResize()
 
     def keyPressEvent(self, keyEvent):
