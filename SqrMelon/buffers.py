@@ -111,6 +111,7 @@ class Texture(object):
         return self._height
 
     def save(self, filePath, ch=None):
+        self.use()
         if filePath.hasExt('.r32'):
             import struct
             # heightfield export

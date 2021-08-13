@@ -1,3 +1,4 @@
+import os
 from fileutil import FilePath
 from qtutil import *
 import time
@@ -49,6 +50,16 @@ class SceneView(QGLWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self._textures = {}
         self._prevTime = time.time()
+
+    def saveStaticTextures(self):
+        exportDir = QFileDialog.getExistingDirectory(None, 'Choose destination folder to save static textures as .png files.', '.')
+        if not exportDir:
+            return
+        for passData in self._scene.passes:
+            if passData.realtime:
+                continue
+            for index, cbo in enumerate(self._scene.colorBuffers[passData.targetBufferId]):
+                cbo.save(FilePath(os.path.join(exportDir, '{}{}.png'.format(passData.name, index))))
 
     def setPreviewRes(self, widthOverride, heightOverride, scale):
         if widthOverride is not None:
