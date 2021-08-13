@@ -724,7 +724,7 @@ class TimeSlider(QWidget):
                     continue
                 try:
                     song = createSong(path)
-                except:
+                except Exception as e:
                     print ('Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message)
                     return
                 break

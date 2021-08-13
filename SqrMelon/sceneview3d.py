@@ -139,9 +139,10 @@ class SceneView(QGLWidget):
         self._prevTime = time.time()
         self._timer.kick()
 
-        SceneView.screenFBO = self.defaultFramebufferObject()
+        if qt_wrapper == 'PySide6':
+            SceneView.screenFBO = self.defaultFramebufferObject()
 
-    screenFBO = None
+    screenFBO = 0
 
     def calculateAspect(self, w, h):
         aspectH = w / 16 * 9
@@ -226,7 +227,8 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def resizeGL(self, w, h):
-        SceneView.screenFBO = self.defaultFramebufferObject()
+        if qt_wrapper == 'PySide6':
+            SceneView.screenFBO = self.defaultFramebufferObject()
         self.__onResize()
 
     def keyPressEvent(self, keyEvent):
