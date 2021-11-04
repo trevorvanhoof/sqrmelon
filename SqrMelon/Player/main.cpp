@@ -633,7 +633,11 @@ void main()
 		prevSeconds = seconds;
 		if (!evalDemo(seconds, seconds * ((float)BPM / 60.0f), width, height, deltaSeconds))
 		{
+#if defined(NO_AUDIO) && defined(LOOP)
+			start = GetTickCount();
+#else
 			break;
+#endif
 		}
 		SwapBuffers(device);
 	} while (!GetAsyncKeyState(VK_ESCAPE));
