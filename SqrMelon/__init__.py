@@ -191,6 +191,9 @@ class App(QMainWindowState):
         sdready.setCheckable(True)
         sdready.setActionGroup(previewRadioGroup)
 
+        saveStatic = toolsMenu.addAction('Save static textures')
+        saveStatic.triggered.connect(self.__sceneView.saveStaticTextures)
+
         viewport = self.__previewMenu.addAction('Viewport')
         viewport.triggered.connect(functools.partial(self.__sceneView.setPreviewRes, None, None, 1.0))
         viewport.setCheckable(True)
@@ -480,4 +483,7 @@ if __name__ == '__main__':
     try:
         run()
     except Exception as e:
-        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))
+        if sys.version_info.major == 3:
+            QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())
+        else:
+            QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))

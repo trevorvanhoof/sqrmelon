@@ -14,6 +14,53 @@ try:
 except ImportError:
     pass
 try:
+    from PySide6.QtCore import *
+    from PySide6.QtGui import *
+    from PySide6.QtWidgets import *
+    from PySide6.QtOpenGL import *  # exposed to other code from here
+    from PySide6.QtOpenGLWidgets import *  # exposed to other code from here
+    import html
+
+    qt_wrapper = 'PySide6'
+
+    Qt.escape = html.escape
+    pyqtSignal = Signal
+    QFileDialog._getSaveFileName = QFileDialog.getSaveFileName
+    QFileDialog._getOpenFileName = QFileDialog.getOpenFileName
+    QFileDialog._getOpenFileNames = QFileDialog.getOpenFileNames
+    QFileDialog._getExistingDirectory = QFileDialog.getExistingDirectory
+
+
+    def _getSaveFileName(*args):
+        return QFileDialog._getSaveFileName(*args)[0]
+
+
+    def _getOpenFileName(*args):
+        return QFileDialog._getOpenFileName(*args)[0]
+
+
+    def _getOpenFileNames(*args):
+        return QFileDialog._getOpenFileNames(*args)[0]
+
+
+    def _getExistingDirectory(*args):
+        return QFileDialog._getExistingDirectory(*args)[0]
+
+
+    QFileDialog.getSaveFileName = _getSaveFileName
+    QFileDialog.getOpenFileName = _getOpenFileName
+    QFileDialog.getOpenFileNames = _getOpenFileNames
+    QFileDialog.getExistingDirectory = _getExistingDirectory
+
+    QVBoxLayout.setMargin = lambda s, m: s.setContentsMargins(m, m, m, m)
+    QHBoxLayout.setMargin = lambda s, m: s.setContentsMargins(m, m, m, m)
+    QGLFormat = QSurfaceFormat
+    QDockWidget.AllDockWidgetFeatures = QDockWidget.DockWidgetFeatures(0b111)
+    QGLWidget = QOpenGLWidget
+    QGLWidget.convertToGLFormat = lambda i: i.mirrored().convertToFormat(QImage.Format_RGBA8888)
+except ImportError:
+    pass
+try:
     import sip
 
     sip.setapi('QString', 2)

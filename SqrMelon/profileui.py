@@ -107,6 +107,8 @@ class Profiler(QWidget):
         if len(self.frameTimes) > 10:
             self.frameTimes.pop(0)
         averageSecondsPerFrame = float(sum(self.frameTimes) / len(self.frameTimes))
+        if not averageSecondsPerFrame:
+            return
         self.parent().setWindowTitle('Profiler: %i FPS / %i ms' % (round(1.0 / averageSecondsPerFrame), round(averageSecondsPerFrame * 1000.0)))
 
         if not self.isProfiling():

@@ -1,3 +1,4 @@
+import os
 from fileutil import FilePath
 from qtutil import *
 import time
@@ -49,6 +50,16 @@ class SceneView(QGLWidget):
         self.setFocusPolicy(Qt.StrongFocus)
         self._textures = {}
         self._prevTime = time.time()
+
+    def saveStaticTextures(self):
+        exportDir = QFileDialog.getExistingDirectory(None, 'Choose destination folder to save static textures as .png files.', '.')
+        if not exportDir:
+            return
+        for passData in self._scene.passes:
+            if passData.realtime:
+                continue
+            for index, cbo in enumerate(self._scene.colorBuffers[passData.targetBufferId]):
+                cbo.save(FilePath(os.path.join(exportDir, '{}{}.png'.format(passData.name, index))))
 
     def setPreviewRes(self, widthOverride, heightOverride, scale):
         if widthOverride is not None:
@@ -110,7 +121,9 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def initializeGL(self):
-        print (glGetString(GL_VERSION))
+        # TODO: Handle re-parenting of the widget in PySide6, it invalidates the context so we need to dirty every cache, or maybe just setCentralWidget and not dock the 3D view,
+        #       but it is a fundamental dual monitor or beamer feature so we might just have to deal with it. Lazy choice on Qt's part though, we have to reload EVERY model and texture and buffer.
+        print(glGetString(GL_VERSION))
 
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
@@ -125,6 +138,11 @@ class SceneView(QGLWidget):
 
         self._prevTime = time.time()
         self._timer.kick()
+
+        if qt_wrapper == 'PySide6':
+            SceneView.screenFBO = self.defaultFramebufferObject()
+
+    screenFBO = 0
 
     def calculateAspect(self, w, h):
         aspectH = w / 16 * 9
@@ -209,6 +227,8 @@ class SceneView(QGLWidget):
         self.repaint()
 
     def resizeGL(self, w, h):
+        if qt_wrapper == 'PySide6':
+            SceneView.screenFBO = self.defaultFramebufferObject()
         self.__onResize()
 
     def keyPressEvent(self, keyEvent):
