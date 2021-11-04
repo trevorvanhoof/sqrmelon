@@ -469,8 +469,8 @@ def run():
         yield '\n\n__forceinline int shotAtBeats(float beats, float& localBeats)\n{\n'
         if len(shots) == 1:
             yield '\tlocalBeats = beats - gFloatData[%s];\n' % shotTimesStart
-            yield '\tif(localBeats >= gFloatData[%s + 1]) return -1;' % shotTimesStart
-            yield '\treturn 0;\n'
+            yield '\tif(beats < gFloatData[%s])\n\t\treturn 0;' % (shotTimesStart + 1)
+            yield '\treturn -1;\n'
         else:
             yield '\tint shotTimeCursor = 0;\n'
             yield '\tdo\n\t{\n'
