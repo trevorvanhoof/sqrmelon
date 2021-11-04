@@ -8,6 +8,8 @@
 // #define SUPPORT_PNG
 // #define AUDIO_WAVESABRE
 
+// #define LOOP // Never stop never stopping. Only works with NO_AUDIO
+
 #define DEMO_WIDTH 1920 // defaults to 1280
 #define DEMO_HEIGHT 1080 // defaults to 720
 
