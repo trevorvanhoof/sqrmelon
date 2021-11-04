@@ -1,10 +1,10 @@
-from pycompat import *
 import os
 import sys
 import struct
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pycompat import *
 from build.codeoptimize import optimizeText
 from fileutil import FilePath
 from util import parseXMLWithIncludes, SCENE_EXT, currentScenesDirectory
