@@ -367,7 +367,8 @@ class ShotView(QTableView):
 
     def __onViewShot(self):
         self.viewShotAction.emit(float(self.model().item(self.__row, 2).text()),
-                                 float(self.model().item(self.__row, 3).text()))
+                                 float(self.model().item(self.__row, 3).text()),
+                                 self.__model.item(self.__row).data(Qt.UserRole + 1))
 
     def onPinShot(self, row=None):
         item = self.model().item(self.__row if type(row) != int else row)

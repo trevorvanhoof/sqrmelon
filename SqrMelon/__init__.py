@@ -367,9 +367,12 @@ class App(QMainWindowState):
             if not dockWidget.isFloating():
                 dockWidget.setFeatures(features)
 
-    def __onViewShot(self, start, end):
+    def __onViewShot(self, start, end, shot):
         self._timer.start = start
-        self._timer.end = end - 0.01
+        if shot.pinned:
+            self._timer.end = end
+        else:
+            self._timer.end = end - 0.01
 
     def __aboutDialog(self):
         QMessageBox.about(self, 'About SqrMelon',
