@@ -17,7 +17,7 @@ from scenelist import SceneList
 from sceneview3d import SceneView
 from shots import ShotManager
 from timeslider import Timer, TimeSlider
-from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory,setCurrentProjectFilePath, currentScenesDirectory
+from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory, setCurrentProjectFilePath, currentScenesDirectory
 import os
 from qtutil import *
 import icons
@@ -26,7 +26,7 @@ IGNORED_EXTENSIONS = (PROJ_EXT, '.user')
 DEFAULT_PROJECT = 'defaultproject'
 FFMPEG_PATH = 'ffmpeg.exe'
 
-class PyDebugLog(object):
+class PyDebugLog:
     """
     Small utility to reroute the python print output to a QTextEdit
     """

@@ -150,7 +150,7 @@ class FilePath(str):
             return fh.read()
 
 
-class FileDialog(object):
+class FileDialog:
     @staticmethod
     def getSaveFileName(parent, title, startAt, text):
         res = FilePath(QFileDialog.getSaveFileName(parent, title, startAt, text))
@@ -163,8 +163,8 @@ class FileDialog(object):
 
 
 class FileSystemWatcher(QObject):
-    fileChanged = pyqtSignal(FilePath)
-    directoryChanged = pyqtSignal(FilePath)
+    fileChanged = Signal(FilePath)
+    directoryChanged = Signal(FilePath)
 
     def __init__(self):
         super(FileSystemWatcher, self).__init__()

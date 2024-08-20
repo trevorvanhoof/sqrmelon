@@ -40,7 +40,7 @@ def readChannelTemplates():
     return result
 
 
-class Shot(object):
+class Shot:
     def __init__(self, name, sceneName, start=0.0, end=1.0, curves=None, textures=None, speed=1.0, preroll=0.0):
         self.items = [QStandardItem(name),
                       QStandardItem(sceneName),
@@ -330,11 +330,11 @@ def _saveSceneShots(sceneName, shots):
 
 
 class ShotView(QTableView):
-    viewShotAction = pyqtSignal(float, float, object)
-    pinShotAction = pyqtSignal(Shot)
-    shotsEnabled = pyqtSignal(list)
-    shotsDisabled = pyqtSignal(list)
-    findSceneRequest = pyqtSignal(str)
+    viewShotAction = Signal(float, float, object)
+    pinShotAction = Signal(Shot)
+    shotsEnabled = Signal(list)
+    shotsDisabled = Signal(list)
+    findSceneRequest = Signal(str)
 
     def __init__(self):
         super(ShotView, self).__init__()
@@ -419,8 +419,8 @@ class ShotItemModel(QStandardItemModel):
 
 
 class ShotManager(QWidget):
-    currentChanged = pyqtSignal(Shot)
-    shotPinned = pyqtSignal(Shot)
+    currentChanged = Signal(Shot)
+    shotPinned = Signal(Shot)
 
     def __init__(self):
         super(ShotManager, self).__init__()

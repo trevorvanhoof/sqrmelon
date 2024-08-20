@@ -1,5 +1,3 @@
-setuptools
-PyOpenGL==3.1.0
-pyOSC==0.3.5b5294
-Send2Trash==1.5.0
-PySide
+PySide6
+PyOpenGL
+Send2Trash

@@ -20,8 +20,8 @@ class MimeDataItemModel(QStandardItemModel):
 
 
 class SceneList(QWidget):
-    currentChanged = pyqtSignal(QStandardItem)
-    requestCreateShot = pyqtSignal(str)
+    currentChanged = Signal(QStandardItem)
+    requestCreateShot = Signal(str)
 
     def __init__(self):
         super(SceneList, self).__init__()

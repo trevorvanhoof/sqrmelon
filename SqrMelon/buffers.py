@@ -6,7 +6,7 @@ import contextlib
 from OpenGL.GL import *
 
 
-class Texture(object):
+class Texture:
     """
     Creates a GL texture2D.
     The static members below are all color formats at this point in time &
@@ -138,7 +138,7 @@ class Texture(object):
         QImage(mirror, self._width, self._height, QImage.Format_ARGB32).save(filePath)
 
 
-class Texture3D(object):
+class Texture3D:
     def __init__(self, channels, resolution, tile=True, data=None):
         # for channels refer to the options in Texture
         self._width = resolution
@@ -172,7 +172,7 @@ class Texture3D(object):
         return self._id
 
 
-class Cubemap(object):
+class Cubemap:
     def __init__(self, channels, size, contents=None):
         self.__size = size
         self.__id = glGenTextures(1)
@@ -199,7 +199,7 @@ class Cubemap(object):
         return self.__size
 
 
-class RenderBuffer(object):
+class RenderBuffer:
     R8 = GL_R8
     R8UI = GL_R8UI
     R8I = GL_R8I
@@ -250,7 +250,7 @@ class RenderBuffer(object):
         glBindRenderbuffer(GL_RENDERBUFFER, self.__id)
 
 
-class FrameBuffer(object):
+class FrameBuffer:
     """
     Utility to set up a frame buffer and manage its color & render buffers.
 

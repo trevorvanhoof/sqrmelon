@@ -19,7 +19,7 @@ from util import currentProjectFilePath, parseXMLWithIncludes, currentProjectDir
 from gl_shaders import compileProgram
 
 
-class TexturePool(object):
+class TexturePool:
     """
     Utility to fetch & bind textures by file path, loaded only once.
     File paths are treated slash and case insensitive.
@@ -60,7 +60,7 @@ class TexturePool(object):
         return tex
 
 
-class PassData(object):
+class PassData:
     def __init__(self,
                  vertStitches,
                  fragStitches,
@@ -180,7 +180,7 @@ def _deserializePasses(sceneFile):
     return passes
 
 
-class CameraTransform(object):
+class CameraTransform:
     def __init__(self, tx=0, ty=0, tz=0, rx=0, ry=0, rz=0):
         self.data = [tx, ty, tz, rx, ry, rz]
 
@@ -210,7 +210,7 @@ class CameraTransform(object):
         self.data[3:6] = rotate
 
 
-class _ShaderPool(object):
+class _ShaderPool:
     def __init__(self):
         self.__cache = {}
 
@@ -249,7 +249,7 @@ def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
     return text
 
 
-class FullScreenRectSingleton(object):
+class FullScreenRectSingleton:
     _instance = None
 
     def __init__(self):
@@ -268,7 +268,7 @@ class FullScreenRectSingleton(object):
         return cls._instance
 
 
-class Scene(object):
+class Scene(QObject):
     cache = {}
     passThroughProgram = None
     STATIC_VERT = '#version 410\nout vec2 vUV;void main(){gl_Position=vec4(step(1,gl_VertexID)*step(-2,-gl_VertexID)*2-1,gl_VertexID-gl_VertexID%2-1,0,1);vUV=gl_Position.xy*.5+.5;}'
@@ -313,7 +313,11 @@ class Scene(object):
             return cls.cache[sceneFile]
         return cls(sceneFile)
 
+    profileInfoChanged = Signal()
+
     def __init__(self, sceneFile):
+        super().__init__()
+
         assert isinstance(sceneFile, FilePath)
         Scene.cache[sceneFile] = self
         self.__w = 0
@@ -327,7 +331,6 @@ class Scene(object):
         self.frameBuffers = []
         self.colorBuffers = []
         self.profileLog = []
-        self.profileInfoChanged = Signal()
 
         self.__filePath = sceneFile
         self.fileSystemWatcher_scene = FileSystemWatcher()

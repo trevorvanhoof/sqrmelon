@@ -40,7 +40,7 @@ def rotateVec3(v: _Vec3, a: tuple[float, float]) -> _Vec3:
             v[0] * m[2] + v[1] * m[5] + v[2] * m[8])
 
 
-class Vec2(object):
+class Vec2:
     def __init__(self, x: Union[Vec2, float], y: Optional[float] = None):
         if isinstance(x, Vec2):
             self.data = [x.x, x.y]

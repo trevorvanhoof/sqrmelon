@@ -30,7 +30,7 @@ class Camera(QWidget):
                 Qt.Key_Home: (0.0, 0.0, -1.0),
                 Qt.Key_End: (0.0, 0.0, 1.0)}
 
-    cameraChanged = pyqtSignal()
+    cameraChanged = Signal()
 
     def __init__(self, animator, animationEditor, timer):
         super(Camera, self).__init__()
