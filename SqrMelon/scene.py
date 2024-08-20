@@ -49,11 +49,11 @@ class TexturePool:
             print('Warning, could not load texture %s.' % fullName)
             TexturePool.__cache[key] = 0  # no texture
             return 0
-        img = QGLWidget.convertToGLFormat(img)
+        # TODO: Check if we need to flip vertically too?
+        img.convertTo(QImage.Format.Format_RGBA8888)
         tex = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                     ctypes.c_void_p(int(img.bits())))
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, ctypes.c_void_p(int(img.bits())))
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         TexturePool.__cache[key] = tex

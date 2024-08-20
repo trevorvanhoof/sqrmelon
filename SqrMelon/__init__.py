@@ -250,7 +250,7 @@ class App(QMainWindowState):
         layout.addWidget(ok, 2, 0)
         layout.addWidget(cancel, 2, 1)
         diag.exec_()
-        if diag.result() != QDialog.Accepted:
+        if diag.result() != QDialog.DialogCode.Accepted:
             return
         gSettings.setValue('RecordFPS', fps.currentIndex())
         gSettings.setValue('RecordResolution', resolution.currentIndex())
@@ -305,7 +305,9 @@ class App(QMainWindowState):
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data)
 
             captureDir = currentProjectDirectory().join('capture')
-            QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888).mirrored(False, True).save(captureDir.join('dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT)))
+            img = QImage(data, WIDTH, HEIGHT, QImage.Format_RGB888)
+            img.mirror(False, True)
+            img.save(captureDir.join('dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT)))
         progress.close()
 
         convertCaptureDir = currentProjectDirectory().join('convertcapture')

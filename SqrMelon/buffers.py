@@ -1,9 +1,9 @@
 """
 Utility that wraps OpenGL textures, frame buffers and render buffers.
 """
-from pycompat import *
 import contextlib
 from OpenGL.GL import *
+from qtutil import QImage
 
 
 class Texture:
@@ -110,7 +110,7 @@ class Texture:
     def height(self):
         return self._height
 
-    def save(self, filePath, ch=None):
+    def save(self, filePath):
         self.use()
         if filePath.hasExt('.r32'):
             import struct
@@ -121,21 +121,12 @@ class Texture:
             with filePath.edit(flag='wb') as fh:
                 fh.write(struct.pack('%sf' % pixels, *buffer))
             return
-        from qtutil import QImage, qt_wrapper
         pixels = self._width * self._height
         buffer = (ctypes.c_ubyte * (pixels * 4))()
-        mirror = (ctypes.c_ubyte * (pixels * 4))()
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
-        for y in range(self._height):
-            for x in range(self._width):
-                y2 = self._height -1 - y
-                i = (x + y * self._width) * 4
-                i2 = (x + y2 * self._width) * 4
-                if ch is None:
-                    mirror[i2:i2 + 4] = (buffer[i + 2], buffer[i + 1], buffer[i], buffer[i + 3])
-                else:
-                    mirror[i2:i2 + 4] = (buffer[i + ch], buffer[i + ch], buffer[i + ch], 255)
-        QImage(mirror, self._width, self._height, QImage.Format_ARGB32).save(filePath)
+        img = QImage(buffer, self._width, self._height, QImage.Format.Format_RGBA8888)
+        img.mirror(False, True)
+        img.save(filePath)
 
 
 class Texture3D:
