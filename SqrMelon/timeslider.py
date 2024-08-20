@@ -1,13 +1,4 @@
-try:
-    # Python 2 support
-    import OSC
-    from OSC import OSCClientError
-except ImportError:
-    # Python 3 support
-    import pyOSC3 as OSC
-    from pyOSC3 import OSCClientError
-
-from audioLibs import createSong
+from audio import Song
 from qtutil import *
 import time
 from math import floor
@@ -17,7 +8,7 @@ import icons
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
 
 
-class OSCClient(object):
+class OSCClient:
     def __init__(self):
         self.__client = OSC.OSCClient()
         self.__client.connect(('127.0.0.1', 2223))
@@ -78,7 +69,7 @@ class OSCClient(object):
         self.__sendSilent(msg)
 
 
-class Timer(object):
+class Timer(QObject):
     minTimeChanged = Signal()
     startChanged = Signal()
     endChanged = Signal()
@@ -88,6 +79,8 @@ class Timer(object):
     bpmChanged = Signal()
 
     def __init__(self):
+        super().__init__()
+        
         self.__osc = OSCClient()
 
         self.__start = 0.0
@@ -320,7 +313,7 @@ class Timer(object):
 
 
 class TimeLine(QWidget):
-    valueChanged = pyqtSignal(float)
+    valueChanged = Signal(float)
 
     def __init__(self, timer, shotsManager):
         super(TimeLine, self).__init__()
@@ -723,7 +716,7 @@ class TimeSlider(QWidget):
                 if not path.hasExt(ext):
                     continue
                 try:
-                    song = createSong(path)
+                    song = Song(path)
                 except Exception as e:
                     print ('Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message)
                     return
