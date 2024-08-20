@@ -7,29 +7,26 @@ from util import gSettings
 from qtutil import *
 import os
 from buffers import *
-import sys
 
 
-def loadImage(filePath, tile=True):
+def loadImage(filePath: str, tile: bool = True) -> Texture:
     assert isinstance(filePath, FilePath)
     texId = glGenTextures(1)
     glBindTexture(GL_TEXTURE_2D, texId)
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-    tex = QGLWidget.convertToGLFormat(QImage(filePath))
-    if sys.version_info.major == 3:
-        return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, tex.bits())
-    else:
-        return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, ctypes.c_void_p(int(tex.bits())))
+    img = QImage(filePath)
+    img = img.convertToFormat(QImage.Format.Format_RGBA8888)
+    return Texture(Texture.RGBA8, img.width(), img.height(), tile, img.bits())
 
 
 class Overlays(QWidget):
     _overlayDir = FilePath(__file__).abs().parent()
     _overlayNames = ['None'] + list(sorted(os.path.splitext(x)[0] for x in _overlayDir.iter() if x.endswith('.png')))
-    _overlayCache = {}
+    _overlayCache: dict[int, Optional[Texture]] = {}
 
-    changed = pyqtSignal()
+    changed = Signal()
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Overlays, self).__init__()
         l = hlayout()
         self.setLayout(l)
@@ -45,7 +42,7 @@ class Overlays(QWidget):
         clr.valueChanged.connect(self.setOverlayColor)
         l.addWidget(clr)
 
-    def colorBuffer(self):
+    def colorBuffer(self) -> Optional[Texture]:
         idx = self.overlayIndex()
         if idx <= 0:
             return
@@ -59,28 +56,18 @@ class Overlays(QWidget):
         Overlays._overlayCache[idx] = img
         return img
 
-    def overlayIndex(self):
-        """
-        :rtype: int
-        """
+    @staticmethod
+    def overlayIndex() -> int:
         return gSettings.value('overlayIndex', 0)
 
-    def setOverlayIndex(self, index):
-        """
-        :type index: int
-        """
+    def setOverlayIndex(self, index: int) -> None:
         gSettings.setValue('overlayIndex', index)
         self.changed.emit()
 
-    def overlayColor(self):
-        """
-        :rtype: QColor
-        """
+    @staticmethod
+    def overlayColor() -> QColor:
         return QColor(gSettings.value('overlayColor', qRgba(255, 255, 255, 255)))
 
-    def setOverlayColor(self, color):
-        """
-        :type color: QColor
-        """
+    def setOverlayColor(self, color: QColor) -> None:
         gSettings.setValue('overlayColor', color.rgba())
         self.changed.emit()
