@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from audio import Song
 from qtutil import *
 import time
@@ -5,80 +7,61 @@ from math import floor
 from xml.etree import cElementTree
 
 import icons
+from shots import Shot, ShotManager
 from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
+
+from pythonosc import udp_client
 
 
 class OSCClient:
-    def __init__(self):
-        self.__client = OSC.OSCClient()
-        self.__client.connect(('127.0.0.1', 2223))
+    def __init__(self) -> None:
+        self.__client = udp_client.SimpleUDPClient('127.0.0.1', 2223)
         self.__isPlaying = False
 
-    def __del__(self):
-        self.__client.close()
+    def __del__(self) -> None:
+        self.__client._sock.close()
 
-    def __sendSilent(self, msg):
+    def __sendSilent(self, msg: str, *args: Any) -> None:
         # silently ignore any failure while sending
         try:
-            self.__client.send(msg)
-        except OSCClientError:
+            self.__client.send_message(msg, *args)
+        except:
             return
 
-    def setPosition(self, time):
+    def setPosition(self, beats: float) -> None:
         if self.__isPlaying:
             return
-        msg = OSC.OSCMessage()
-        msg.setAddress('/position')
-        msg.append(time)
-        self.__sendSilent(msg)
+        self.__sendSilent('/position', beats)
 
-    def setBpm(self, bpm):
-        msg = OSC.OSCMessage()
-        msg.setAddress('/bpm')
-        msg.append(bpm)
-        self.__sendSilent(msg)
+    def setBpm(self, bpm: int) -> None:
+        self.__sendSilent('/bpm', bpm)
 
-    def play(self):
-        msg = OSC.OSCMessage()
-        msg.setAddress('/play')
-        msg.append(1)
-        self.__sendSilent(msg)
+    def play(self) -> None:
+        self.__sendSilent('/play', 1)
         self.__isPlaying = True
 
-    def pause(self):
-        msg = OSC.OSCMessage()
-        msg.setAddress('/play')
-        msg.append(0)
-        self.__sendSilent(msg)
+    def pause(self) -> None:
+        self.__sendSilent('/play', 0)
         self.__isPlaying = False
 
-    def scrub(self, state):
-        msg = OSC.OSCMessage()
-        msg.setAddress('/scrub')
-        msg.append(state)
-        self.__sendSilent(msg)
+    def scrub(self, state: int) -> None:
+        self.__sendSilent('/scrub', state)
 
-    def loop(self, start, end):
-        msg = OSC.OSCMessage()
-        msg.setAddress('/loopstart')
-        msg.append(start)
-        self.__sendSilent(msg)
-        msg = OSC.OSCMessage()
-        msg.setAddress('/looplength')
-        msg.append(end - start)
-        self.__sendSilent(msg)
+    def loop(self, start: float, end: float) -> None:
+        self.__sendSilent('/loopstart', start)
+        self.__sendSilent('/looplength', end - start)
 
 
 class Timer(QObject):
-    minTimeChanged = Signal()
-    startChanged = Signal()
-    endChanged = Signal()
-    maxTimeChanged = Signal()
-    timeChanged = Signal()
-    timeLooped = Signal()
-    bpmChanged = Signal()
+    minTimeChanged = Signal(float)
+    startChanged = Signal(float)
+    endChanged = Signal(float)
+    maxTimeChanged = Signal(float)
+    timeChanged = Signal(float)
+    timeLooped = Signal(float)
+    bpmChanged = Signal(float)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         
         self.__osc = OSCClient()
@@ -102,36 +85,36 @@ class Timer(QObject):
         self.__timer.timeout.connect(self.__tick)
         self.__prevTime = None
 
-    def __oscSetLoopRange(self, *args):
+    def __oscSetLoopRange(self, *_) -> None:
         self.__osc.loop(self.__start, self.__end)
 
-    def oscScrub(self, state):
+    def oscScrub(self, state: int) -> None:
         self.__osc.scrub(state)
 
     @property
-    def bpm(self):
+    def bpm(self) -> float:
         return self.__BPS * 60.0
 
     @bpm.setter
-    def bpm(self, bpm):
+    def bpm(self, bpm: float) -> None:
         self.__BPS = bpm / 60.0
         self.bpmChanged.emit(bpm)
 
-    def setBpm(self, bpm):
+    def setBpm(self, bpm: float) -> None:
         self.__BPS = bpm / 60.0
         self.__osc.setBpm(int(bpm))
         self.bpmChanged.emit(bpm)
 
-    def secondsToBeats(self, seconds):
+    def secondsToBeats(self, seconds: float) -> float:
         return seconds * self.__BPS
 
-    def beatsToSeconds(self, beats):
+    def beatsToSeconds(self, beats: float) -> float:
         return beats / self.__BPS
 
-    def kick(self):
+    def kick(self) -> None:
         self.timeChanged.emit(self.time)
 
-    def projectOpened(self):
+    def projectOpened(self) -> None:
         self.start = float(gSettings.value('TimerStartTime', 0.0))
         endTime = float(gSettings.value('TimerEndTime', 8.0))
         self.time = float(gSettings.value('TimerTime', 0.0))
@@ -164,7 +147,7 @@ class Timer(QObject):
         self.__osc.setBpm(int(round(self.__BPS * 60)))
         self.bpmChanged.emit(self.__BPS * 60.0)
 
-    def saveState(self):
+    def saveState(self) -> None:
         gSettings.setValue('TimerStartTime', self.__start)
         gSettings.setValue('TimerEndTime', self.__end)
         gSettings.setValue('TimerTime', self.__time)
@@ -183,16 +166,16 @@ class Timer(QObject):
         with project.edit() as fh:
             fh.write(toPrettyXml(root))
 
-    def goToStart(self):
+    def goToStart(self) -> None:
         self.time = self.__start
 
-    def stepBack(self):
+    def stepBack(self) -> None:
         if self.time - 1.0 < self.__start:
             self.time = self.__end
         else:
             self.time -= 1.0
 
-    def __tick(self):
+    def __tick(self) -> None:
         if self.__prevTime is None:
             self.__prevTime = time.time()
             return
@@ -209,10 +192,10 @@ class Timer(QObject):
         if loop != 0:
             self.timeLooped.emit(self.time)
 
-    def isPlaying(self):
+    def isPlaying(self) -> None:
         return self.__timer.isActive()
 
-    def playPause(self):
+    def playPause(self) -> None:
         if self.__timer.isActive():
             self.__prevTime = None
             self.__timer.stop()
@@ -221,101 +204,101 @@ class Timer(QObject):
             self.__timer.start(1.0 / 60.0)
             self.__osc.play()
 
-    def stepNext(self):
+    def stepNext(self) -> None:
         if self.time + 1.0 > self.__end:
             self.time = self.__start
         else:
             self.time += 1.0
 
-    def goToEnd(self):
+    def goToEnd(self) -> None:
         self.__time = self.__end
 
     @property
-    def minTime(self):
+    def minTime(self) -> float:
         return self.__minTime
 
     @property
-    def start(self):
+    def start(self) -> float:
         return self.__start
 
     @property
-    def end(self):
+    def end(self) -> float:
         return self.__end
 
     @property
-    def maxTime(self):
+    def maxTime(self) -> float:
         return self.__maxTime
 
     @property
-    def time(self):
+    def time(self) -> float:
         return self.__time
 
     @minTime.setter
-    def minTime(self, value):
+    def minTime(self, value: float) -> None:
         if self.__minTime == value: return
         self.__minTime = value
         self.minTimeChanged.emit(value)
 
     @start.setter
-    def start(self, value):
+    def start(self, value: float) -> None:
         if self.__start == value: return
         self.__start = value
         self.startChanged.emit(value)
 
     @end.setter
-    def end(self, value):
+    def end(self, value: float) -> None:
         if self.__end == value: return
         self.__end = value
         self.endChanged.emit(value)
 
     @maxTime.setter
-    def maxTime(self, value):
+    def maxTime(self, value: float) -> None:
         if self.__maxTime == value: return
         self.__maxTime = value
         self.maxTimeChanged.emit(value)
 
     @time.setter
-    def time(self, value):
+    def time(self, value: float) -> None:
         if self.__time == value: return
         self.__time = value
         self.timeChanged.emit(value)
 
-    def setMinTime(self, value):
+    def setMinTime(self, value: float) -> None:
         self.minTime = value
         clamped = max(self.__start, self.__minTime)
         if clamped != self.__start:
             self.__start = clamped
             self.startChanged.emit(value)
 
-    def setStart(self, value):
+    def setStart(self, value: float) -> None:
         self.start = value
         clamped = min(self.__minTime, self.__start)
         if clamped != self.__minTime:
             self.__minTime = clamped
             self.minTimeChanged.emit(value)
 
-    def setEnd(self, value):
+    def setEnd(self, value: float) -> None:
         self.end = value
         clamped = max(self.__maxTime, self.__end)
         if clamped != self.__maxTime:
             self.__maxTime = clamped
             self.maxTimeChanged.emit(value)
 
-    def setMaxTime(self, value):
+    def setMaxTime(self, value: float) -> None:
         self.maxTime = value
         clamped = min(self.__end, self.__maxTime)
         if clamped != self.__end:
             self.__end = clamped
             self.endChanged.emit(value)
 
-    def setTime(self, value):
+    def setTime(self, value: float) -> None:
         self.time = value
 
 
 class TimeLine(QWidget):
     valueChanged = Signal(float)
 
-    def __init__(self, timer, shotsManager):
+    def __init__(self, timer: Timer, shotsManager: ShotManager) -> None:
         super(TimeLine, self).__init__()
         self.__shotsManager = shotsManager
         timer.startChanged.connect(self.__onRepaint)
@@ -324,15 +307,15 @@ class TimeLine(QWidget):
         self.__timer = timer
         self.setMinimumWidth(128)
 
-    def __onRepaint(self, *args):
+    def __onRepaint(self, *_) -> None:
         self.repaint()
 
-    def _selectTime(self, x):
+    def _selectTime(self, x: float) -> None:
         x = min(max(x / float(self.width()), 0.0), 1.0)
         self.__timer.time = x * (self.__timer.end - self.__timer.start) + self.__timer.start
         self.valueChanged.emit(self.__timer.time)
 
-    def __shotGeometry(self):
+    def __shotGeometry(self) -> Iterable[tuple[int, Shot, QRect]]:
         dt = float(self.__timer.end - self.__timer.start)
         if dt:
             normalizeFactor = 1.0 / dt
@@ -349,7 +332,7 @@ class TimeLine(QWidget):
             r = QRect(QPoint(paramStart * visibleWidth, 4), QPoint(paramEnd * visibleWidth, 17))
             yield i, shot, r
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
             # not moving time, just trying to select a shot
             for i, shot, r in self.__shotGeometry():
@@ -360,17 +343,17 @@ class TimeLine(QWidget):
         self.__timer.oscScrub(1)
         self._selectTime(event.x())
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
             return
         self._selectTime(event.x())
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
             return
         self.__timer.oscScrub(0)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
 
         painter.fillRect(QRect(QPoint(0, 4), self.size() - QSize(1, 10)), QColor.fromRgb(210, 210, 210))
@@ -402,7 +385,7 @@ class TimeLine(QWidget):
 class RangeSlider(QWidget):
     HANDLE_SIZE = 24
 
-    def __init__(self, timer):
+    def __init__(self, timer: Timer) -> None:
         super(RangeSlider, self).__init__()
         timer.minTimeChanged.connect(self.__onRepaint)
         timer.maxTimeChanged.connect(self.__onRepaint)
@@ -412,10 +395,10 @@ class RangeSlider(QWidget):
         self.__drag = None
         self.setMinimumWidth(RangeSlider.HANDLE_SIZE * 6)
 
-    def __onRepaint(self, *args):
+    def __onRepaint(self, *_) -> None:
         self.repaint()
 
-    def _handleRects(self):
+    def _handleRects(self) -> tuple[QRect, QRect, QRect]:
         w = self.width() - RangeSlider.HANDLE_SIZE * 2 - 1
         sx = (self.__timer.start - self.__timer.minTime) / float(self.__timer.maxTime - self.__timer.minTime)
         ex = (self.__timer.end - self.__timer.minTime) / float(self.__timer.maxTime - self.__timer.minTime)
@@ -426,7 +409,7 @@ class RangeSlider(QWidget):
                 QRect(QPoint(ex + RangeSlider.HANDLE_SIZE, 0), QSize(RangeSlider.HANDLE_SIZE, self.height() - 1)),
                 QRect(QPoint(sx + RangeSlider.HANDLE_SIZE, 0), QSize(ex - sx, self.height() - 1)))
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         left, right, both = self._handleRects()
         left = left.contains(event.pos())
         right = right.contains(event.pos())
@@ -437,7 +420,7 @@ class RangeSlider(QWidget):
             return
         self.__drag = left, right, event.x(), self.__timer.start, self.__timer.end
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         EPSILON = 0.01  # avoid division by 0
         if self.__drag is None:
             return
@@ -453,16 +436,16 @@ class RangeSlider(QWidget):
         elif self.__drag[1]:
             self.__timer.end = min(max(self.__drag[4] + delta, self.__timer.start + EPSILON), self.__timer.maxTime)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self.__drag = None
 
-    def _drawGrip(self, painter, rect):
+    def _drawGrip(self, painter: QPainter, rect: QRect) -> None:
         painter.setPen(QColor.fromRgb(148, 148, 148))
         painter.drawLine(rect.center().x() - 2, rect.top() + 4, rect.center().x() - 2, rect.bottom() - 3)
         painter.drawLine(rect.center().x(), rect.top() + 4, rect.center().x(), rect.bottom() - 3)
         painter.drawLine(rect.center().x() + 2, rect.top() + 4, rect.center().x() + 2, rect.bottom() - 3)
 
-    def _drawButton(self, painter, rect, baseColor, alwaysDrawGrip):
+    def _drawButton(self, painter: QPainter, rect: QRect, baseColor: QColor, alwaysDrawGrip: bool) -> None:
         painter.fillRect(rect, baseColor)
         painter.setPen(QColor.fromRgb(255, 255, 255))
         painter.drawLine(rect.left() + 1, rect.top() + 1, rect.right() - 1, rect.top() + 1)
@@ -474,7 +457,7 @@ class RangeSlider(QWidget):
         if alwaysDrawGrip or rect.width() > 32:
             self._drawGrip(painter, rect)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.fillRect(QRect(QPoint(0, 4), self.size() - QSize(1, 10)), QColor.fromRgb(210, 210, 210))
         rects = self._handleRects()
@@ -483,21 +466,21 @@ class RangeSlider(QWidget):
         self._drawButton(painter, rects[2], QColor.fromRgb(180, 180, 180), False)
 
 
-def muteState():
+def muteState() -> bool:
     return gSettings.value('mute', 'False') == 'True'
 
 
-def setMuteState(state):
+def setMuteState(state: bool) -> None:
     gSettings.setValue('mute', str(bool(state)))
 
 
 class TimestampDisplay(QLabel):
-    def __init__(self, timer):
+    def __init__(self, timer: Timer) -> None:
         super(TimestampDisplay, self).__init__()
         self.__timer = timer
         self.update()
 
-    def update(self, *args):
+    def update(self, *_) -> None:
         beat = self.__timer.time
         minute = int(beat / self.__timer.bpm)
         second = int(((beat * 60) / self.__timer.bpm) % 60)
@@ -506,7 +489,7 @@ class TimestampDisplay(QLabel):
 
 
 class BPMInput(QWidget):
-    def __init__(self, bpm):
+    def __init__(self, bpm: float) -> None:
         super(BPMInput, self).__init__()
         bpm = round(bpm, 2)
         self._spinBox = DoubleSpinBox(bpm)
@@ -517,20 +500,20 @@ class BPMInput(QWidget):
         self._spinBox.hide()
         self._spinBox.editingFinished.connect(self.disable)
 
-    def spinBox(self):
+    def spinBox(self) -> DoubleSpinBox:
         return self._spinBox
 
-    def setValueSilent(self, bpm):
+    def setValueSilent(self, bpm: float) -> None:
         bpm = round(bpm, 2)
         self._spinBox.setValueSilent(bpm)
         self._label.setText('%s BPM' % bpm)
 
-    def disable(self):
+    def disable(self) -> None:
         self._label.show()
         self._label.setText('%s BPM' % self._spinBox.value())
         self._spinBox.hide()
 
-    def mouseDoubleClickEvent(self, *args, **kwargs):
+    def mouseDoubleClickEvent(self, *_, **__) -> None:
         self._spinBox.show()
         self._spinBox.setFocus(Qt.MouseFocusReason)
         self._spinBox.selectAll()
@@ -538,14 +521,14 @@ class BPMInput(QWidget):
 
 
 class TimeSlider(QWidget):
-    def __init__(self, timer, shotsManager):
+    def __init__(self, timer: Timer, shotsManager: ShotManager):
         super(TimeSlider, self).__init__()
 
         main = vlayout()
         self.setLayout(main)
 
-        self.__soundtrack = None
-        self.__soundtrackPath = None
+        self.__soundtrack: Optional[Song] = None
+        self.__soundtrackPath: Optional[str] = None
 
         layout = hlayout()
         main.addLayout(layout)
@@ -690,7 +673,7 @@ class TimeSlider(QWidget):
         timer.timeLooped.connect(self.__seekSoundtrack)
         timeline.valueChanged.connect(self.__seekSoundtrack)
 
-    def __togglePlayPause(self):
+    def __togglePlayPause(self) -> None:
         if self.__playPause.toolTip() == 'Play':
             self.__playPause.setIcon(icons.get('Pause-48'))
             self.__playPause.setToolTip('Pause')
@@ -702,7 +685,7 @@ class TimeSlider(QWidget):
             self.__playPause.setStatusTip('Play')
             self.__stopSoundtrack()
 
-    def __initSoundtrack(self):
+    def __initSoundtrack(self) -> Optional[Song]:
         if muteState():
             return
 
@@ -718,7 +701,7 @@ class TimeSlider(QWidget):
                 try:
                     song = Song(path)
                 except Exception as e:
-                    print ('Found a soundtrack that we could not play. pyglet or mp3 libs missing?\n%s' % e.message)
+                    print(f'Found a soundtrack that we could not play.\n{e}')
                     return
                 break
             if song:
@@ -730,23 +713,23 @@ class TimeSlider(QWidget):
         self.__soundtrack = song
         return self.__soundtrack
 
-    def __seekSoundtrack(self, time):
+    def __seekSoundtrack(self, beats: float) -> None:
         if self.__playPause.toolTip() == 'Play':
             # no need to seek when not playing
             # self.__stopSoundtrack()
             return
         if self.__initSoundtrack():
-            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(time))
+            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(beats))
 
-    def __playSoundtrack(self):
+    def __playSoundtrack(self) -> None:
         if self.__initSoundtrack():
             self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(self.__timer.time))
 
-    def __stopSoundtrack(self):
+    def __stopSoundtrack(self) -> None:
         if self.__soundtrack:
             self.__soundtrack.stop()
 
-    def __toggleMute(self):
+    def __toggleMute(self) -> None:
         isMuted = not muteState()
         setMuteState(isMuted)
 
@@ -762,5 +745,5 @@ class TimeSlider(QWidget):
             else:
                 self.__soundtrack.stop()
 
-    def soundtrackPath(self):
+    def soundtrackPath(self) -> Optional[str]:
         return self.__soundtrackPath
