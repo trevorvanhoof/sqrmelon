@@ -1,15 +1,27 @@
 """
 Widget that manages & displays the list of scenes and editable shader sections in each scene.
 """
-from util import *
-import icons
+from __future__ import annotations
 import os
+from typing import Optional, Sequence, TYPE_CHECKING
+
 from send2trash import send2trash
-from multiplatformutil import selectInFileBrowser, openFileWithDefaultApplication
+
+import icons
+from fileutil import FilePath
+from multiplatformutil import openFileWithDefaultApplication, selectInFileBrowser
+from projutil import currentScenesDirectory, iterSceneNames, iterTemplateNames, SCENE_EXT, sectionPathsFromScene, sharedPathsFromTemplate, templateFileFromName, templateFolderFromName
+from qt import *
+from qtutil import hlayout, vlayout
+from xmlutil import parseXMLWithIncludes
+
+if TYPE_CHECKING:
+    from shots import ShotManager
 
 
 class MimeDataItemModel(QStandardItemModel):
-    def mimeData(self, modelIndices):
+    # noinspection PyMethodOverriding
+    def mimeData(self, modelIndices: Sequence[QModelIndex]) -> QMimeData:
         data = []
         for index in modelIndices:
             if index.isValid():
@@ -23,10 +35,10 @@ class SceneList(QWidget):
     currentChanged = Signal(QStandardItem)
     requestCreateShot = Signal(str)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(SceneList, self).__init__()
 
-        self.__shotsManager = None
+        self.__shotsManager: Optional[ShotManager] = None
 
         main = vlayout()
         self.setLayout(main)
@@ -52,12 +64,12 @@ class SceneList(QWidget):
         self.view = QTreeView()
         self.view.setModel(self.__model)
         self.view.activated.connect(self.__onOpenFile)
-        self.view.setEditTriggers(self.view.NoEditTriggers)
+        self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         main.addWidget(self.view)
         main.setStretch(1, 1)
         self.view.selectionModel().currentChanged.connect(self.__onCurrentChanged)
 
-        self.view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self.__contextMenu)
         self.contextMenu = QMenu()
         action = self.contextMenu.addAction('Show in explorer')
@@ -66,13 +78,13 @@ class SceneList(QWidget):
         action.triggered.connect(self.__createShot)
         self.__contextMenuItem = None
 
-    def selectSceneWithName(self, name):
-        items = self.view.model().findItems(name)
+    def selectSceneWithName(self, name: str) -> None:
+        items = self.__model.findItems(name)
         if items:
             self.view.setExpanded(items[0].index(), True)
-            self.view.selectionModel().select(items[0].index(), QItemSelectionModel.ClearAndSelect)
+            self.view.selectionModel().select(items[0].index(), QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
-    def __showInExplorer(self):
+    def __showInExplorer(self) -> None:
         if self.__contextMenuItem is None:
             return
         data = self.__contextMenuItem.data()
@@ -84,13 +96,13 @@ class SceneList(QWidget):
             return
         selectInFileBrowser(data)
 
-    def __createShot(self):
+    def __createShot(self) -> None:
         for idx in self.view.selectionModel().selectedIndexes():
             item = self.view.model().itemFromIndex(idx)
             self.requestCreateShot.emit(item.text())
             return
 
-    def __contextMenu(self, pos):
+    def __contextMenu(self, pos: QPoint) -> None:
         index = self.view.indexAt(pos)
         if not index.isValid():
             return
@@ -98,32 +110,33 @@ class SceneList(QWidget):
         self.__contextMenuItem = item
         self.contextMenu.popup(self.view.mapToGlobal(pos))
 
-    def setShotsManager(self, manager):
+    def setShotsManager(self, manager: ShotManager) -> None:
         self.__shotsManager = manager
 
-    def __onOpenFile(self, current):
+    def __onOpenFile(self, current: QModelIndex) -> None:
         if not current.parent().isValid():
             return
         path = FilePath(self.view.model().itemFromIndex(current).data())
         openFileWithDefaultApplication(path)
 
-    def __onCurrentChanged(self, current, __):
+    def __onCurrentChanged(self, current: QModelIndex, __) -> None:
         if not current.parent().isValid():
             self.currentChanged.emit(self.view.model().itemFromIndex(current))
 
     @property
-    def model(self):
+    def model(self) -> QStandardItemModel:
         return self.view.model()
 
-    def projectOpened(self):
+    def projectOpened(self) -> None:
         self.setEnabled(True)
         self.clear()
         self.initShared()
         for scene in iterSceneNames():
             self.appendSceneItem(scene)
 
-    def __onDeleteScene(self):
-        if QMessageBox.warning(self, 'Deleting scene', 'This action is not undoable! Continue?', QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
+    def __onDeleteScene(self) -> None:
+        if QMessageBox.warning(self, 'Deleting scene', 'This action is not undoable! Continue?',
+                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
         rows = []
         for idx in self.view.selectionModel().selectedIndexes():
@@ -139,7 +152,7 @@ class SceneList(QWidget):
         for row in rows[::-1]:
             self.view.model().removeRow(row)
 
-    def __onAddScene(self):
+    def __onAddScene(self) -> None:
         # request user for a template if there are multiple options
         templates = list(iterTemplateNames())
 
@@ -169,7 +182,7 @@ class SceneList(QWidget):
             return
 
         if outDir.exists():
-            if QMessageBox.Cancel == QMessageBox.warning(self, 'Scene not empty', 'A folder with name "%s" already exists. Create scene anyways?' % name[0], QMessageBox.Ok | QMessageBox.Cancel):
+            if QMessageBox.StandardButton.Cancel == QMessageBox.warning(self, 'Scene not empty', 'A folder with name "%s" already exists. Create scene anyways?' % name[0], QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel):
                 return
         else:
             outDir.ensureExists(True)
@@ -192,7 +205,7 @@ class SceneList(QWidget):
 
         self.appendSceneItem(name[0])
 
-    def initShared(self):
+    def initShared(self) -> None:
         for templateName in iterTemplateNames():
             item = QStandardItem(':' + templateName)
 
@@ -200,7 +213,7 @@ class SceneList(QWidget):
             sharedPaths = set(sharedPathsFromTemplate(templateName))
 
             # order alphabetically (case insensitive)
-            sharedPaths = sorted(sharedPaths, key=lambda path: path.name().lower())
+            sharedPaths = sorted(sharedPaths, key=lambda pth: pth.name().lower())
 
             # add to model
             for path in sharedPaths:
@@ -211,7 +224,7 @@ class SceneList(QWidget):
             if item.rowCount():
                 self.view.model().appendRow(item)
 
-    def appendSceneItem(self, sceneName):
+    def appendSceneItem(self, sceneName: str) -> None:
         item = QStandardItem(sceneName)
         self.view.model().appendRow(item)
 
@@ -219,7 +232,7 @@ class SceneList(QWidget):
         sectionPaths = set(sectionPathsFromScene(sceneName))
 
         # order alphabetically (case insensitive)
-        sectionPaths = sorted(sectionPaths, key=lambda path: path.name().lower())
+        sectionPaths = sorted(sectionPaths, key=lambda pth: pth.name().lower())
 
         # add to model
         for path in sectionPaths:
@@ -227,5 +240,5 @@ class SceneList(QWidget):
             sub.setData(path)
             item.appendRow(sub)
 
-    def clear(self):
+    def clear(self) -> None:
         self.view.model().clear()

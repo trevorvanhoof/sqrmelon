@@ -1,37 +1,40 @@
-from projutil import currentProjectFilePath, currentScenesDirectory, currentTemplatesDirectory, iterSceneNames, SCENE_EXT
-from qtutil import *
-import icons
-from fileutil import FilePath
-from textures import TextureManager
-from animationgraph.curvedata import Curve, Key
-from collections import OrderedDict
-from scene import Scene
+from __future__ import annotations
+
+from typing import Iterable, Optional, Union
 from xml.etree import cElementTree
+
+import icons
+from animationgraph.curvedata import Curve, Key
+from fileutil import FilePath
+from projutil import currentProjectFilePath, currentScenesDirectory, currentTemplatesDirectory, iterSceneNames, SCENE_EXT
+from qt import *
+from qtutil import DoubleSpinBox, hlayout, vlayout
+from scene import Scene
+from textures import TextureManager
 from util import randomColor
 from xmlutil import parseXMLWithIncludes, toPrettyXml
 
 
-def readChannelTemplates():
+def readChannelTemplates() -> dict[str, dict[str, Curve]]:
     templatesDir = currentTemplatesDirectory()
     channelTemplates = templatesDir.join('uniforms.xml')
-    result = OrderedDict()
+    result = {}
 
     # legacy fallback
     if not channelTemplates.exists():
-        curves = OrderedDict()
-        curves['uOrigin.x'] = Curve()
-        curves['uOrigin.y'] = Curve()
-        curves['uOrigin.z'] = Curve()
-        curves['uAngles.x'] = Curve()
-        curves['uAngles.y'] = Curve()
-        curves['uAngles.z'] = Curve()
+        curves = {'uOrigin.x': Curve(),
+                  'uOrigin.y': Curve(),
+                  'uOrigin.z': Curve(),
+                  'uAngles.x': Curve(),
+                  'uAngles.y': Curve(),
+                  'uAngles.z': Curve()}
         result['default'] = curves
         return result
 
     xRoot = parseXMLWithIncludes(channelTemplates)
     for xTemplate in xRoot:
         name = xTemplate.attrib['name']
-        curves = OrderedDict()
+        curves = {}
         result[name] = curves
         for xChannel in xTemplate:
             curve = Curve()
@@ -42,7 +45,10 @@ def readChannelTemplates():
 
 
 class Shot:
-    def __init__(self, name, sceneName, start=0.0, end=1.0, curves=None, textures=None, speed=1.0, preroll=0.0):
+    def __init__(self, name: str, sceneName: str, start: float = 0.0, end: float = 1.0,
+                 curves: Optional[dict[str, Curve]] = None,
+                 textures: Optional[dict[str, FilePath]] = None,
+                 speed: float = 1.0, preroll: float = 0.0) -> None:
         self.items = [QStandardItem(name),
                       QStandardItem(sceneName),
                       QStandardItem(str(start)),
@@ -50,21 +56,20 @@ class Shot:
                       QStandardItem(str(end - start)),
                       QStandardItem(str(speed)),
                       QStandardItem(str(preroll))]
-        self.curves = curves or OrderedDict()
-        assert isinstance(self.curves, OrderedDict)
-        self.textures = textures or OrderedDict()
+        self.curves = curves or {}
+        self.textures = textures or {}
         self.color = QColor.fromRgb(*randomColor())
-        self.items[0].setData(self, Qt.UserRole + 1)
+        self.items[0].setData(self, Qt.ItemDataRole.UserRole + 1)
         self._enabled = True
         self._pinned = False
         self.items[0].setIcon(icons.get('Checked Checkbox-48'))
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self._enabled
 
     @enabled.setter
-    def enabled(self, value):
+    def enabled(self, value: bool) -> None:
         self._enabled = value
         self.pinned = False
         if not value:
@@ -73,11 +78,11 @@ class Shot:
             self.items[0].setIcon(icons.get('Checked Checkbox-48'))
 
     @property
-    def pinned(self):
+    def pinned(self) -> bool:
         return self._pinned
 
     @pinned.setter
-    def pinned(self, value):
+    def pinned(self, value: bool) -> None:
         if value:
             self.enabled = True
         self._pinned = value
@@ -89,7 +94,7 @@ class Shot:
             else:
                 self.items[0].setIcon(icons.get('Checked Checkbox-48'))
 
-    def evaluate(self, time):
+    def evaluate(self, time: float) -> dict[str, Union[float, list[float]]]:
         time -= self.start
         time *= self.speed
         time -= self.preroll
@@ -106,25 +111,19 @@ class Shot:
                 assert name not in data
                 data[name] = value
         for name in data:
-            if data[name].__class__.__name__ == 'dict':
+            if isinstance(data[name], dict):
                 v = data[name]
                 if 'w' in v:
-                    data[name] = [v['x'],
-                                  v['y'],
-                                  v['z'],
-                                  v['w']]
+                    data[name] = [v['x'], v['y'], v['z'], v['w']]
                 elif 'z' in v:
-                    data[name] = [v['x'],
-                                  v['y'],
-                                  v['z']]
+                    data[name] = [v['x'], v['y'], v['z']]
                 elif 'y' in v:
-                    data[name] = [v['x'],
-                                  v['y']]
+                    data[name] = [v['x'], v['y']]
                 else:
                     data[name] = [v['x']]
         return data
 
-    def bake(self):
+    def bake(self) -> None:
         speed = self.speed
         start = self.start
         end = self.end
@@ -138,29 +137,29 @@ class Shot:
         self.speed = 1.0
         self.preroll = 0.0
 
-    def clone(self):
-        curves = OrderedDict()
+    def clone(self) -> Shot:
+        curves: dict[str, Curve] = {}
         for name in self.curves:
             curves[name] = self.curves[name].clone()
-        textures = OrderedDict()
+        textures: dict[str, FilePath] = {}
         for name in self.textures:
             textures[name] = self.textures[name]
         return Shot(self.name, self.sceneName, self.start, self.end, curves, textures, self.speed, self.preroll)
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.items[0].text()
 
     @property
-    def sceneName(self):
+    def sceneName(self) -> str:
         return self.items[1].text()
 
     @property
-    def start(self):
+    def start(self) -> float:
         return float(self.items[2].text())
 
     @start.setter
-    def start(self, value):
+    def start(self, value: float) -> None:
         strVal = str(value)
         if strVal == self.items[2].text():
             return
@@ -168,11 +167,11 @@ class Shot:
         self.end = value + self.duration
 
     @property
-    def end(self):
+    def end(self) -> float:
         return float(self.items[3].text())
 
     @end.setter
-    def end(self, value):
+    def end(self, value: float) -> None:
         strVal = str(value)
         if strVal == self.items[3].text():
             return
@@ -180,11 +179,11 @@ class Shot:
         self.duration = value - self.start
 
     @property
-    def duration(self):
+    def duration(self) -> float:
         return float(self.items[4].text())
 
     @duration.setter
-    def duration(self, value):
+    def duration(self, value: float) -> None:
         strVal = str(value)
         if strVal == self.items[4].text():
             return
@@ -192,22 +191,22 @@ class Shot:
         self.end = value + self.start
 
     @property
-    def speed(self):
+    def speed(self) -> float:
         return float(self.items[5].text())
 
     @speed.setter
-    def speed(self, value):
+    def speed(self, value: float) -> None:
         strVal = str(value)
         if strVal == self.items[5].text():
             return
         self.items[5].setText(strVal)
 
     @property
-    def preroll(self):
+    def preroll(self) -> float:
         return float(self.items[6].text())
 
     @preroll.setter
-    def preroll(self, value):
+    def preroll(self, value: float) -> None:
         strVal = str(value)
         if strVal == self.items[6].text():
             return
@@ -215,24 +214,28 @@ class Shot:
 
 
 class FloatItemDelegate(QItemDelegate):
-    def setEditorData(self, editorWidget, index):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.__editor = None
+
+    def setEditorData(self, editorWidget: DoubleSpinBox, index: QModelIndex) -> None:
         editorWidget.setValue(float(index.data()))
 
-    def setModelData(self, editorWidget, model, index):
+    def setModelData(self, editorWidget: DoubleSpinBox, model: QAbstractItemModel, index: QModelIndex) -> None:
         model.setData(index, str(editorWidget.value()))
 
-    def createEditor(self, parentWidget, styleOption, index):
+    def createEditor(self, parentWidget: QWidget, styleOption: QStyleOption, index: QModelIndex) -> DoubleSpinBox:
         self.__editor = DoubleSpinBox()
         self.__editor.setParent(parentWidget)
         self.__editor.editingFinished.connect(self.__commitAndCloseEditor)
         return self.__editor
 
-    def __commitAndCloseEditor(self):
+    def __commitAndCloseEditor(self) -> None:
         self.commitData.emit(self.__editor)
         self.closeEditor.emit(self.__editor, QAbstractItemDelegate.EndEditHint.NoHint)
 
 
-def _deserializeSceneShots(sceneName):
+def _deserializeSceneShots(sceneName: FilePath) -> Iterable[Shot]:
     sceneFile = currentScenesDirectory().join(sceneName.ensureExt(SCENE_EXT))
     xScene = parseXMLWithIncludes(sceneFile)
 
@@ -243,8 +246,8 @@ def _deserializeSceneShots(sceneName):
         speed = float(xShot.attrib.get('speed', 1.0))  # using get for legacy file support
         preroll = float(xShot.attrib.get('preroll', 0.0))
 
-        curves = OrderedDict()
-        textures = OrderedDict()
+        curves = {}
+        textures: dict[str, FilePath] = {}
         for xEntry in xShot:
             if xEntry.tag.lower() == 'channel':
                 curveName = xEntry.attrib['name']
@@ -266,7 +269,7 @@ def _deserializeSceneShots(sceneName):
         yield shot
 
 
-def _saveSceneShots(sceneName, shots):
+def _saveSceneShots(sceneName: FilePath, shots: Iterable[Shot]) -> None:
     sceneFile = currentScenesDirectory().join(sceneName.ensureExt(SCENE_EXT))
     xScene = parseXMLWithIncludes(sceneFile)
 
@@ -337,7 +340,7 @@ class ShotView(QTableView):
     shotsDisabled = Signal(list)
     findSceneRequest = Signal(str)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ShotView, self).__init__()
         self.__menu = QMenu()
         self.__menu.addAction(icons.get('Visible-48'), 'View').triggered.connect(self.__onViewShot)
@@ -349,49 +352,49 @@ class ShotView(QTableView):
         self.__menu.addAction(icons.get('Bake'), 'Bake preroll && speed').triggered.connect(self.__onBakeShot)
         self.__row = -1
 
-    def __onBakeShot(self):
+    def __onBakeShot(self) -> None:
         item = self.model().item(self.__row)
         item.text()
-        item.data(Qt.UserRole + 1).bake()
+        item.data(Qt.ItemDataRole.UserRole + 1).bake()
 
-    def __onManageTextures(self):
+    def __onManageTextures(self) -> None:
         item = self.model().item(self.__row)
-        TextureManager(item.data(Qt.UserRole + 1)).exec_()
+        TextureManager(item.data(Qt.ItemDataRole.UserRole + 1)).exec_()
 
-    def __onSelectScene(self):
+    def __onSelectScene(self) -> None:
         self.findSceneRequest.emit(str(self.model().item(self.__row, 1).text()))
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         self.__row = self.rowAt(event.y())
         if self.__row != -1:
             self.__menu.popup(self.mapToGlobal(event.pos()))
 
-    def __onViewShot(self):
+    def __onViewShot(self) -> None:
         self.viewShotAction.emit(float(self.model().item(self.__row, 2).text()),
                                  float(self.model().item(self.__row, 3).text()),
-                                 self.model().item(self.__row).data(Qt.UserRole + 1))
+                                 self.model().item(self.__row).data(Qt.ItemDataRole.UserRole + 1))
 
-    def onPinShot(self, row=None):
+    def onPinShot(self, row=None) -> None:
         item = self.model().item(self.__row if type(row) != int else row)
         if not item:
             return
-        self.shotsEnabled.emit([item.data(Qt.UserRole + 1)])
-        self.pinShotAction.emit(item.data(Qt.UserRole + 1))
+        self.shotsEnabled.emit([item.data(Qt.ItemDataRole.UserRole + 1)])
+        self.pinShotAction.emit(item.data(Qt.ItemDataRole.UserRole + 1))
 
-    def __onEnableShot(self):
+    def __onEnableShot(self) -> None:
         shots = []
         for index in self.selectionModel().selectedRows():
             item = self.model().item(index.row(), 0)
-            shot = item.data(Qt.UserRole + 1)
+            shot = item.data(Qt.ItemDataRole.UserRole + 1)
             shots.append(shot)
             shot.enabled = True
         self.shotsEnabled.emit(shots)
 
-    def __onDisableShot(self):
+    def __onDisableShot(self) -> None:
         shots = []
         for index in self.selectionModel().selectedRows():
             item = self.model().item(index.row(), 0)
-            shot = item.data(Qt.UserRole + 1)
+            shot = item.data(Qt.ItemDataRole.UserRole + 1)
             shots.append(shot)
             shot.enabled = False
             shot.pinned = False
@@ -399,7 +402,8 @@ class ShotView(QTableView):
 
 
 class ShotModel(QSortFilterProxyModel):
-    def lessThan(self, lhs, rhs):
+    # noinspection PyMethodOverriding
+    def lessThan(self, lhs: QModelIndex, rhs: QModelIndex) -> bool:
         lv = lhs.data()
         rv = rhs.data()
         try:
@@ -407,15 +411,16 @@ class ShotModel(QSortFilterProxyModel):
         except (ValueError, TypeError):
             return lv < rv
 
-    def item(self, row, col=0):
+    def item(self, row: int, col: int = 0) -> QStandardItem:
         return self.sourceModel().itemFromIndex(self.mapToSource(self.index(row, col)))
 
 
 class ShotItemModel(QStandardItemModel):
-    def flags(self, modelIndex):
+    # noinspection PyMethodOverriding
+    def flags(self, modelIndex: QModelIndex) -> Qt.ItemFlag:
         flags = super(ShotItemModel, self).flags(modelIndex)
         if modelIndex.column() == 1:
-            return flags & ~Qt.ItemIsEditable
+            return flags & ~Qt.ItemFlag.ItemIsEditable
         return flags
 
 
@@ -423,7 +428,7 @@ class ShotManager(QWidget):
     currentChanged = Signal(Shot)
     shotPinned = Signal(Shot)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ShotManager, self).__init__()
         mainLayout = vlayout()
         self.setLayout(mainLayout)
@@ -466,18 +471,18 @@ class ShotManager(QWidget):
         self.__model.setColumnCount(7)
         self.__model.setHorizontalHeaderLabels(['Name', 'Scene', 'Start', 'End', 'Duration', 'Speed', 'Preroll'])
         self.__table.setModel(shots)
-        self.__table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.__table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.__table.setSortingEnabled(True)
-        self.__table.sortByColumn(2, Qt.AscendingOrder)
+        self.__table.sortByColumn(2, Qt.SortOrder.AscendingOrder)
         self.__table.selectionModel().currentChanged.connect(self.__onCurrentChanged)
         self.__loadAllShots()
         # Duration changes end, start changes end, end changes duration.
         self.shotChanged.connect(self.__onPropagateShotChange)
 
-    def shotView(self):
+    def shotView(self) -> ShotView:
         return self.__table
 
-    def __onPropagateShotChange(self, changedItem):
+    def __onPropagateShotChange(self, changedItem: QStandardItem) -> None:
         col = changedItem.column()
         if col in (2, 3, 4):
             shot = self.__model.item(changedItem.row()).data()
@@ -489,19 +494,19 @@ class ShotManager(QWidget):
             elif col == 4:
                 shot.end = shot.start + value
 
-    def onPinShot(self, pinShot):
+    def onPinShot(self, pinShot: Shot) -> None:
         for shot in self.shots():
             shot.pinned = shot == pinShot
         self.shotPinned.emit(pinShot)
 
     @property
-    def shotChanged(self):
-        return self.__model.itemChanged
+    def shotChanged(self) -> SignalInstance:
+        return self.__model.itemChanged  # type: ignore
 
-    def shotAtTime(self, time):
+    def shotAtTime(self, time: float) -> Shot:
         candidate = None
         for row in range(self.__model.rowCount()):
-            shot = self.__model.item(row).data(Qt.UserRole + 1)
+            shot = self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1)
             if not shot.enabled:
                 continue
             if shot.pinned:
@@ -510,22 +515,22 @@ class ShotManager(QWidget):
                 candidate = shot
         return candidate
 
-    def additionalTextures(self, time):
+    def additionalTextures(self, time: float) -> dict[str, FilePath]:
         shot = self.shotAtTime(time)
         if not shot:
             return {}
         return shot.textures
 
-    def evaluate(self, time):
+    def evaluate(self, time: float) -> dict[str, Union[float, list[float]]]:
         shot = self.shotAtTime(time)
         if not shot:
             return {}
         return shot.evaluate(time)
 
-    def projectOpened(self):
+    def projectOpened(self) -> None:
         self.__loadAllShots()
 
-    def __loadAllShots(self):
+    def __loadAllShots(self) -> None:
         if currentProjectFilePath() is None:
             self.setEnabled(False)
             return
@@ -537,40 +542,40 @@ class ShotManager(QWidget):
             for shot in _deserializeSceneShots(sceneName):
                 self.__model.appendRow(shot.items)
 
-        self.__table.sortByColumn(2, Qt.AscendingOrder)
+        self.__table.sortByColumn(2, Qt.SortOrder.AscendingOrder)
 
-    def shots(self):
+    def shots(self) -> Iterable[Shot]:
         for row in range(self.__model.rowCount()):
-            shot = self.__model.item(row).data(Qt.UserRole + 1)
+            shot = self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1)
             yield shot
 
-    def selectShot(self, shot):
+    def selectShot(self, shot: Shot) -> None:
         idx = self.__table.model().mapFromSource(shot.items[0].index())
         self.__table.clearSelection()
         self.__table.selectRow(idx.row())
 
-    def saveAllShots(self):
+    def saveAllShots(self) -> None:
         for sceneName in iterSceneNames():
             _saveSceneShots(sceneName, self.shots())
 
-    def __onCurrentChanged(self, current, previous):
+    def __onCurrentChanged(self, current: QModelIndex, _) -> None:
         row = self.__table.model().mapToSource(current).row()
-        self.currentChanged.emit(self.__model.item(row).data(Qt.UserRole + 1))
+        self.currentChanged.emit(self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1))
 
-    def __selectedShots(self):
+    def __selectedShots(self) -> Iterable[Shot]:
         rows = []
         for idx in self.__table.selectedIndexes():
             row = self.__table.model().mapToSource(idx).row()
             rows.append(row)
         rows = set(rows)
         for row in rows:
-            yield self.__model.item(row).data(Qt.UserRole + 1)
+            yield self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1)
 
-    def __shotNames(self):
+    def __shotNames(self) -> Iterable[str]:
         for shot in self.shots():
             yield shot.name
 
-    def createShot(self, initialSceneName=None):
+    def createShot(self, initialSceneName: Optional[FilePath] = None) -> None:
         sceneNames = list(iterSceneNames())
         if not sceneNames:
             QMessageBox.warning(self, 'Can\'t create shot!', 'Can not create shots before creating at least 1 scene.')
@@ -629,10 +634,10 @@ class ShotManager(QWidget):
 
         diag.exec_()
 
-        if diag.result() != QDialog.Accepted:
+        if diag.result() != QDialog.DialogCode.Accepted:
             return
         if not name.text():
-            QMessageBox.Warning(self, 'Could not create shot', 'Please enter a name.')
+            QMessageBox.warning(self, 'Could not create shot', 'Please enter a name.')
             return
 
         start = 0.0
@@ -649,25 +654,25 @@ class ShotManager(QWidget):
         shot = Shot(name.text(), scenes.currentText(), start, start + 8.0, curves)
         self.__model.appendRow(shot.items)
 
-    def __duplicateSelectedShots(self):
+    def __duplicateSelectedShots(self) -> None:
         for shot in self.__selectedShots():
             clone = shot.clone()
             self.__model.appendRow(clone.items)
 
-    def __deleteShots(self, rows):
+    def __deleteShots(self, rows: list[int]) -> None:
         rows = list(set(rows))
         rows.sort(key=lambda x: -x)
         for row in rows:
             self.__model.removeRow(row)
 
-    def __deleteSelectedShots(self):
+    def __deleteSelectedShots(self) -> None:
         rows = []
         for idx in self.__table.selectedIndexes():
             row = self.__table.model().mapToSource(idx).row()
             rows.append(row)
         self.__deleteShots(rows)
 
-    def onDeleteScene(self, sceneName):
+    def onDeleteScene(self, sceneName: str) -> None:
         rows = []
         for row in range(self.__model.rowCount()):
             if sceneName == str(self.__model.item(row, 1).text()):

@@ -1,0 +1,170 @@
+<template>
+    <pass buffer="17" static="1" factor="1" name="Lensdirt texture">
+        <global path="header.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
+        <global path="lensdirt.glsl"/>
+	</pass>
+
+    <!-- This is our first user texture, to add new textures
+     feel free to copy paste this and:
+     - Change buffer to a number > 16
+     - Change the "noise.glsl" to your own .glsl file to write your texture code
+       Your GLSL file should be in the default/ next to this xml file.
+     - Go to the next 2 passes names Trace and shade main, Trace and shade reflection
+       and add an extra input to both of them (must match, e.g. adding input4="17" to both passes)
+
+     You'll want static="1" to make your texture precalced, feel free to write slow code
+     for texture generation :)
+
+     Size controls the texture resolution, it'll always be square.
+     Alternative to size there is also factor, which will use the screen
+     resolution as texture resolution (divided by that factor, must be >= 1).
+     See lensdirt above for factor usage.
+
+     Finally you'll want to open the "profiler" in SqrMelon, where you can
+     use a drop down to find your texture name, and click the 3D viewport
+     to update the texture preview. This way you can check out your results
+     before using it in a scene.
+    -->
+    <pass buffer="16" static="1" size="1024" name="Noise LUT">
+        <global path="header.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="noise.glsl"/>
+	</pass>
+	
+	<!-- output 0: shaded pixel, distance in alpha, 1: world point, packed normal in alpha, 2: specular color, roughness in alpha -->
+    <pass buffer="2" outputs="3" input0="16" input1="16" input2="16" input3="16" name="Trace and shade main">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
+        <global path="lighting.glsl"/>
+        <shared path="public.glsl"/>
+        <section path="content.glsl"/>
+        <section path="fogremap.glsl"/>
+        <global path="tracer.glsl"/>
+        <global path="main.glsl"/>
+	</pass>
+    <pass buffer="3" input0="2.0" input1="2.1" input2="2.2" input3="16" name="Trace and shade reflection">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
+        <global path="lighting.glsl"/>
+        <shared path="public.glsl"/>
+        <section path="content.glsl"/>
+        <section path="fogremap.glsl"/>
+        <global path="tracer.glsl"/>
+        <global path="rpass.glsl"/>
+	</pass>
+
+    <!-- Blur reflections -->
+	<pass buffer="4" input0="3" name="Blur refl X 1">
+		<global path="blurheader.glsl"/>
+		<global path="blurhorizontal.glsl"/>
+		<global path="blur2.glsl"/>
+		<global path="blurrefl.glsl"/>
+		<global path="blurfooter.glsl"/>
+	</pass>
+	<pass buffer="3" input0="4" name="Blur refl Y 1">
+		<global path="blurheader.glsl"/>
+		<global path="blurvertical.glsl"/>
+		<global path="blur2.glsl"/>
+		<global path="blurrefl.glsl"/>
+		<global path="blurfooter.glsl"/>
+	</pass>
+	<pass buffer="4" input0="3" name="Blur refl X 2">
+		<global path="blurheader.glsl"/>
+		<global path="blurhorizontal.glsl"/>
+		<global path="blur3.glsl"/>
+		<global path="blurrefl.glsl"/>
+		<global path="blurfooter.glsl"/>
+	</pass>
+	<pass buffer="3" input0="4" name="Blur refl Y 2">
+		<global path="blurheader.glsl"/>
+		<global path="blurvertical.glsl"/>
+		<global path="blur3.glsl"/>
+		<global path="blurrefl.glsl"/>
+		<global path="blurfooter.glsl"/>
+	</pass>
+
+	<!-- Apply reflections -->
+    <pass buffer="4" input0="2" input1="3" name="Merge reflection into result">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <section path="fogremap.glsl"/>
+        <global path="merge.glsl"/>
+    </pass>
+
+	<!-- User defined overlays -->
+    <pass buffer="3" input0="4" name="Overlays">
+        <global path="header.glsl"/>
+		<section path="settings.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
+        <shared path="public.glsl"/>
+        <section path="prefxoverlay.glsl"/>
+		<shared path="globalprefxoverlay.glsl"/>
+	</pass>
+
+	<!-- Depth of field -->
+	<pass buffer="4" input0="3" name="Bokeh DoF first pass">
+		<global path="bokehheader.glsl"/>
+		<global path="bokehfirst.glsl"/>
+	</pass>
+	<pass buffer="3" input0="4" name="Bokeh DoF second pass">
+		<global path="bokehheader.glsl"/>
+		<global path="bokehsecond.glsl"/>
+	</pass>
+
+    <!-- #include bloom.ixml -->
+
+	<pass buffer="3" input0="4" name="ChromAb">
+		<global path="chromab.glsl"/>
+	</pass>
+
+	<pass buffer="2" outputs="3" input0="3" name="sRgb conversion">
+        <global path="header.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
+		<global path="present.glsl"/>
+	</pass>
+
+    <pass input0="2" name="FXAA3">
+        <global path="fxaa3.glsl"/>
+	</pass>
+</template>
+
+<!--
+The second to last 2 passes from the above is copied here
+but with a new (hypothetical) post process, emptyPostEffect, added in the mix.
+
+The difficulty with adding extra effects is that you need to
+connect them with what was before and what goes after.
+
+	<pass buffer="3" input0="4" name="ChromAb">
+		<global path="chromab.glsl"/>
+	</pass>
+
+The ChromAb pass writes into buffer="3"
+So our new effect must have input0="3" to work with the latest data
+
+It is illegal to read and write from the same buffer,
+so it must write into buffer="4"
+
+	<pass buffer="4" input0="3" name="Edge detect">
+		<global path="emptyPostEffect.glsl"/>
+	</pass>
+
+Now since our last effect wrote into buffer="4"
+we must adjust the next pass accordingly, to input0="4"
+so it reads the correct data.
+
+	<pass buffer="2" outputs="3" input0="4" name="sRgb conversion">
+        <global path="header.glsl"/>
+        <global path="noiselib.glsl"/>
+        <global path="sdf.glsl"/>
+		<global path="present.glsl"/>
+	</pass>
+-->

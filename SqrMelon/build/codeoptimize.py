@@ -1,5 +1,5 @@
 import re
-from typing import Iterable, Sequence, MutableSequence
+from typing import Iterable, MutableSequence, Sequence
 
 # text parser statemachine states
 gOPEN = 0

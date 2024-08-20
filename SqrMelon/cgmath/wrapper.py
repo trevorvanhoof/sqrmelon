@@ -4,14 +4,16 @@ Wrapped SIMD math library.
 Regardless of the python classes wrapping & lots of if checks in initializers
 this is loads faster than a python implementation + guarantees matching output with C++ code.
 """
-import os
+from __future__ import annotations
 import ctypes
+import os
 import platform
+from typing import Optional, Union, Generic, TypeVar
 
-_dllHandle = None
+_dllHandle: Optional[ctypes.CDLL] = None
 
 
-def prepare():
+def prepare() -> None:
     # load the DLL once
     global _dllHandle
     if _dllHandle is not None:
@@ -145,269 +147,276 @@ class Axis:
     ALL = (X, Y, Z)
 
 
-class VectorBase:
+T = TypeVar("T")
+
+
+class VectorBase(Generic[T]):
     _size = 4
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         assert self.__class__ != VectorBase, 'Instantiation of abstract class.'
 
-        self._data = None
+        self._data: Optional[ctypes.Array[ctypes.c_float]] = None
         if args:
             if isinstance(args[0], (int, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
                 self._ptr = args[0]
             elif isinstance(args[0], self.__class__):
-                self._ptr = _dllHandle.Vector_Copy(args[0]._ptr)
+                self._ptr = _dllHandle.Vector_Copy(args[0].address())
             else:
-                assert len(
-                    args) == self.__class__._size and self.__class__._size <= 4, 'Attempting to constructor vector of size {} with either wrong number of arguments {} or beyond maximum size 4.'.format(
-                    self.__class__._size, args)
+                assert len(args) == self.__class__._size and self.__class__._size <= 4, 'Attempting to constructor vector of size {} with either wrong number of arguments {} or beyond maximum size 4.'.format(self.__class__._size, args)
                 data = (ctypes.c_float * 4)(*(list(args) + [0] * (4 - self.__class__._size)))
                 self._ptr = _dllHandle.Vector_FromFloat4(data)
         else:
             self._ptr = _dllHandle.Vector_Vector()
 
-    def _fetchData(self):
+    def address(self) -> int:
+        return self._ptr
+
+    def _fetchData(self) -> ctypes.Array[ctypes.c_float]:
         if self._data is None:
             self._data = (ctypes.c_float * 4)()
             _dllHandle.Vector_Data(self._ptr, ctypes.cast(self._data, ctypes.POINTER(ctypes.c_float)))
         return self._data
 
-    def __getitem__(self, slice):
+    def __getitem__(self, index: Union[int, slice]) -> float:
         data = self._fetchData()
-        return data[slice]
+        return data[index]
 
     # def __del__(self):
     #    _dllHandle.Vector_Delete(self._ptr)
 
-    def dot(self, other):
+    def dot(self, other: T) -> float:
         assert isinstance(other, self.__class__)
-        return _dllHandle.Vector_Dot(self._ptr, other._ptr)
+        return _dllHandle.Vector_Dot(self._ptr, other.address())
 
-    def normalize(self, other):
+    def normalize(self) -> None:
         self._ptr = _dllHandle.Vector_Normalized(self._ptr)
         self._data = None
 
-    def normalized(self, other):
+    def normalized(self) -> T:
         return self.__class__(_dllHandle.Vector_Normalized(self._ptr))
 
-    def __neg__(self):
+    def __neg__(self) -> T:
         return self.__class__(_dllHandle.Vector_Neg(self._ptr))
 
-    def __add__(self, other):
+    def __add__(self, other: Union[T, float]) -> T:
         if isinstance(other, self.__class__):
-            return self.__class__(_dllHandle.Vector_Add(self._ptr, other._ptr))
+            return self.__class__(_dllHandle.Vector_Add(self._ptr, other.address()))
         return self.__class__(_dllHandle.Vector_AddFloat(self._ptr, other))
 
-    def __sub__(self, other):
+    def __sub__(self, other: Union[T, float]) -> T:
         if isinstance(other, self.__class__):
-            return self.__class__(_dllHandle.Vector_Sub(self._ptr, other._ptr))
+            return self.__class__(_dllHandle.Vector_Sub(self._ptr, other.address()))
         return self.__class__(_dllHandle.Vector_SubFloat(self._ptr, other))
 
-    def __mul__(self, other):
+    def __mul__(self, other: Union[T, float, Mat44]) -> T:
         if isinstance(other, Mat44):
-            return self.__class__(_dllHandle.Mat44_MultiplyVector(other._ptr, self._ptr))
+            return self.__class__(_dllHandle.Mat44_MultiplyVector(other.address(), self._ptr))
         if isinstance(other, self.__class__):
-            return self.__class__(_dllHandle.Vector_Mul(self._ptr, other._ptr))
+            return self.__class__(_dllHandle.Vector_Mul(self._ptr, other.address()))
         return self.__class__(_dllHandle.Vector_MulFloat(self._ptr, other))
 
-    def __div__(self, other):
+    def __truediv__(self, other: Union[T, float]) -> T:
         if isinstance(other, self.__class__):
-            return self.__class__(_dllHandle.Vector_Div(self._ptr, other._ptr))
+            return self.__class__(_dllHandle.Vector_Div(self._ptr, other.address()))
         return self.__class__(_dllHandle.Vector_DivFloat(self._ptr, other))
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: Union[T, float]) -> T:
         if isinstance(other, self.__class__):
-            _dllHandle.Vector_IAdd(self._ptr, other._ptr)
+            _dllHandle.Vector_IAdd(self._ptr, other.address())
         else:
             _dllHandle.Vector_IAddFloat(self._ptr, other)
         self._data = None
         return self
 
-    def __isub__(self, other):
+    def __isub__(self, other: Union[T, float]) -> T:
         if isinstance(other, self.__class__):
-            _dllHandle.Vector_ISub(self._ptr, other._ptr)
+            _dllHandle.Vector_ISub(self._ptr, other.address())
         else:
             _dllHandle.Vector_IsubFloat(self._ptr, other)
         self._data = None
         return self
 
-    def __imul__(self, other):
+    def __imul__(self, other: Union[T, float, Mat44]) -> T:
         if isinstance(other, Mat44):
-            ptr = _dllHandle.Mat44_MultiplyVector(other._ptr, self._ptr)
+            ptr = _dllHandle.Mat44_MultiplyVector(other.address(), self._ptr)
             _dllHandle.Vector_Delete(self._ptr)
             self._ptr = ptr
         elif isinstance(other, self.__class__):
-            _dllHandle.Vector_IMul(self._ptr, other._ptr)
+            _dllHandle.Vector_IMul(self._ptr, other.address())
         else:
             _dllHandle.Vector_IMulFloat(self._ptr, other)
         self._data = None
         return self
 
-    def __idiv__(self, other):
+    def __idiv__(self, other: Union[T, float]) -> T:
         if isinstance(other, self.__class__):
-            _dllHandle.Vector_IDiv(self._ptr, other._ptr)
+            _dllHandle.Vector_IDiv(self._ptr, other.address())
         else:
             _dllHandle.Vector_IDivFloat(self._ptr, other)
         self._data = None
         return self
 
 
-class Vec4(VectorBase):
+class Vec4(VectorBase["Vec4"]):
     pass
 
 
-class Vec3(VectorBase):
+class Vec3(VectorBase["Vec3"]):
     _size = 3
 
-    def cross(self, other):
+    def cross(self, other: Vec3) -> Vec3:
         assert isinstance(other, Vec3)
-        return Vec3(_dllHandle.Vector_Cross(self._ptr, other._ptr))
+        return Vec3(_dllHandle.Vector_Cross(self._ptr, other.address()))
 
 
 class Mat44:
-    def __init__(self, *args):
-        self._data = None
+    def __init__(self, *args) -> None:
+        self._data: Optional[ctypes.Array[ctypes.c_float]] = None
         if args:
             if isinstance(args[0], (int, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
                 self._ptr = args[0]
             elif isinstance(args[0], Mat44):
-                self._ptr = _dllHandle.Mat44_Copy(args[0]._ptr)
+                self._ptr = _dllHandle.Mat44_Copy(args[0].address())
             else:
                 data = (ctypes.c_float * 16)(*args)
                 self._ptr = _dllHandle.Mat44_FromFloat16(data)
         else:
             self._ptr = _dllHandle.Mat44_Mat44()
 
-    def _fetchData(self):
+    def address(self) -> int:
+        return self._ptr
+
+    def _fetchData(self) -> ctypes.Array[ctypes.c_float]:
         if self._data is None:
             self._data = (ctypes.c_float * 16)()
             _dllHandle.Mat44_Data(self._ptr, ctypes.cast(self._data, ctypes.POINTER(ctypes.c_float)))
         return self._data
 
-    def __getitem__(self, slice):
+    def __getitem__(self, index: Union[int, slice]) -> float:
         data = self._fetchData()
-        return data[slice]
+        return data[index]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         data = self._fetchData()
         return 'Mat44({:10.4f} {:10.4f} {:10.4f} {:10.4f}\n      {:10.4f} {:10.4f} {:10.4f} {:10.4f}\n      {:10.4f} {:10.4f} {:10.4f} {:10.4f}\n      {:10.4f} {:10.4f} {:10.4f} {:10.4f})'.format(*data)
 
-    def __del__(self):
+    def __del__(self) -> None:
         _dllHandle.Mat44_Delete(self._ptr)
 
-    def row(self, index):
+    def row(self, index: int) -> Vec4:
         # returns by reference!
         return Vec4(_dllHandle.Mat44_Row(self._ptr, index))
 
-    def transpose(self):
+    def transpose(self) -> None:
         _dllHandle.Mat44_Transpose(self._ptr)
         self._data = None
 
-    def transpose33(self):
+    def transpose33(self) -> None:
         _dllHandle.Mat44_Transpose33(self._ptr)
         self._data = None
 
-    def inverse(self):
+    def inverse(self) -> None:
         _dllHandle.Mat44_Inverse(self._ptr)
         self._data = None
 
-    def __mul__(self, other):
+    def __mul__(self, other: Union[VectorBase, Mat44, float]) -> Union[VectorBase, Mat44]:
         if isinstance(other, VectorBase):
-            return other.__class__(_dllHandle.Mat44_MultiplyVector(self._ptr, other._ptr))
+            return other.__class__(_dllHandle.Mat44_MultiplyVector(self._ptr, other.address()))
         if isinstance(other, Mat44):
-            return Mat44(_dllHandle.Mat44_Multiply(self._ptr, other._ptr))
+            return Mat44(_dllHandle.Mat44_Multiply(self._ptr, other.address()))
         return Mat44(_dllHandle.Mat44_MulFloat(self._ptr, other))
 
-    def __imul__(self, other):
+    def __imul__(self, other: Union[Mat44, float]) -> Mat44:
         if isinstance(other, Mat44):
-            _dllHandle.Mat44_IMultiply(self._ptr, other._ptr)
+            _dllHandle.Mat44_IMultiply(self._ptr, other.address())
         else:
             _dllHandle.Mat44_IMulFloat(self._ptr, other)
         self._data = None
         return self
 
-    def __add__(self, other):
+    def __add__(self, other: Union[Mat44, float]) -> Mat44:
         if isinstance(other, Mat44):
-            return Mat44(_dllHandle.Mat44_Add(self._ptr, other._ptr))
+            return Mat44(_dllHandle.Mat44_Add(self._ptr, other.address()))
         return Mat44(_dllHandle.Mat44_AddFloat(self._ptr, other))
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: Union[Mat44, float]) -> Mat44:
         if isinstance(other, Mat44):
-            _dllHandle.Mat44_IAdd(self._ptr, other._ptr)
+            _dllHandle.Mat44_IAdd(self._ptr, other.address())
         else:
             _dllHandle.Mat44_IAddFloat(self._ptr, other)
         self._data = None
         return self
 
-    def __sub__(self, other):
+    def __sub__(self, other: Union[Mat44, float]) -> Mat44:
         if isinstance(other, Mat44):
-            return Mat44(_dllHandle.Mat44_Sub(self._ptr, other._ptr))
+            return Mat44(_dllHandle.Mat44_Sub(self._ptr, other.address()))
         return Mat44(_dllHandle.Mat44_SubFloat(self._ptr, other))
 
-    def __isub__(self, other):
+    def __isub__(self, other: Union[Mat44, float]) -> Mat44:
         if isinstance(other, Mat44):
-            _dllHandle.Mat44_ISub(self._ptr, other._ptr)
+            _dllHandle.Mat44_ISub(self._ptr, other.address())
         else:
             _dllHandle.Mat44_ISubFloat(self._ptr, other)
         self._data = None
         return self
 
-    def __div__(self, other):
+    def __truediv__(self, other: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_DivFloat(self._ptr, other))
 
-    def __idiv__(self, other):
+    def __idiv__(self, other: float) -> Mat44:
         _dllHandle.Mat44_IDivFloat(self._ptr, other)
         self._data = None
         return self
 
     @staticmethod
-    def rotateX(radians):
+    def rotateX(radians: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_RotateX(radians))
 
     @staticmethod
-    def rotateY(radians):
+    def rotateY(radians: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_RotateY(radians))
 
     @staticmethod
-    def rotateZ(radians):
+    def rotateZ(radians: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_RotateZ(radians))
 
     @staticmethod
-    def translate(x, y, z):
+    def translate(x: float, y: float, z: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_Translate(x, y, z))
 
     @staticmethod
-    def scale(x, y, z):
+    def scale(x: float, y: float, z: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_Scale(x, y, z))
 
     @staticmethod
-    def perspective(fovRadians, aspect, near, far):
+    def perspective(fovRadians: float, aspect: float, near: float, far: float) -> Mat44:
         return Mat44(_dllHandle.Mat44_Perspective(fovRadians, aspect, near, far))
 
     @staticmethod
-    def frustum(left, right, top, bottom, near, far):
+    def frustum(left: float, right: float, top: float, bottom: float, near: float, far: float) -> Mat44:
         assert near > 1e-6
         return Mat44(_dllHandle.Mat44_Frustum(left, right, top, bottom, near, far))
 
     @staticmethod
-    def translateRotateScale(x=0.0, y=0.0, z=0.0, rx=0.0, ry=0.0, rz=0.0, sx=1.0, sy=1.0, sz=1.0):
+    def translateRotateScale(x: float = 0.0, y: float = 0.0, z: float = 0.0, rx: float = 0.0, ry: float = 0.0, rz: float = 0.0, sx: float = 1.0, sy: float = 1.0, sz: float = 1.0) -> Mat44:
         return Mat44(_dllHandle.Mat44_TRS(x, y, z, rx, ry, rz, sx, sy, sz))
 
     TRS = translateRotateScale
 
     @staticmethod
-    def axisAngle(axis, angle):
+    def axisAngle(axis: Vec3, angle: float) -> Mat44:
         assert isinstance(axis, Vec3)
-        return Mat44(_dllHandle.Mat44_AxisAngle(axis._ptr, angle))
+        return Mat44(_dllHandle.Mat44_AxisAngle(axis.address(), angle))
 
     @staticmethod
-    def alignVectors(source, target):
+    def alignVectors(source: Vec3, target: Vec3) -> Mat44:
         assert isinstance(source, Vec3)
         assert isinstance(target, Vec3)
-        return Mat44(_dllHandle.Mat44_AlignVectors(source._ptr, target._ptr))
+        return Mat44(_dllHandle.Mat44_AlignVectors(source.address(), target.address()))
 
     @staticmethod
-    def lookAt(position, target, upDirection, primaryAxis, secondaryAxis):
+    def lookAt(position: Vec3, target: Vec3, upDirection: Vec3, primaryAxis: int, secondaryAxis: int) -> Mat44:
         assert isinstance(position, Vec3)
         assert isinstance(target, Vec3)
         assert isinstance(upDirection, Vec3)

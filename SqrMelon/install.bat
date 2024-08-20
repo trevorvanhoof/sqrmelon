@@ -1,2 +1,2 @@
-C:/Python27/Scripts/pip install -r requirements.txt
+"%USERPROFILE%/AppData/Local/Programs/Python/Python311/Scripts/pip.exe" install -r requirements.txt
 pause

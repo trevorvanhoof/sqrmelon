@@ -1,7 +1,15 @@
-from projutil import currentProjectDirectory
-from qtutil import *
+from __future__ import annotations
+
+from typing import Optional, TYPE_CHECKING
+
 import icons
 from fileutil import FileDialog
+from projutil import currentProjectDirectory
+from qt import *
+from qtutil import hlayout, vlayout
+
+if TYPE_CHECKING:
+    from shots import Shot
 
 
 class TextureManager(QDialog):
@@ -9,7 +17,8 @@ class TextureManager(QDialog):
     Utility to manage textures per camera shot.
     Not supported by the runtime but useful for mockups and animatics during the concept phase.
     """
-    def __init__(self, target, parent=None):
+
+    def __init__(self, target: Shot, parent: Optional[QWidget] = None) -> None:
         super(TextureManager, self).__init__(parent)
 
         self.setWindowTitle('TextureManager')
@@ -40,7 +49,7 @@ class TextureManager(QDialog):
         self.__view = QTableView()
         self.__view.setModel(self.__model)
         self.__view.horizontalHeader().hide()
-        self.__view.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.__view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.__view.verticalHeader().hide()
         main.addWidget(self.__view)
         main.setStretch(1, 1)
@@ -51,16 +60,16 @@ class TextureManager(QDialog):
             nameItem = QStandardItem(uniformName)
             nameItem.setIcon(QIcon(currentProjectDirectory().join(relPath)))
             pathItem = QStandardItem(relPath)
-            pathItem.setFlags(pathItem.flags() & ~Qt.ItemIsEditable)
+            pathItem.setFlags(pathItem.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.__model.appendRow([nameItem, pathItem])
 
-    def __onAddImage(self):
-        uniformName = QInputDialog.getText(self, 'Add texture', 'Uniform name', QLineEdit.Normal, 'uTextures[0]')
+    def __onAddImage(self) -> None:
+        uniformName = QInputDialog.getText(self, 'Add texture', 'Uniform name', QLineEdit.EchoMode.Normal, 'uTextures[0]')
         if not uniformName[0] or not uniformName[1]:
             return
         uniformName = uniformName[0]
 
-        imagePath = FileDialog.getOpenFileName(self, currentProjectDirectory(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')
+        imagePath = FileDialog.getOpenFileName(self, currentProjectDirectory(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')  # type: ignore
         if imagePath and imagePath.exists():
             relPath = imagePath.relativeTo(currentProjectDirectory())
             self.__target.textures[uniformName] = relPath
@@ -68,10 +77,10 @@ class TextureManager(QDialog):
             nameItem = QStandardItem(uniformName)
             nameItem.setIcon(QIcon(imagePath))
             pathItem = QStandardItem(relPath)
-            pathItem.setFlags(pathItem.flags() & ~Qt.ItemIsEditable)
+            pathItem.setFlags(pathItem.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.__model.appendRow([nameItem, pathItem])
 
-    def __onDeleteImages(self):
+    def __onDeleteImages(self) -> None:
         rows = []
 
         for idx in self.__view.selectedIndexes():

@@ -1,9 +1,11 @@
 from __future__ import annotations
-import os, stat
-from typing import Iterable, Sequence, TextIO
 
-from qtutil import *
+import os
+import stat
 from contextlib import contextmanager
+from typing import BinaryIO, Iterable, Optional, Sequence, TextIO, Union
+
+from qt import *
 
 
 class FilePath(str):
@@ -118,7 +120,7 @@ class FilePath(str):
         return self.__class__(super(FilePath, self).__add__(other))
 
     @contextmanager
-    def open(self, flag: str = 'r') -> TextIO:
+    def _open(self, flag: str = 'r') -> Union[TextIO, BinaryIO]:
         """Forces a file to be readable and writable, then opens it for reading."""
         allFlags = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
         if self.exists() and (os.stat(self).st_mode & allFlags != allFlags):
@@ -128,13 +130,31 @@ class FilePath(str):
         fh.close()
 
     @contextmanager
-    def edit(self, flag: str = 'w') -> TextIO:
+    def read(self) -> TextIO:
         """Forces a file to be readable and writable, then opens it for writing."""
-        with self.open(flag) as fh:
+        with self._open('r') as fh:
+            yield fh
+
+    @contextmanager
+    def edit(self) -> TextIO:
+        """Forces a file to be readable and writable, then opens it for writing."""
+        with self._open('w') as fh:
+            yield fh
+
+    @contextmanager
+    def readBinary(self) -> BinaryIO:
+        """Forces a file to be readable and writable, then opens it for writing."""
+        with self._open('rb') as fh:
+            yield fh
+
+    @contextmanager
+    def editBinary(self) -> BinaryIO:
+        """Forces a file to be readable and writable, then opens it for writing."""
+        with self._open('wb') as fh:
             yield fh
 
     def content(self) -> str:
-        with self.open() as fh:
+        with self._open('r') as fh:
             return fh.read()
 
 

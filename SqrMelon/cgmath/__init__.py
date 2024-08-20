@@ -11,5 +11,5 @@ try:
     from cgmath.wrapper import *
 except:
     # something went wrong while loading the DLL version, load a python version instead
-    print ('Warning: CGMath using pure-python fallback module.')
+    print('Warning: CGMath using pure-python fallback module.')
     from cgmath.stub import *

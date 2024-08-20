@@ -1,23 +1,22 @@
 # TODO: scroll wheel zoom, zoom X and Y equally
 from __future__ import annotations
-from typing import Iterable, Union, TYPE_CHECKING
 
-from qtutil import *
-
-import time
-import icons
 import functools
 import re
+import time
 from math import log10
+from typing import cast, Iterable, Optional, TYPE_CHECKING, Union
 
-from timeslider import Timer
-from util import gSettings
-from mathutil import Vec2
-
+import icons
+from animationgraph.curveactions import DeleteAction, DragAction, EditKeyAction, InsertKeyAction, RemappedEvent, SetKeyAction
 from animationgraph.curvedata import Curve, Key
-from animationgraph.curveselection import Selection, MarqueeSelectAction
-from animationgraph.curveactions import InsertKeyAction, SetKeyAction, DeleteAction, DragAction, EditKeyAction, RemappedEvent
-from animationgraph.viewactions import CameraFrameAction, CameraPanAction, CameraZoomAction, CameraUndoCommand
+from animationgraph.curveselection import MarqueeSelectAction, Selection
+from animationgraph.viewactions import CameraFrameAction, CameraPanAction, CameraUndoCommand, CameraZoomAction
+from mathutil import Vec2
+from projutil import gSettings
+from qt import *
+from qtutil import CheckBox, DoubleSpinBox, EnumBox, hlayout, QSplitterState, vlayout
+from timeslider import Timer
 
 if TYPE_CHECKING:
     from shots import Shot
@@ -71,10 +70,10 @@ class CurveView(QWidget):
         self.__drag: Optional[Union[CameraZoomAction, CameraPanAction, DragAction, MarqueeSelectAction]] = None
         self.__camera: Optional[CurveViewCamera] = None
         self.__cache: Optional[Float4] = None
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         # TODO: use QPoint instead of list[int]
         self.__snap = [0, 0]
-        self.setAttribute(Qt.WA_OpaquePaintEvent)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.paintTime = 0
 
     def setSnapX(self, x: int) -> None:
@@ -145,19 +144,19 @@ class CurveView(QWidget):
         self.__frameOnKeys(keys)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        if event.key() == Qt.Key_F:
+        if event.key() == Qt.Key.Key_F:
             self.frameSelected()
             return
-        if event.key() == Qt.Key_A:
-            if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+        if event.key() == Qt.Key.Key_A:
+            if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
                 self.__editor.selectAllChannels()
             else:
                 self.frameAll()
             return
-        if event.key() == Qt.Key_I:
+        if event.key() == Qt.Key.Key_I:
             self.insertKey()
             return
-        if event.key() == Qt.Key_Delete:
+        if event.key() == Qt.Key.Key_Delete:
             self.deleteKey()
             return
         super(CurveView, self).keyPressEvent(event)
@@ -320,9 +319,9 @@ class CurveView(QWidget):
 
         rows = tuple(self.visibleRows())
 
-        if event.modifiers() & Qt.AltModifier == Qt.AltModifier:
+        if event.modifiers() & Qt.KeyboardModifier.AltModifier == Qt.KeyboardModifier.AltModifier:
             # edit camera action
-            if event.button() == Qt.RightButton:
+            if event.button() == Qt.MouseButton.RightButton:
                 # zoom
                 self.__drag = CameraZoomAction(event, self.size(), self.__camera)
             else:
@@ -330,7 +329,7 @@ class CurveView(QWidget):
                 self.__drag = CameraPanAction(event, self.__camera)
             return
 
-        if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
             # set current time action
             self.__setLocalTime(event.x())
             self.repaint()
@@ -338,7 +337,7 @@ class CurveView(QWidget):
 
         scale = self.width() / self.__cache[2], self.height() / self.__cache[3]
 
-        if event.button() == Qt.MiddleButton:
+        if event.button() == Qt.MouseButton.MiddleButton:
             # begin drag action immediately
             selection = list(self.__selection.keys())
             if not selection:
@@ -371,8 +370,8 @@ class CurveView(QWidget):
 
         # begin drag action
         selectAction = functools.partial(self.select, select[0], select[1],
-                                         event.modifiers() & Qt.ShiftModifier == Qt.ShiftModifier,
-                                         event.modifiers() & Qt.ControlModifier == Qt.ControlModifier)
+                                         event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier,
+                                         event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier)
         selection = list(self.__selection.keys())
         self.__drag = DragAction(event, selection, selectAction, scale, cast(tuple[int, int], tuple(self.__snap)))
 
@@ -398,7 +397,7 @@ class CurveView(QWidget):
 
         # return if no drag action
         if not self.__drag:
-            if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+            if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
                 # set current time action
                 self.__setLocalTime(event.x())
                 self.repaint()
@@ -440,7 +439,7 @@ class CurveView(QWidget):
 
         # draw grid and axes
         painter.save()
-        painter.setPen(Qt.black)
+        painter.setPen(Qt.GlobalColor.black)
         painter.scale(scaleX, scaleY)
         painter.translate(-rect[0], -rect[1])
         painter.scale(1.0 / scaleX, 1.0 / scaleY)
@@ -452,10 +451,10 @@ class CurveView(QWidget):
         for direction in range(2):
             while ((direction == 0) and (x < int(rect[0]) + int(rect[2]) + 2 * sx)) or (
                     (direction == 1) and (x > int(rect[0]) - sx)):
-                painter.setPen(Qt.black)
-                painter.drawText(x * scaleX + 3.0, (rect[1] + rect[3]) * scaleY - 5.0, str(round(x, 4)))
+                painter.setPen(Qt.GlobalColor.black)
+                painter.drawText(x * scaleX + 3.0, (rect[1] + rect[3]) * scaleY - 5.0, str(round(x, 4)))  # type: ignore
                 painter.setPen(axisColor if x == 0 else linesColor)
-                painter.drawLine(x * scaleX, rect[1] * scaleY, x * scaleX, (rect[1] + rect[3]) * scaleY)
+                painter.drawLine(x * scaleX, rect[1] * scaleY, x * scaleX, (rect[1] + rect[3]) * scaleY)  # type: ignore
                 x += sx if direction == 0 else -sx
             x = -sx  # restart on left side
 
@@ -466,10 +465,10 @@ class CurveView(QWidget):
         for direction in range(2):
             while ((direction == 0) and (y < int(rect[1]) + int(rect[3]) + 2 * sy)) or (
                     (direction == 1) and (y > int(rect[1]) - sy)):
-                painter.setPen(Qt.black)
-                painter.drawText(rect[0] * scaleX + 3.0, y * scaleY - 1.0, str(round(y, 4)))
+                painter.setPen(Qt.GlobalColor.black)
+                painter.drawText(rect[0] * scaleX + 3.0, y * scaleY - 1.0, str(round(y, 4)))  # type: ignore
                 painter.setPen(axisColor if y == 0 else linesColor)
-                painter.drawLine(rect[0] * scaleX, y * scaleY, (rect[0] + rect[2]) * scaleX, y * scaleY)
+                painter.drawLine(rect[0] * scaleX, y * scaleY, (rect[0] + rect[2]) * scaleX, y * scaleY)  # type: ignore
                 y += sy if direction == 0 else -sy
             y = -sy  # restart on top side
 
@@ -477,11 +476,11 @@ class CurveView(QWidget):
 
     def _drawCursor(self, painter: QPainter, scaleX: float, _, rect: Float4):
         # draw time cursor
-        x = (self.__localTime() - rect[0]) * scaleX
-        painter.setPen(Qt.red)
+        x = int((self.__localTime() - rect[0]) * scaleX)
+        painter.setPen(Qt.GlobalColor.red)
         painter.drawLine(QPoint(x, 2), QPoint(x, self.height()))
         markerTop = icons.getImage('TimeMarkerTop-24')
-        painter.drawPixmap(QPoint(x - 4.0, 2), markerTop)
+        painter.drawPixmap(QPoint(x - 4, 2), markerTop)  # type: ignore
 
     def _drawFocus(self, painter: QPainter, _, __, ___):
         # outer border
@@ -490,7 +489,7 @@ class CurveView(QWidget):
             painter.drawRect(1, 1, self.width() - 2, self.height() - 2)
             painter.setClipRect(2, 2, self.width() - 4, self.height() - 4)
 
-    __COLORS = {'x': Qt.red, 'y': Qt.green, 'z': Qt.blue, 'w': Qt.white}
+    __COLORS = {'x': Qt.GlobalColor.red, 'y': Qt.GlobalColor.green, 'z': Qt.GlobalColor.blue, 'w': Qt.GlobalColor.white}
 
     def _drawCurves(self, painter: QPainter, rows: Iterable[int], start: float, end: float, precision: float):
         # draw lines
@@ -503,7 +502,7 @@ class CurveView(QWidget):
             if identifier in self.__COLORS:
                 painter.setPen(self.__COLORS[identifier])
             else:
-                painter.setPen(Qt.red)
+                painter.setPen(Qt.GlobalColor.red)
             px, py = None, None
             x = max(start, curve[0].time())
             while x < min(end, curve[-1].time()):
@@ -535,17 +534,17 @@ class CurveView(QWidget):
                     else:
                         pointOutTangent = self.mapTangentToScreen(key, False)
 
-                    painter.fillRect(QRectF(pointInTangent.x - tangentWidth / 2.0, pointInTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
+                    painter.fillRect(QRectF(pointInTangent.x - tangentWidth / 2.0, pointInTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.GlobalColor.magenta)
                     if not isStep:
-                        painter.fillRect(QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.magenta)
-                    painter.setPen(Qt.magenta)
+                        painter.fillRect(QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.GlobalColor.magenta)
+                    painter.setPen(Qt.GlobalColor.magenta)
                     painter.drawLine(QPointF(pointInTangent.x, pointInTangent.y), QPointF(point.x, point.y))
                     if not isStep:
                         painter.drawLine(QPointF(pointOutTangent.x, pointOutTangent.y), QPointF(point.x, point.y))
 
-                    color = Qt.yellow
+                    color = Qt.GlobalColor.yellow
                 else:
-                    color = Qt.black
+                    color = Qt.GlobalColor.black
 
                 painter.fillRect(
                     QRectF(point.x - pointWidth / 2.0, point.y - pointHeight / 2.0, pointWidth, pointHeight), color)
@@ -563,8 +562,8 @@ class CurveView(QWidget):
             return
 
         # scaling from view space to screen space
-        scaleX = self.width() / float(rect[2])
-        scaleY = self.height() / float(rect[3])
+        scaleX = self.width() / rect[2]
+        scaleY = self.height() / rect[3]
 
         self._drawBg(painter, scaleX, scaleY, rect)
         self._drawCursor(painter, scaleX, scaleY, rect)
@@ -681,7 +680,7 @@ class CurveEditor(QWidget):
         self.__relative = CheckBox()
         tools.addWidget(QLabel('Relative:'))
         tools.addWidget(self.__relative)
-        self.__relative.setValue((Qt.Unchecked, Qt.Checked, Qt.Checked)[int(gSettings.value('RelativeKeyInput', 0))])
+        self.__relative.setValue((Qt.CheckState.Unchecked, Qt.CheckState.Checked, Qt.CheckState.Checked)[int(gSettings.value('RelativeKeyInput', 0))])
         self.__relative.valueChanged.connect(functools.partial(gSettings.setValue, 'RelativeKeyInput'))
 
         self.__time = DoubleSpinBox()
@@ -718,14 +717,14 @@ class CurveEditor(QWidget):
         positionKey = QPushButton(icons.get('Move-48'), '', self)
         positionKey.setToolTip('Key camera position into selection')
         positionKey.setStatusTip('Key camera position into selection')
-        positionKey.setShortcut(QKeySequence(Qt.Modifier.SHIFT + Qt.Key.Key_I))
+        positionKey.setShortcut(QKeySequence(Qt.Modifier.SHIFT | Qt.Key.Key_I))
         tools.addWidget(positionKey)
         self.requestPositionKey = positionKey.clicked
 
         rotationKey = QPushButton(icons.get('3D Rotate-48'), '', self)
         rotationKey.setToolTip('Key camera rotation into selection')
         rotationKey.setStatusTip('Key camera rotation into selection')
-        rotationKey.setShortcut(QKeySequence(Qt.Modifier.SHIFT + Qt.Key.Key_O))
+        rotationKey.setShortcut(QKeySequence(Qt.Modifier.SHIFT | Qt.Key.Key_O))
         tools.addWidget(rotationKey)
         self.requestRotationKey = rotationKey.clicked
 
@@ -752,13 +751,13 @@ class CurveEditor(QWidget):
         self.__updateSnapping(self.__snapping.value())
 
         def forwardFocus(_) -> None:
-            self.__view.setFocus(Qt.MouseFocusReason)
+            self.__view.setFocus(Qt.FocusReason.MouseFocusReason)
 
         self.__channels.focusInEvent = forwardFocus
         self.__channels.selectionModel().selectionChanged.connect(self.__view.onChannelsChanged)
         self.__view.selectionChanged.connect(self.__onUpdateKeyEditor)
 
-        widget = QSplitterState('CurveEditor/Channels', Qt.Horizontal)
+        widget = QSplitterState('CurveEditor/Channels', Qt.Orientation.Horizontal)
         widget.addWidget(self.__channels)
         widget.addWidget(self.__view)
         widget.setStretchFactor(1, 1)
@@ -775,7 +774,7 @@ class CurveEditor(QWidget):
 
         self.setEnabled(False)
 
-        self.__channels.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.__channels.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.__channels.customContextMenuRequested.connect(self.__channelContextMenu)
         self.__channelMenu = QMenu()
         self.__copyAction = self.__channelMenu.addAction('Copy selected channel(s)')
@@ -929,7 +928,7 @@ class CurveEditor(QWidget):
         for name in shot.curves:
             item = QStandardItem(name)
             item.setData(shot.curves[name])
-            item.setData((shot.speed, shot.preroll), Qt.UserRole + 2)
+            item.setData((shot.speed, shot.preroll), Qt.ItemDataRole.UserRole + 2)
             self.__model.appendRow(item)
         self.__channels.selectAll()
         self.__view.frameAll()
@@ -947,7 +946,7 @@ class CurveEditor(QWidget):
         res = QInputDialog.getText(self, 'Create channel', msg)
         if not res[1] or not res[0]:
             return
-        pat = re.compile(r'^[a-zA-Z_0-9]+(\[[x][y]?[z]?[w]?])?$')
+        pat = re.compile(r'^[a-zA-Z_0-9]+(\[x(?:y(?:zw?)?)?])?$')
         if not pat.match(res[0]):
             msg = 'Invalid name or channel pattern given. Please use only alphanumeric characters and undersores; ' \
                   'also use only these masks: [x], [xy], [xyz], [xyzw].'

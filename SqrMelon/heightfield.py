@@ -2,11 +2,12 @@
 Utility to load ".r32" files which are just raw binary float32 dumps of a single channel square texture with no extra data in the file.
 """
 
-import stat
+import ctypes
 import mmap
 import os
+import stat
 from math import sqrt
-import ctypes
+
 from buffers import Texture
 from fileutil import FilePath
 
@@ -22,7 +23,7 @@ def loadHeightfield(filePath: FilePath) -> Texture:
     try:
         # TODO: Is this the right way to use mmap?
         ptr = (ctypes.c_float * (resolution * resolution)).from_buffer(mmap.mmap(fd, 0))
-        tex = Texture(Texture.R32F, resolution, resolution, tile=True, data=ptr)
+        tex = Texture(Texture.R32F, resolution, resolution, tile=True, data=ptr)  # type: ignore
     finally:
         os.close(fd)
     return tex

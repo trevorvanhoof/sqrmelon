@@ -4,19 +4,13 @@ Exposes a bunch of useful subclasses and utility functions.
 """
 from typing import Any, cast, Optional
 
-from PySide6.QtCore import *
-from PySide6.QtGui import *
-from PySide6.QtWidgets import *
-from PySide6.QtOpenGL import *
-from PySide6.QtOpenGLWidgets import *
+from qt import *
 
 
 # TODO: floating dockwidget splitter state does not seem to be saved correctly
 
 class QMainWindowState(QMainWindow):
-    """
-    A MainWindow that remembers its position and dock widget states.
-    """
+    """A MainWindow that remembers its position and dock widget states."""
 
     def __init__(self, settings: QSettings) -> None:
         super(QMainWindowState, self).__init__()
@@ -183,35 +177,35 @@ class CheckBox(QCheckBox):
 class LineEdit(QLineEdit):
     valueChanged = Signal(str)
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super(LineEdit, self).__init__(*args)
         self.textChanged.connect(self.valueChanged.emit)
 
-    def value(self):
+    def value(self) -> str:
         return self.text()
 
-    def setValue(self, text):
+    def setValue(self, text: str) -> None:
         self.setText(text)
 
 
 class LineEditSelected(LineEdit):
-    def __init__(self):
+    def __init__(self) -> None:
         super(LineEditSelected, self).__init__()
         self.__state = False
 
-    def focusInEvent(self, event):
+    def focusInEvent(self, event: QFocusEvent) -> None:
         super(LineEditSelected, self).focusInEvent(event)
         self.selectAll()
         self.__state = True
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         super(LineEditSelected, self).mousePressEvent(event)
         if self.__state:
             self.selectAll()
             self.__state = False
 
 
-def clearLayout(layout):
+def clearLayout(layout: QBoxLayout) -> None:
     """
     Utility to remove and take ownership of all items in a QLayout,
     xto then have the python GC collector delete it all.
@@ -234,25 +228,16 @@ class EnumBox(QComboBox):
     """
     valueChanged = Signal(int)
 
-    def __init__(self, optionList):
-        """
-        :type optionList: list[str]
-        """
+    def __init__(self, optionList: list[str]) -> None:
         super(EnumBox, self).__init__()
         self.addItems(optionList)
         self.currentIndexChanged.connect(self.valueChanged.emit)
         self.setEditable(False)
 
-    def value(self):
-        """
-        :rtype: int
-        """
+    def value(self) -> int:
         return self.currentIndex()
 
-    def setValue(self, index):
-        """
-        :type index: int
-        """
+    def setValue(self, index: int) -> None:
         self.setCurrentIndex(index)
 
 
@@ -262,37 +247,28 @@ class ColorBox(QWidget):
     """
     valueChanged = Signal(QColor)
 
-    def __init__(self, color=QColor()):
-        """
-        :type color: QColor
-        """
+    def __init__(self, color=QColor()) -> None:
         super(ColorBox, self).__init__()
         self.setMinimumSize(QSize(32, 20))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Preferred))
         self.__color = color
         self.focus = False
 
-    def paintEvent(self, event):
+    def paintEvent(self, _) -> None:
         painter = QPainter(self)
         painter.setBrush(self.__color)
         painter.drawRect(0, 0, self.width(), self.height())
 
-    def value(self):
-        """
-        :rtype: QColor
-        """
+    def value(self) -> QColor:
         return self.__color
 
-    def setValue(self, color):
-        """
-        :type color: QColor
-        """
+    def setValue(self, color: QColor) -> None:
         self.setValue(color)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         self.focus = True
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if self.focus:
             color = QColorDialog.getColor(self.__color)
             if color.isValid():

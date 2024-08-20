@@ -10,19 +10,21 @@ http://sourceforge.net/projects/qcachegrindwin/
 Example usage:
 runctx(pythonCodeStr, globals(), locals(), executable=QCACHEGRIND)
 """
-from typing import Optional
-import os
 import cProfile
-import tempfile
-import pyprof2calltree
+import os
 import pstats
 import subprocess
+import tempfile
+from typing import Optional
+
+import pyprof2calltree
+
 import fileutil
 
 QCACHEGRIND = r'os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\qcachegrind074-x86\qcachegrind.exe'
 
 
-def runctx(cmdstr, globals: Optional[dict] = None, locals: Optional[dict] = None, outpath: Optional[str] = None, executable: Optional[str] = None) -> str:
+def runctx(cmdstr, globals_: Optional[dict] = None, locals_: Optional[dict] = None, outpath: Optional[str] = None, executable: Optional[str] = None) -> str:
     tmp = tempfile.mktemp()
     target = tmp
 
@@ -34,7 +36,7 @@ def runctx(cmdstr, globals: Optional[dict] = None, locals: Optional[dict] = None
         target.parent().ensureExists()
 
     # profile into out file
-    cProfile.runctx(cmdstr, globals or {}, locals or {}, filename=tmp)
+    cProfile.runctx(cmdstr, globals_ or {}, locals_ or {}, filename=tmp)
     pyprof2calltree.convert(pstats.Stats(tmp), target)
 
     # open

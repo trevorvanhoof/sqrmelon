@@ -1,6 +1,8 @@
-import sys, os
-from fileutil import FilePath
+import os
 import subprocess
+import sys
+
+from fileutil import FilePath
 
 
 def platformIdentifier() -> str:

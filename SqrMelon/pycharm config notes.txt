@@ -1,0 +1,6 @@
+General: Duplicated code fragment: disabled
+Proofreading: disabled
+Python:
+  PEP 8 naming convention violation: disabled
+  Unresolved references: Ignored references: PySide6.*
+  Missing type hinting for function definition: enabled

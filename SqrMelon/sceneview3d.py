@@ -1,19 +1,28 @@
 import os
-from fileutil import FilePath
-from qtutil import *
 import time
-from overlays import loadImage
-from SqrMelon import currentProjectDirectory, gSettings
-from scene import Scene
-from OpenGL.GL import *
-from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from typing import Iterable, Optional
+
+from OpenGL.GL import GL_BLEND, GL_DEPTH_TEST, GL_LEQUAL, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_VERSION, glBlendFunc, glDepthFunc, glDisable, glEnable, glGetString
+
+from buffers import Texture
+from camerawidget import Camera
+from fileutil import FilePath
+from overlays import loadImage, Overlays
+from projutil import currentProjectDirectory, gSettings
+from qt import *
+from scene import CameraTransform, Scene
+from shots import ShotManager
+from timeslider import Timer
 
 _noSignalImage = None
 
 
+def execfile(path: str, globals_: Optional[dict] = None, locals_: Optional[dict] = None):
+    exec(open(path).read(), globals_ or {}, locals_ or {})
+
+
 class SceneView(QOpenGLWidget):
-    """
-    OpenGL 3D viewport.
+    """OpenGL 3D viewport.
 
     Core functionalities are that it is aware of the camera sequencer and timeline,
     so it can decide what camera to evaluate & extract animation data for this frame.
@@ -28,31 +37,35 @@ class SceneView(QOpenGLWidget):
     forward left mouse drag and keyboard input (WASDQE).
     """
 
-    def __init__(self, shotManager, timer, overlays=None):
-        """
-        :type overlays: Overlays
-        """
+    def __init__(self, shotManager: ShotManager, timer: Timer, overlays: Optional[Overlays] = None):
         # We found that not setting a version in Ubunto didn't work
-        glFormat = QGLFormat()
+        glFormat = QSurfaceFormat()
         glFormat.setVersion(4, 1)
-        glFormat.setProfile(QGLFormat.CoreProfile)
+        glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
         glFormat.setDefaultFormat(glFormat)
         super(SceneView, self).__init__()
 
         self._timer = timer
         self._animator = shotManager
         self.__overlays = overlays
-        self._scene = None
+        self._scene: Optional[Scene] = None
         self._size = 1, 1
         self._previewRes = None, None, 1.0
         if gSettings.contains('GLViewScale'):
             self._previewRes = None, None, float(gSettings.value('GLViewScale'))
         self._cameraInput = None
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self._textures = {}
+        self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
 
-    def saveStaticTextures(self):
+    def cameraInput(self) -> Camera:
+        return self._cameraInput
+
+    def textureUniforms(self) -> Iterable[tuple[str, int]]:
+        for key, value in self._textures.items():
+            yield key, value.id()
+
+    def saveStaticTextures(self) -> None:
         exportDir = QFileDialog.getExistingDirectory(None, 'Choose destination folder to save static textures as .png files.', '.')
         if not exportDir:
             return
@@ -62,7 +75,7 @@ class SceneView(QOpenGLWidget):
             for index, cbo in enumerate(self._scene.colorBuffers[passData.targetBufferId]):
                 cbo.save(FilePath(os.path.join(exportDir, '{}{}.png'.format(passData.name, index))))
 
-    def setPreviewRes(self, widthOverride, heightOverride, scale):
+    def setPreviewRes(self, widthOverride: Optional[int], heightOverride: Optional[int], scale: float) -> None:
         if widthOverride is not None:
             x = self.parent().width() - self.width()
             y = self.parent().height() - self.height()
@@ -72,27 +85,21 @@ class SceneView(QOpenGLWidget):
         self.__onResize()
 
     @property
-    def _cameraData(self):
+    def _cameraData(self) -> CameraTransform:
         return self._cameraInput.data()
 
-    def setCamera(self, cameraInput):
-        """
-        :type cameraInput: camera.Camera
-        """
+    def setCamera(self, cameraInput: Camera) -> None:
         self._cameraInput = cameraInput
         if self._scene:
             # copy the scene camera data to the camera input, so each scene can store it's own user-camera
             self._cameraInput.setCamera(self._scene.readCameraData())
 
-    def saveCameraData(self):
+    def saveCameraData(self) -> None:
         if self._cameraInput and self._scene:
             # back up user camera position in scene data
             self._scene.setCameraData(self._cameraInput.camera())
 
-    def setScene(self, scene):
-        """
-        :type scene: scene.Scene
-        """
+    def setScene(self, scene: Optional[Scene]) -> None:
         if scene == self._scene:
             self.repaint()
             return
@@ -121,7 +128,7 @@ class SceneView(QOpenGLWidget):
 
         self.repaint()
 
-    def initializeGL(self):
+    def initializeGL(self) -> None:
         # TODO: Handle re-parenting of the widget in PySide6, it invalidates the context so we need to dirty every cache, or maybe just setCentralWidget and not dock the 3D view,
         #       but it is a fundamental dual monitor or beamer feature so we might just have to deal with it. Lazy choice on Qt's part though, we have to reload EVERY model and texture and buffer.
         print(glGetString(GL_VERSION))
@@ -156,7 +163,7 @@ class SceneView(QOpenGLWidget):
 
         return newW, int(aspectH)
 
-    def paintGL(self):
+    def paintGL(self) -> None:
         newTime = time.time()
         deltaTime = newTime - self._prevTime
 
@@ -183,8 +190,8 @@ class SceneView(QOpenGLWidget):
                 beats = self._timer.time
                 execfile(modifier, globals(), locals())
 
-            for name in self._textures:
-                uniforms[name] = self._textures[name]._id
+            for uniformName in self._textures:
+                uniforms[uniformName] = self._textures[uniformName].id()
 
             self._scene.drawToScreen(self._timer.beatsToSeconds(self._timer.time), self._timer.time, uniforms, viewport, additionalTextureUniforms=textureUniforms)
 
@@ -213,7 +220,7 @@ class SceneView(QOpenGLWidget):
                 Scene.drawColorBufferToScreen(image, viewport, color)
                 glDisable(GL_BLEND)
 
-    def __onResize(self):
+    def __onResize(self) -> None:
         w = self.width()
         h = self.height()
         if self._previewRes[0]:
@@ -227,32 +234,31 @@ class SceneView(QOpenGLWidget):
             self._scene.setSize(*self._size)
         self.repaint()
 
-    def resizeGL(self, w, h):
-        if qt_wrapper == 'PySide6':
-            SceneView.screenFBO = self.defaultFramebufferObject()
+    def resizeGL(self, w: int, h: int):
+        SceneView.screenFBO = self.defaultFramebufferObject()
         self.__onResize()
 
-    def keyPressEvent(self, keyEvent):
+    def keyPressEvent(self, keyEvent: QKeyEvent):
         super(SceneView, self).keyPressEvent(keyEvent)
         if self._cameraInput:
             self._cameraInput.flyKeyboardInput(keyEvent, True)
 
-    def keyReleaseEvent(self, keyEvent):
+    def keyReleaseEvent(self, keyEvent: QKeyEvent):
         super(SceneView, self).keyReleaseEvent(keyEvent)
         if self._cameraInput:
             self._cameraInput.flyKeyboardInput(keyEvent, False)
 
-    def mousePressEvent(self, mouseEvent):
+    def mousePressEvent(self, mouseEvent: QMouseEvent):
         super(SceneView, self).mousePressEvent(mouseEvent)
         if self._cameraInput:
             self._cameraInput.flyMouseStart(mouseEvent)
 
-    def mouseMoveEvent(self, mouseEvent):
+    def mouseMoveEvent(self, mouseEvent: QMouseEvent):
         super(SceneView, self).mouseMoveEvent(mouseEvent)
         if self._cameraInput:
             self._cameraInput.flyMouseUpdate(mouseEvent, self.size())
 
-    def mouseReleaseEvent(self, mouseEvent):
+    def mouseReleaseEvent(self, mouseEvent: QMouseEvent):
         super(SceneView, self).mouseReleaseEvent(mouseEvent)
         if self._cameraInput:
             self._cameraInput.flyMouseEnd(mouseEvent)

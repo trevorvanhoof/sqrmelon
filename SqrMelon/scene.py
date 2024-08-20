@@ -1,24 +1,23 @@
+from __future__ import annotations
+
+import ctypes
+import html
 import re
 import time
-from typing import Union
+from typing import Any, cast, Iterable, Optional, Union
 
-from collections import OrderedDict
-from typing import cast
-
-from fileutil import FileSystemWatcher, FilePath
-from profileui import Profiler
-from multiplatformutil import canValidateShaders
-
-from OpenGL.GL import shaders
+from OpenGL.GL import GL_CURRENT_PROGRAM, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_FLOAT, GL_FRAGMENT_SHADER, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_RGBA, GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TRIANGLE_FAN, GL_UNSIGNED_BYTE, GL_VERTEX_SHADER, glActiveTexture, glBindTexture, glBindVertexArray, glClear, glDisable, glDrawArrays, glEnable, glFinish, glGenerateMipmap, glGenTextures, glGenVertexArrays, glGetIntegerv, glGetTexImage, glGetUniformLocation, glTexImage2D, glTexParameterf, glTexParameteri, glUniform1f, glUniform1fv, glUniform1i, glUniform1iv, glUniform1uiv, glUniform2f, glUniform3f, glUniform4f, glUniformMatrix3fv, glUniformMatrix4fv, glUseProgram, glViewport, shaders
 from OpenGL.GL.EXT import texture_filter_anisotropic
 
-from heightfield import loadHeightfield
-from buffers import *
-from projutil import currentProjectDirectory, currentProjectFilePath, templatePathFromScenePath
-from qtutil import *
-from xmlutil import parseXMLWithIncludes
-
+from buffers import FrameBuffer, Texture, Texture3D
+from fileutil import FilePath, FileSystemWatcher
 from gl_shaders import compileProgram
+from heightfield import loadHeightfield
+from multiplatformutil import canValidateShaders
+from projutil import currentProjectDirectory, currentProjectFilePath, templatePathFromScenePath
+from qt import *
+from qtutil import hlayout, vlayout
+from xmlutil import parseXMLWithIncludes
 
 
 class TexturePool:
@@ -26,11 +25,11 @@ class TexturePool:
     Utility to fetch & bind textures by file path, loaded only once.
     File paths are treated slash and case insensitive.
     """
-    __cache = {}
+    __cache: dict[str, int] = {}
 
     @staticmethod
-    def fetchAndUse(fileName):
-        assert not '\\' in fileName
+    def fetchAndUse(fileName: str) -> int:
+        assert '\\' not in fileName
 
         key = fileName.lower().replace('//', '/')
         if key in TexturePool.__cache:
@@ -64,19 +63,19 @@ class TexturePool:
 
 class PassData:
     def __init__(self,
-                 vertStitches,
-                 fragStitches,
-                 uniforms,
-                 inputBufferIds=None,
-                 targetBufferId=-1,
-                 realtime=None,
-                 resolution=None,
-                 tile=False,
-                 downSampleFactor=None,
-                 numOutputBuffers=1,
-                 drawCommand=None,
-                 is3d=False,
-                 name=None):
+                 vertStitches: list[FilePath],
+                 fragStitches: list[FilePath],
+                 uniforms: dict[str, list[float]],
+                 inputBufferIds: list[Union[FilePath, tuple[int, int]]] = None,
+                 targetBufferId: int = -1,
+                 realtime: bool = True,
+                 resolution: Optional[tuple[int, int]] = None,
+                 tile: bool = False,
+                 downSampleFactor: Optional[int] = None,
+                 numOutputBuffers: int = 1,
+                 drawCommand: Optional[str] = None,
+                 is3d: bool = False,
+                 label: Optional[str] = None):
         self.vertStitches = vertStitches
         self.fragStitches = fragStitches
         self.uniforms = uniforms
@@ -93,21 +92,17 @@ class PassData:
             assert not realtime, '3D textures can not be updated in real time.'
             assert not drawCommand, '3D textures can not be rendered using  custom drawing code.'
         self.is3d = is3d
-        self.name = name
+        self.name = label
 
 
-def _deserializePasses(sceneFile):
-    """
-    :type sceneFile: FilePath
-    :rtype: list[PassData]
-    """
+def _deserializePasses(sceneFile: FilePath) -> list[PassData]:
     assert isinstance(sceneFile, FilePath)
     sceneDir = sceneFile.stripExt()
     templatePath = templatePathFromScenePath(sceneFile)
     templateDir = templatePath.stripExt()
     xTemplate = parseXMLWithIncludes(templatePath)
     passes = []
-    frameBufferMap = {}
+    frameBufferMap: dict[str, int] = {}
     for xPass in xTemplate:
         buffer = -1
         if 'buffer' in xPass.attrib:
@@ -138,7 +133,7 @@ def _deserializePasses(sceneFile):
 
         outputs = int(xPass.attrib.get('outputs', 1))
 
-        inputs = []
+        inputs: list[Union[FilePath, tuple[int, int]]] = []
         i = 0
         key = 'input%s' % i
         while key in xPass.attrib:
@@ -161,9 +156,9 @@ def _deserializePasses(sceneFile):
 
             i += 1
             key = 'input%s' % i
-        vertStitches = []
-        fragStitches = []
-        uniforms = {}
+        vertStitches: list[FilePath] = []
+        fragStitches: list[FilePath] = []
+        uniforms: dict[str, list[float]] = {}
         for xElement in xPass:
             path = FilePath(xElement.attrib['path'])
             stitches = vertStitches if path.hasExt('vert') else fragStitches
@@ -174,11 +169,12 @@ def _deserializePasses(sceneFile):
             else:
                 raise ValueError('Unknown XML tag in pass: "%s"' % xElement.tag)
             for xUniform in xElement:
-                uniforms[xUniform.attrib['name']] = [float(x.strip()) for x in xUniform.attrib['value'].split(',')]
+                uniforms[xUniform.attrib['name']] = [float(element.strip()) for element in xUniform.attrib['value'].split(',')]
 
-        passes.append(
-            PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile,
-                     factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None)))
+        targetBufferId = frameBufferMap.get(buffer, -1)
+        drawCommand = xPass.attrib.get('drawcommand', None)
+        label = xPass.attrib.get('name', None)
+        passes.append(PassData(vertStitches, fragStitches, uniforms, inputs, targetBufferId, realtime, size, tile, factor, outputs, drawCommand, is3d, label))
     return passes
 
 
@@ -220,12 +216,10 @@ class CameraTransform:
 
 class _ShaderPool:
     def __init__(self) -> None:
-        self.__cache = {}
+        self.__cache: dict[tuple[str, str], int] = {}
 
     def compileProgram(self, vertCode: str, fragCode: str) -> int:
-        """
-        A compileProgram version that ensures we don't recompile unnecessarily.
-        """
+        """A compileProgram version that ensures we don't recompile unnecessarily."""
         program = self.__cache.get((vertCode, fragCode), None)
         if program:
             return program
@@ -241,15 +235,15 @@ class _ShaderPool:
 gShaderPool = _ShaderPool()
 
 
-def _loadGLSLWithIncludes(glslPath: FilePath, ioIncludePaths: set[FilePath]):
+def _loadGLSLWithIncludes(glslPath: FilePath, ioIncludePaths: set[FilePath]) -> str:
     assert isinstance(glslPath, FilePath)
-    search = re.compile(r'(?![^/*]*\*/)^[\t ]*(#include "[a-z0-9_]+")[\t ]*$', re.MULTILINE | re.IGNORECASE | re.DOTALL)
+    search = re.compile(r'^(?![^/*]*\*/)[\t ]*(#include "[a-z0-9_]+")[\t ]*$', re.MULTILINE | re.IGNORECASE | re.DOTALL)
     text = glslPath.content()
     for res in list(search.finditer(text)):
         inc = res.group(1)
         idx = inc.find('"') + 1
-        name = inc[idx:inc.find('"', idx + 1)]
-        path = glslPath.join('..', name).abs().lower()
+        label = inc[idx:inc.find('"', idx + 1)]
+        path = glslPath.join('..', label).abs().lower()
         assert path not in ioIncludePaths, 'Recursive or duplicate include "%s" found while parsing "%s"' % (
             path, glslPath)
         ioIncludePaths.add(path)
@@ -260,30 +254,30 @@ def _loadGLSLWithIncludes(glslPath: FilePath, ioIncludePaths: set[FilePath]):
 class FullScreenRectSingleton:
     _instance = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._vao = glGenVertexArrays(1)
 
-    def draw(self):
+    def draw(self) -> None:
         # I don't bind anything, no single buffer or VAO is generated, there are no geometry shaders and no transform feedback systems
         # according to the docs there is no reason why glDrawArrays wouldn't work.
         glBindVertexArray(self._vao)  # glBindVertexArray(0) doesn't work either
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
 
     @classmethod
-    def instance(cls):
+    def instance(cls) -> FullScreenRectSingleton:
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
 
 
 class Scene(QObject):
-    cache = {}
-    passThroughProgram = None
+    cache: dict[FilePath, Scene] = {}
+    passThroughProgram: Optional[int] = None
     STATIC_VERT = '#version 410\nout vec2 vUV;void main(){gl_Position=vec4(step(1,gl_VertexID)*step(-2,-gl_VertexID)*2-1,gl_VertexID-gl_VertexID%2-1,0,1);vUV=gl_Position.xy*.5+.5;}'
     PASS_THROUGH_FRAG = '#version 410\nin vec2 vUV;uniform vec4 uColor;uniform sampler2D uImages[1];out vec4 outColor0;void main(){outColor0=uColor*texture(uImages[0], vUV);}'
 
     @classmethod
-    def drawColorBufferToScreen(cls, colorBuffer, viewport, color=(1.0, 1.0, 1.0, 1.0)):
+    def drawColorBufferToScreen(cls, colorBuffer: Texture, viewport: tuple[int, int, int, int], color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)) -> None:
         FrameBuffer.clear()
 
         passThrough = Scene.usePassThroughProgram(color)
@@ -300,30 +294,30 @@ class Scene(QObject):
         glBindTexture(GL_TEXTURE_2D, 0)
 
     @classmethod
-    def getPassThroughProgram(cls):
+    def getPassThroughProgram(cls) -> int:
         if cls.passThroughProgram:
             return cls.passThroughProgram
         cls.passThroughProgram = gShaderPool.compileProgram(cls.STATIC_VERT, cls.PASS_THROUGH_FRAG)
         return cls.passThroughProgram
 
     @classmethod
-    def usePassThroughProgram(cls, color=(1.0, 1.0, 1.0, 1.0)):
+    def usePassThroughProgram(cls, color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)) -> int:
         passThrough = cls.getPassThroughProgram()
         glUseProgram(passThrough)
         glUniform4f(glGetUniformLocation(passThrough, 'uColor'), *color)
         return passThrough
 
     @classmethod
-    def getScene(cls, sceneFile):
+    def getScene(cls, sceneFile: FilePath) -> Scene:
         assert isinstance(sceneFile, FilePath)
         # avoid compiler hick-ups during playback by caching the scenes once they were compiled
         if sceneFile in cls.cache:
             return cls.cache[sceneFile]
         return cls(sceneFile)
 
-    profileInfoChanged = Signal()
+    profileInfoChanged = Signal(float)
 
-    def __init__(self, sceneFile):
+    def __init__(self, sceneFile: FilePath) -> None:
         super().__init__()
 
         assert isinstance(sceneFile, FilePath)
@@ -331,14 +325,16 @@ class Scene(QObject):
         self.__w = 0
         self.__h = 0
 
-        self.__cameraData = None
+        self.__cameraData: Optional[CameraTransform] = None
 
-        self._debugPassId = None
+        self._debugPassId: Optional[tuple[int, int]] = None
 
-        self.shaders = []
-        self.frameBuffers = []
-        self.colorBuffers = []
-        self.profileLog = []
+        self.passes: list[PassData] = []
+        self.__passDirtyState: list[bool] = []
+        self.shaders: list[int] = []
+        self.frameBuffers: list[FrameBuffer] = []
+        self.colorBuffers: list[list[Union[Texture, Texture3D]]] = []
+        self.profileLog: list[tuple[str, float]] = []
 
         self.__filePath = sceneFile
         self.fileSystemWatcher_scene = FileSystemWatcher()
@@ -360,14 +356,14 @@ class Scene(QObject):
 
         self._reload(None)
 
-    def setDebugPass(self, nameOrId=None, colorBuffer=0):
+    def setDebugPass(self, nameOrId: Optional[Union[str, int]] = None, colorBuffer: int = 0) -> None:
         self._debugPassId = None
         for i, passData in enumerate(self.passes):
             if passData.name == nameOrId or i == nameOrId:
                 self._debugPassId = i, colorBuffer
                 return
 
-    def _reload(self, path):
+    def _reload(self, path: Optional[str]) -> None:
         if path:
             path = FilePath(path)
             time.sleep(0.01)
@@ -390,7 +386,7 @@ class Scene(QObject):
         self._rebuild(None)
         self.__cameraData = None
 
-    def _rebuild(self, path, index=None):
+    def _rebuild(self, path: Optional[str], index: Optional[int] = None) -> None:
         if path:
             path = FilePath(path)
             time.sleep(0.01)
@@ -406,9 +402,9 @@ class Scene(QObject):
 
             # make sure the changed path is in our dependencies
             if path:
-                if not path in (stitch.abs() for stitch in passData.vertStitches):
+                if path not in (stitch.abs() for stitch in passData.vertStitches):
                     vert = False
-                if not path in (stitch.abs() for stitch in passData.fragStitches):
+                if path not in (stitch.abs() for stitch in passData.fragStitches):
                     frag = False
                 if not vert and not frag:
                     continue
@@ -423,20 +419,18 @@ class Scene(QObject):
             for stitch in passData.vertStitches:
                 try:
                     vertCode.append(_loadGLSLWithIncludes(stitch, includePaths))
-                except IOError as e:
+                except IOError as _:
                     errors.append(stitch.abs())
 
             fragCode = []
             for stitch in passData.fragStitches:
                 try:
                     fragCode.append(_loadGLSLWithIncludes(stitch, includePaths))
-                except IOError as e:
+                except IOError as _:
                     errors.append(stitch.abs())
 
             if errors:
-                QMessageBox.critical(None, 'Missing files',
-                                     'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(
-                                         errors))
+                QMessageBox.critical(None, 'Missing files', 'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(errors))  # type: ignore
                 return
 
             if includePaths:
@@ -455,7 +449,7 @@ class Scene(QObject):
                 program = gShaderPool.compileProgram(vertCode, fragCode)
 
             except RuntimeError as e:
-                self.shaders = []
+                self.shaders.clear()
                 errors = e.args[0].split('\n')
                 try:
                     code = e.args[1][0].decode('ascii').split('\n')
@@ -466,17 +460,17 @@ class Scene(QObject):
                     print(fragCode)
                     return
                 # html escape output
-                errors = [Qt.escape(ln) for ln in errors]
-                code = [Qt.escape(ln) for ln in code]
+                errors = [html.escape(ln) for ln in errors]
+                code = [html.escape(ln) for ln in code]
                 log = []
-                for error in errors:
+                for errorLine in errors:
                     try:
-                        lineNumber = int(error.split(' : ', 1)[0].rsplit('(')[-1].split(')')[0])
+                        lineNumber = int(errorLine.split(' : ', 1)[0].rsplit('(')[-1].split(')')[0])
                     except:
                         continue
                     lineNumber -= 1
                     log.append('<p><font color="red">%s</font><br/>%s<br/><font color="#081">%s</font><br/>%s</p>' % (
-                        error, '<br/>'.join(code[lineNumber - 5:lineNumber]), code[lineNumber],
+                        errorLine, '<br/>'.join(code[lineNumber - 5:lineNumber]), code[lineNumber],
                         '<br/>'.join(code[lineNumber + 1:lineNumber + 5])))
                 self.__errorDialogText.setHtml('<pre>' + '\n'.join(log) + '</pre>')
                 self.__errorDialog.setGeometry(100, 100, 800, 600)
@@ -487,9 +481,12 @@ class Scene(QObject):
                 self.shaders.append(0)
             self.shaders[i] = program
 
-            # 3D texture dirties, let's reset it's buffers too
+            # 3D texture dirties, lets reset its buffers too
+            # This pass wants to write to a 3D texture
             if self.passes[i].is3d and self.colorBuffers:
+                # So we get its target buffers
                 for j, buffer in enumerate(self.colorBuffers[i]):
+                    # And if one of them is a 3D texture, we swap the texture with the 2D version
                     if isinstance(buffer, Texture3D):
                         self.colorBuffers[i][j] = buffer.original
                         self.__passDirtyState[i] = True
@@ -497,13 +494,13 @@ class Scene(QObject):
         self.__passDirtyState = [True] * len(self.passes)
         self.__errorDialog.close()
 
-    def setCameraData(self, data):
+    def setCameraData(self, data: CameraTransform) -> None:
         self.__cameraData = data
 
-    def cameraData(self):
+    def cameraData(self) -> CameraTransform:
         return self.__cameraData
 
-    def readCameraData(self):
+    def readCameraData(self) -> CameraTransform:
         if self.__cameraData is None:
             userFile = FilePath(currentProjectFilePath() + '.user')
             xCamera = None
@@ -515,10 +512,10 @@ class Scene(QObject):
                         break
             if xCamera is None:  # legacy support
                 xCamera = parseXMLWithIncludes(self.__filePath)
-            self.__cameraData = CameraTransform(*[float(x) for x in xCamera.attrib['camera'].split(',')])
+            self.__cameraData = CameraTransform(*[float(element) for element in xCamera.attrib['camera'].split(',')])
         return self.__cameraData
 
-    def setSize(self, w, h):
+    def setSize(self, w: int, h: int) -> None:
         if w == self.__w and h == self.__h:
             return
         self.__w = w
@@ -526,11 +523,10 @@ class Scene(QObject):
 
         # compose buffer metadata
         numBuffers = -1
-        bufferData = OrderedDict()
+        bufferData: dict[int, tuple[int, Optional[int], Optional[tuple[int, int]], bool]] = {}
         for passData in self.passes:
             if passData.targetBufferId not in bufferData:
-                bufferData[
-                    passData.targetBufferId] = passData.numOutputBuffers, passData.downSampleFactor, passData.resolution, passData.tile
+                bufferData[passData.targetBufferId] = passData.numOutputBuffers, passData.downSampleFactor, passData.resolution, passData.tile
             else:
                 numOutputBuffers, downSampleFactor, resolution, tile = bufferData[passData.targetBufferId]
 
@@ -554,8 +550,8 @@ class Scene(QObject):
         numBuffers += 2
         bufferData[numBuffers - 1] = 1, 1, None, False
 
-        self.frameBuffers = []
-        self.colorBuffers = []
+        self.frameBuffers: list[FrameBuffer] = []
+        self.colorBuffers: list[list[Texture]] = []
         for value in bufferData.values():
             if value[2] is not None:
                 w, h = value[2]
@@ -573,7 +569,7 @@ class Scene(QObject):
 
         self.__passDirtyState = [True] * len(self.passes)
 
-    def _bindInputs(self, passId, additionalTextureUniforms=None):
+    def _bindInputs(self, passId: int, additionalTextureUniforms: Optional[dict[str, str]] = None):
         j2d = 0
         j3d = 0
 
@@ -585,8 +581,8 @@ class Scene(QObject):
             if isinstance(inpt, str):
                 TexturePool.fetchAndUse(inpt)
         if additionalTextureUniforms:
-            for name in additionalTextureUniforms:
-                TexturePool.fetchAndUse(additionalTextureUniforms[name])
+            for filePath in additionalTextureUniforms.values():
+                TexturePool.fetchAndUse(filePath)
         glUseProgram(program)  # restore program
 
         for j, inpt in enumerate(self.passes[passId].inputBufferIds):
@@ -602,7 +598,7 @@ class Scene(QObject):
             frameBufferId, colorBufferId = inpt
             try:
                 inputBuffer = self.colorBuffers[frameBufferId][colorBufferId]
-            except IndexError as e:
+            except IndexError:
                 raise IndexError('Template for current scene has inputs fetching from non-existant buffers.')
             inputBuffer.use()
             if isinstance(inputBuffer, Texture3D):
@@ -613,20 +609,21 @@ class Scene(QObject):
                 j2d += 1
 
         if additionalTextureUniforms:
-            for name in additionalTextureUniforms:
+            for uniformName in additionalTextureUniforms:
                 j += 1
                 glActiveTexture(GL_TEXTURE0 + j)
-                TexturePool.fetchAndUse(additionalTextureUniforms[name])
-                glUniform1i(glGetUniformLocation(self.shaders[passId], name), j)
+                TexturePool.fetchAndUse(additionalTextureUniforms[uniformName])
+                glUniform1i(glGetUniformLocation(self.shaders[passId], uniformName), j)
 
         return j + 1
 
-    def _unbindInputs(self, maxActiveInputs):
+    @staticmethod
+    def _unbindInputs(maxActiveInputs: int) -> None:
         for j in range(maxActiveInputs):
             glActiveTexture(GL_TEXTURE0 + j)
             glBindTexture(GL_TEXTURE_2D, 0)
 
-    def drawToScreen(self, seconds, beats, uniforms, viewport, additionalTextureUniforms=None):
+    def drawToScreen(self, seconds: float, beats: float, uniforms: dict[str, Any], viewport: tuple[int, int, int, int], additionalTextureUniforms: Optional[dict[str, str]] = None) -> None:
         if not self.shaders:
             # compiler errors
             return
@@ -653,11 +650,13 @@ class Scene(QObject):
             Scene.drawColorBufferToScreen(a[max(0, min(self._debugPassId[1], len(a) - 1))], viewport)
         glEnable(GL_DEPTH_TEST)
 
-    def draw(self, seconds, beats, uniforms, additionalTextureUniforms=None):
+    def draw(self, seconds: float, beats: float, uniforms: dict[str, Any], additionalTextureUniforms: Optional[dict[str, str]] = None) -> int:
         if not self.shaders:
             # compiler errors
-            return
+            return 0
 
+        # TODO: move type-hinting related imports around to avoid local imports
+        from profileui import Profiler
         isProfiling = Profiler.instance and Profiler.instance.isVisible() and Profiler.instance.isProfiling() and self._debugPassId is None
         if isProfiling:
             self.profileLog = []
@@ -685,13 +684,13 @@ class Scene(QObject):
 
             uniforms['uSeconds'] = seconds
             uniforms['uBeats'] = beats
-            uniforms['uResolution'] = self.frameBuffers[passData.targetBufferId].width(), \
-                self.frameBuffers[passData.targetBufferId].height()
+            uniforms['uResolution'] = self.frameBuffers[passData.targetBufferId].width(), self.frameBuffers[passData.targetBufferId].height()
 
             if i >= len(self.shaders) or self.shaders[i] == 0:
                 self._rebuild(None, index=i)
 
             # make sure we don't take into account previous GL calls when measuring time
+            beforeT = 0.0
             if isProfiling:
                 glFinish()
                 beforeT = time.time()
@@ -703,38 +702,37 @@ class Scene(QObject):
             activeInputs = self._bindInputs(i, additionalTextureUniforms)
 
             fn = (glUniform1f, glUniform2f, glUniform3f, glUniform4f)
-            for name in uniforms:
-                if isinstance(uniforms[name], (int, long)):
+            for uniformName in uniforms:
+                if isinstance(uniforms[uniformName], int):
                     glActiveTexture(GL_TEXTURE0 + activeInputs)
-                    glBindTexture(GL_TEXTURE_2D, uniforms[name])
-                    glUniform1i(glGetUniformLocation(self.shaders[i], name), activeInputs)
+                    glBindTexture(GL_TEXTURE_2D, uniforms[uniformName])
+                    glUniform1i(glGetUniformLocation(self.shaders[i], uniformName), activeInputs)
                     activeInputs += 1
-                elif isinstance(uniforms[name], float):
-                    fn[0](glGetUniformLocation(self.shaders[i], name), uniforms[name])
-                elif len(uniforms[name]) == 9:
-                    glUniformMatrix3fv(glGetUniformLocation(self.shaders[i], name), 1, False,
-                                       (ctypes.c_float * 9)(*uniforms[name]))
-                elif len(uniforms[name]) == 16:
-                    glUniformMatrix4fv(glGetUniformLocation(self.shaders[i], name), 1, False,
-                                       (ctypes.c_float * 16)(*uniforms[name]))
-                elif len(uniforms[name]) in (1, 2, 3, 4):
-                    fn[len(uniforms[name]) - 1](glGetUniformLocation(self.shaders[i], name), *uniforms[name])
+                elif isinstance(uniforms[uniformName], float):
+                    fn[0](glGetUniformLocation(self.shaders[i], uniformName), uniforms[uniformName])
+                elif len(uniforms[uniformName]) == 9:
+                    glUniformMatrix3fv(glGetUniformLocation(self.shaders[i], uniformName), 1, False,
+                                       (ctypes.c_float * 9)(*uniforms[uniformName]))
+                elif len(uniforms[uniformName]) == 16:
+                    glUniformMatrix4fv(glGetUniformLocation(self.shaders[i], uniformName), 1, False,
+                                       (ctypes.c_float * 16)(*uniforms[uniformName]))
+                elif len(uniforms[uniformName]) in (1, 2, 3, 4):
+                    fn[len(uniforms[uniformName]) - 1](glGetUniformLocation(self.shaders[i], uniformName), *uniforms[uniformName])
                 else:
                     # has to be a c-type array
-                    typeName = type(uniforms[name]).__name__
+                    typeName = type(uniforms[uniformName]).__name__
                     if typeName.startswith('c_float') or typeName.startswith('c_double'):
-                        glUniform1fv(glGetUniformLocation(self.shaders[i], name), len(uniforms[name]), uniforms[name])
+                        glUniform1fv(glGetUniformLocation(self.shaders[i], uniformName), len(uniforms[uniformName]), uniforms[uniformName])
                     elif typeName.startswith('c_u'):
-                        glUniform1uiv(glGetUniformLocation(self.shaders[i], name), len(uniforms[name]), uniforms[name])
+                        glUniform1uiv(glGetUniformLocation(self.shaders[i], uniformName), len(uniforms[uniformName]), uniforms[uniformName])
                     else:
-                        glUniform1iv(glGetUniformLocation(self.shaders[i], name), len(uniforms[name]), uniforms[name])
+                        glUniform1iv(glGetUniformLocation(self.shaders[i], uniformName), len(uniforms[uniformName]), uniforms[uniformName])
 
-            for name in passData.uniforms:
-                if isinstance(passData.uniforms[name], float):
-                    fn[0](glGetUniformLocation(self.shaders[i], name), passData.uniforms[name])
+            for uniformName in passData.uniforms:
+                if isinstance(passData.uniforms[uniformName], float):
+                    fn[0](glGetUniformLocation(self.shaders[i], uniformName), passData.uniforms[uniformName])
                 else:
-                    fn[len(passData.uniforms[name]) - 1](glGetUniformLocation(self.shaders[i], name),
-                                                         *passData.uniforms[name])
+                    fn[len(passData.uniforms[uniformName]) - 1](glGetUniformLocation(self.shaders[i], uniformName), *passData.uniforms[uniformName])
 
             maxActiveInputs = max(maxActiveInputs, activeInputs)
 

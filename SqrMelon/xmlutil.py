@@ -1,10 +1,11 @@
 import re
-from xml.etree import cElementTree
-from fileutil import FilePath
 import xml.dom.minidom
+from xml.etree import cElementTree
+
+from fileutil import FilePath
 
 
-def xmlFixSlashesRecursively(xElement):
+def xmlFixSlashesRecursively(xElement: cElementTree.Element):
     # replace backslashes in all text and values
     if xElement.text:
         xElement.text = xElement.text.replace('\\', '/')
@@ -16,7 +17,7 @@ def xmlFixSlashesRecursively(xElement):
         xmlFixSlashesRecursively(xChild)
 
 
-def parseXMLWithIncludes(xmlFilePath):
+def parseXMLWithIncludes(xmlFilePath: FilePath) -> cElementTree.Element:
     assert isinstance(xmlFilePath, FilePath)
     text = xmlFilePath.content()
 
@@ -34,7 +35,7 @@ def parseXMLWithIncludes(xmlFilePath):
     return xRoot
 
 
-def toPrettyXml(root):
+def toPrettyXml(root: cElementTree.Element) -> str:
     root.text = None
     xmlFixSlashesRecursively(root)
     text = cElementTree.tostring(root)

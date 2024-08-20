@@ -1,6 +1,6 @@
 from typing import Union
 
-from OpenGL.GL import *
+from OpenGL.GL import GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_PROGRAM_SEPARABLE, GL_TRUE, glAttachShader, glCreateProgram, glDeleteShader, glLinkProgram, glProgramParameteri
 from OpenGL.GL.shaders import ShaderProgram
 
 
@@ -39,12 +39,12 @@ def compileProgram(*shaders: str, **named: Union[int, bool]) -> int:
     """
     program = glCreateProgram()
     if named.get('separable'):
-        glProgramParameteri( program, GL_PROGRAM_SEPARABLE, GL_TRUE )
+        glProgramParameteri(program, GL_PROGRAM_SEPARABLE, GL_TRUE)
     if named.get('retrievable'):
-        glProgramParameteri( program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE )
+        glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE)
     for shader in shaders:
         glAttachShader(program, shader)
-    program = ShaderProgram( program )
+    program = ShaderProgram(program)
     glLinkProgram(program)
     if named.get('validate', True):
         program.check_validate()

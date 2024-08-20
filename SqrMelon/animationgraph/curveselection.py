@@ -1,6 +1,8 @@
+from __future__ import annotations
+from typing import Optional, TYPE_CHECKING
+
 from animationgraph.curveactions import RemappedEvent
-from qtutil import *
-from typing import TYPE_CHECKING
+from qt import *
 
 if TYPE_CHECKING:
     from animationgraph.curvedata import Key
@@ -88,8 +90,8 @@ class MarqueeSelectAction:
         self.__start = event.pos()
         self.__cursor = event.pos()
         self.__parent = parent
-        self.__shift = event.modifiers() & Qt.ShiftModifier == Qt.ShiftModifier
-        self.__ctrl = event.modifiers() & Qt.ControlModifier == Qt.ControlModifier
+        self.__shift = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
+        self.__ctrl = event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier
 
     def update(self, event: QMouseEvent) -> None:
         self.__cursor = event.pos()
@@ -119,9 +121,9 @@ class MarqueeSelectAction:
         x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
         rect = min(x, x2), min(y, y2), abs(x2 - x), abs(y2 - y)
         pen = QPen(Qt.GlobalColor.white)
-        pen.setStyle(Qt.DotLine)
+        pen.setStyle(Qt.PenStyle.DotLine)
 
-        painter.setPen(Qt.black)
+        painter.setPen(Qt.GlobalColor.black)
         painter.drawRect(QRectF(*rect))
         painter.setPen(pen)
         painter.drawRect(QRectF(*rect))

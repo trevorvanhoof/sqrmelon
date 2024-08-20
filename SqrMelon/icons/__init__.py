@@ -1,8 +1,10 @@
-from qtutil import *
-from fileutil import FilePath
 import os
+from typing import Union
 
-__iconCache: dict[str, QIcon] = {}
+from fileutil import FilePath
+from qt import QIcon, QPixmap
+
+__iconCache: dict[str, Union[QPixmap, QIcon]] = {}
 
 
 def get(iconName: str) -> QIcon:
@@ -28,13 +30,13 @@ def _getPath(iconName: str) -> FilePath:
     raise Exception('Icon not found: %s' % iconName)
 
 
-def getImage(iconName: str) -> QIcon:
+def getImage(iconName: str) -> Union[QPixmap, QIcon]:
     if iconName not in __iconCache:
         iconPath = _getPath(iconName)
         if iconPath.hasExt('ico'):
             image = QIcon(iconPath)
         else:
-            image = QIcon(QPixmap(iconPath))
+            image = QPixmap(iconPath)
         if image is None or image.isNull():
             raise Exception('Icon not loaded: %s' % iconPath)
         __iconCache[iconName] = image

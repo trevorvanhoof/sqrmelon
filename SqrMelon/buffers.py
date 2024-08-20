@@ -1,11 +1,13 @@
 """Utility that wraps OpenGL textures, frame buffers and render buffers."""
 import contextlib
-from typing import Iterable, Optional
 import struct
+from typing import Iterable, Optional
+
+from OpenGL.GL import (GL_BYTE, GL_CLAMP_TO_EDGE, GL_COLOR_ATTACHMENT0, GL_DEPTH24_STENCIL8, GL_DEPTH32F_STENCIL8, GL_DEPTH_ATTACHMENT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT32F, GL_DEPTH_STENCIL, GL_DEPTH_STENCIL_ATTACHMENT, GL_FLOAT, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, GL_FRAMEBUFFER, GL_HALF_FLOAT, GL_INT, GL_LINEAR, GL_R11F_G11F_B10F, GL_R16F, GL_R16I, GL_R16UI, GL_R32F, GL_R32I, GL_R32UI, GL_R8, GL_R8_SNORM, GL_R8I, GL_R8UI, GL_RED, GL_RED_INTEGER, GL_REPEAT, GL_RG, GL_RG16F, GL_RG16I, GL_RG16UI, GL_RG32F, GL_RG32I, GL_RG32UI, GL_RG8, GL_RG8_SNORM, GL_RG8I, GL_RG8UI, GL_RG_INTEGER, GL_RGB, GL_RGB10_A2, GL_RGB10_A2UI, GL_RGB16F, GL_RGB16I, GL_RGB16UI, GL_RGB32F, GL_RGB32I, GL_RGB32UI, GL_RGB565, GL_RGB5_A1, GL_RGB8, GL_RGB8_SNORM, GL_RGB8I, GL_RGB8UI, GL_RGB9_E5, GL_RGB_INTEGER, GL_RGBA, GL_RGBA16F, GL_RGBA16I, GL_RGBA16UI, GL_RGBA32F, GL_RGBA32I, GL_RGBA32UI, GL_RGBA4, GL_RGBA8, GL_RGBA8_SNORM, GL_RGBA8I, GL_RGBA8UI, GL_RGBA_INTEGER,
+                       GL_SHORT, GL_SRGB8, GL_SRGB8_ALPHA8, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_R, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_UNSIGNED_BYTE, GL_UNSIGNED_INT, GL_UNSIGNED_INT_10F_11F_11F_REV, GL_UNSIGNED_INT_24_8, GL_UNSIGNED_INT_2_10_10_10_REV, GL_UNSIGNED_INT_5_9_9_9_REV, GL_UNSIGNED_SHORT, GL_UNSIGNED_SHORT_4_4_4_4, GL_UNSIGNED_SHORT_5_5_5_1, GL_UNSIGNED_SHORT_5_6_5, glBindFramebuffer, glBindTexture, glDrawBuffers, glFramebufferTexture2D, glGenFramebuffers, glGenTextures, glGetTexImage, glTexImage2D, glTexImage3D, glTexParameteri, glViewport)
 
 from fileutil import FilePath
-from OpenGL.GL import *
-from qtutil import QImage
+from qt import QImage
 
 
 class Texture:
@@ -126,7 +128,7 @@ class Texture:
         if filePath.hasExt('.r32'):
             # heightfield export
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, buffer)
-            with filePath.edit(flag='wb') as fh:
+            with filePath.editBinary() as fh:
                 fh.write(struct.pack(f'{pixels}f', *buffer))
             return
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
@@ -152,6 +154,11 @@ class Texture3D:
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+
+        # To render into 3D textures we first render into a 2D texture
+        # so we can just do 1 draw call for all texels, then read pixels,
+        # and upload the same array to the 3D texture.
+        self.original: Optional[Texture] = None
 
     def use(self) -> None:
         glBindTexture(GL_TEXTURE_3D, self._id)
@@ -227,12 +234,12 @@ class FrameBuffer:
         self.use(True)
         glFramebufferTexture2D(GL_FRAMEBUFFER, bid, GL_TEXTURE_2D, texture.id(), 0)
 
-    def initDepthStencil(self, depthStencil:  Texture):
+    def initDepthStencil(self, depthStencil: Texture):
         # TODO: check if given texture has right channels DEPTH_STENCIL texture
         if self.__stats[0] is not None:
             raise RuntimeError('FrameBuffer already has a depth, stencil or depth_stencil attachment.')
         self.use(True)
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencil.id(), 0)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencil.id(), 0)
         self.__stats[0] = depthStencil
 
     def initDepth(self, depth: Texture):

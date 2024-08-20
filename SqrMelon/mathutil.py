@@ -1,6 +1,7 @@
 """Some python math utilities for simple types used by the UI."""
 from __future__ import annotations
-from math import sin, cos
+
+from math import cos, sin
 from typing import Optional, Union
 
 _Vec3 = tuple[float, float, float]

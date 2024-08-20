@@ -1,17 +1,16 @@
-from typing import Iterable
-
-from audio import Song
-from projutil import currentProjectFilePath, gSettings
-from qtutil import *
 import time
 from math import floor
+from typing import Any, Iterable, Optional
 from xml.etree import cElementTree
-
-import icons
-from shots import Shot, ShotManager
 
 from pythonosc import udp_client
 
+import icons
+from audio import Song
+from projutil import currentProjectDirectory, currentProjectFilePath, gSettings
+from qt import *
+from qtutil import DoubleSpinBox, hlayout, vlayout
+from shots import Shot, ShotManager
 from xmlutil import toPrettyXml
 
 
@@ -20,13 +19,11 @@ class OSCClient:
         self.__client = udp_client.SimpleUDPClient('127.0.0.1', 2223)
         self.__isPlaying = False
 
-    def __del__(self) -> None:
-        self.__client._sock.close()
-
     def __sendSilent(self, msg: str, *args: Any) -> None:
         # silently ignore any failure while sending
         try:
             self.__client.send_message(msg, *args)
+        # TODO: Have a "suppress" context manager object to distinguish between intentional except alls and undesirably broad exceptions.
         except:
             return
 
@@ -64,8 +61,8 @@ class Timer(QObject):
     bpmChanged = Signal(float)
 
     def __init__(self) -> None:
-        super().__init__()
-        
+        super().__init__()  # type: ignore
+
         self.__osc = OSCClient()
 
         self.__start = 0.0
@@ -83,8 +80,8 @@ class Timer(QObject):
 
         if self.__maxTime == self.__minTime:
             self.__maxTime += 1.0
-        self.__timer = QTimer()
-        self.__timer.timeout.connect(self.__tick)
+        self.__timer = QTimer()  # type: ignore
+        self.__timer.timeout.connect(self.__tick)  # type: ignore
         self.__prevTime = None
 
     def __oscSetLoopRange(self, *_) -> None:
@@ -194,7 +191,7 @@ class Timer(QObject):
         if loop != 0:
             self.timeLooped.emit(self.time)
 
-    def isPlaying(self) -> None:
+    def isPlaying(self) -> bool:
         return self.__timer.isActive()
 
     def playPause(self) -> None:
@@ -203,7 +200,7 @@ class Timer(QObject):
             self.__timer.stop()
             self.__osc.pause()
         else:
-            self.__timer.start(1.0 / 60.0)
+            self.__timer.start(1000 // 60)
             self.__osc.play()
 
     def stepNext(self) -> None:
@@ -237,33 +234,33 @@ class Timer(QObject):
 
     @minTime.setter
     def minTime(self, value: float) -> None:
-        if self.__minTime == value: return
-        self.__minTime = value
-        self.minTimeChanged.emit(value)
+        if self.__minTime != value:
+            self.__minTime = value
+            self.minTimeChanged.emit(value)
 
     @start.setter
     def start(self, value: float) -> None:
-        if self.__start == value: return
-        self.__start = value
-        self.startChanged.emit(value)
+        if self.__start != value:
+            self.__start = value
+            self.startChanged.emit(value)
 
     @end.setter
     def end(self, value: float) -> None:
-        if self.__end == value: return
-        self.__end = value
-        self.endChanged.emit(value)
+        if self.__end != value:
+            self.__end = value
+            self.endChanged.emit(value)
 
     @maxTime.setter
     def maxTime(self, value: float) -> None:
-        if self.__maxTime == value: return
-        self.__maxTime = value
-        self.maxTimeChanged.emit(value)
+        if self.__maxTime != value:
+            self.__maxTime = value
+            self.maxTimeChanged.emit(value)
 
     @time.setter
     def time(self, value: float) -> None:
-        if self.__time == value: return
-        self.__time = value
-        self.timeChanged.emit(value)
+        if self.__time != value:
+            self.__time = value
+            self.timeChanged.emit(value)
 
     def setMinTime(self, value: float) -> None:
         self.minTime = value
@@ -331,11 +328,11 @@ class TimeLine(QWidget):
             paramEnd = (shot.end - self.__timer.start) * normalizeFactor
             if (paramStart < 0.0 and paramEnd < 0.0) or (paramStart > 1.0 and paramEnd > 1.0):
                 continue
-            r = QRect(QPoint(paramStart * visibleWidth, 4), QPoint(paramEnd * visibleWidth, 17))
+            r = QRect(QPoint(int(paramStart * visibleWidth), 4), QPoint(int(paramEnd * visibleWidth), 17))  # type: ignore
             yield i, shot, r
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
             # not moving time, just trying to select a shot
             for i, shot, r in self.__shotGeometry():
                 if r.contains(event.pos()):
@@ -346,12 +343,12 @@ class TimeLine(QWidget):
         self._selectTime(event.x())
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
             return
         self._selectTime(event.x())
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
             return
         self.__timer.oscScrub(0)
 
@@ -370,7 +367,7 @@ class TimeLine(QWidget):
             painter.fillRect(r, shot.color)
             if shot.pinned:
                 pen = painter.pen()
-                painter.setPen(Qt.red)
+                painter.setPen(Qt.GlobalColor.red)
                 painter.drawRect(r)
                 painter.setPen(pen)
             r.adjust(5, 0, 0, 0)
@@ -378,10 +375,10 @@ class TimeLine(QWidget):
 
         paramTime = (self.__timer.time - self.__timer.start) * normalizeFactor
         pixelX = int(paramTime * visibleWidth)
-        painter.setPen(Qt.red)
+        painter.setPen(Qt.GlobalColor.red)
         painter.drawLine(pixelX, 0, pixelX, self.height() - 3)
 
-        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))
+        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))  # type: ignore
 
 
 class RangeSlider(QWidget):
@@ -404,8 +401,8 @@ class RangeSlider(QWidget):
         w = self.width() - RangeSlider.HANDLE_SIZE * 2 - 1
         sx = (self.__timer.start - self.__timer.minTime) / float(self.__timer.maxTime - self.__timer.minTime)
         ex = (self.__timer.end - self.__timer.minTime) / float(self.__timer.maxTime - self.__timer.minTime)
-        sx *= w
-        ex *= w
+        sx = int(sx * w)
+        ex = int(ex * w)
 
         return (QRect(QPoint(sx, 0), QSize(RangeSlider.HANDLE_SIZE, self.height() - 1)),
                 QRect(QPoint(ex + RangeSlider.HANDLE_SIZE, 0), QSize(RangeSlider.HANDLE_SIZE, self.height() - 1)),
@@ -441,7 +438,8 @@ class RangeSlider(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self.__drag = None
 
-    def _drawGrip(self, painter: QPainter, rect: QRect) -> None:
+    @staticmethod
+    def _drawGrip(painter: QPainter, rect: QRect) -> None:
         painter.setPen(QColor.fromRgb(148, 148, 148))
         painter.drawLine(rect.center().x() - 2, rect.top() + 4, rect.center().x() - 2, rect.bottom() - 3)
         painter.drawLine(rect.center().x(), rect.top() + 4, rect.center().x(), rect.bottom() - 3)
@@ -497,7 +495,7 @@ class BPMInput(QWidget):
         self._spinBox = DoubleSpinBox(bpm)
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self._spinBox)
-        self._label = QLabel('%s BPM' % bpm)
+        self._label = QLabel(f'{bpm} BPM')
         self.layout().addWidget(self._label)
         self._spinBox.hide()
         self._spinBox.editingFinished.connect(self.disable)
@@ -517,7 +515,7 @@ class BPMInput(QWidget):
 
     def mouseDoubleClickEvent(self, *_, **__) -> None:
         self._spinBox.show()
-        self._spinBox.setFocus(Qt.MouseFocusReason)
+        self._spinBox.setFocus(Qt.FocusReason.MouseFocusReason)
         self._spinBox.selectAll()
         self._label.hide()
 
@@ -580,11 +578,11 @@ class TimeSlider(QWidget):
         self.__playPause.setFixedWidth(24)
         layout.addWidget(self.__playPause)
         shortcut0 = QShortcut(self)
-        shortcut0.setKey(QKeySequence(Qt.Key_Space))
-        shortcut0.setContext(Qt.ApplicationShortcut)
+        shortcut0.setKey(QKeySequence(Qt.Key.Key_Space))
+        shortcut0.setContext(Qt.ShortcutContext.ApplicationShortcut)
         shortcut1 = QShortcut(self)
-        shortcut1.setKey(QKeySequence(Qt.Key_P))
-        shortcut1.setContext(Qt.ApplicationShortcut)
+        shortcut1.setKey(QKeySequence(Qt.Key.Key_P))
+        shortcut1.setContext(Qt.ShortcutContext.ApplicationShortcut)
         self.__playPause.clicked.connect(self.__togglePlayPause)
         self.__playPause.clicked.connect(timer.playPause)
         shortcut0.activated.connect(self.__togglePlayPause)

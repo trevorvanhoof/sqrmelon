@@ -1,13 +1,19 @@
 from __future__ import annotations
+
 import functools
-from qtutil import *
-from util import randomColor
+from typing import Optional, TYPE_CHECKING
+
 from projutil import gSettings
-from scene import Scene
+from qt import *
+from qtutil import CheckBox, SpinBox, vlayout
+from util import randomColor
+
+if TYPE_CHECKING:
+    from scene import Scene
 
 
 class _ProfileRenderer(QWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super(_ProfileRenderer, self).__init__()
         self.scene: Optional[Scene] = None
         self.tooltipinfo: dict[str, QRectF] = {}
@@ -78,7 +84,7 @@ class Profiler(QWidget):
             # TODO: should trigger a redraw
             self._renderer.scene.setDebugPass(self._passes.currentIndex() - 1, self._sub.value())
 
-    def setScene(self, scene: Optional[Scene]):
+    def setScene(self, scene: Optional[Scene]) -> None:
         if scene == self._renderer.scene:
             return
 

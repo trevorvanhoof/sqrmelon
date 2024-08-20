@@ -1,7 +1,9 @@
-from math import sin, cos, tan, sqrt
+from __future__ import annotations
+from math import cos, sin, sqrt, tan
+from typing import Sequence
 
 
-def prepare(): pass  # stub for consistency, avoids breaking old code
+def prepare() -> None: pass  # stub for consistency, avoids breaking old code
 
 
 class Axis:
@@ -11,7 +13,7 @@ class Axis:
     ALL = (X, Y, Z)
 
 
-def Mat44_Row(data, index):
+def Mat44_Row(data: Sequence[float], index: int) -> Vec4:
     return Vec4(data[index * 4:index * 4 + 4])
 
 

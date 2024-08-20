@@ -1,1 +1,1 @@
-C:/Python27/Python __init__.py
+"%USERPROFILE%/AppData/Local/Programs/Python/Python311/python.exe" main.py

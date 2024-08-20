@@ -1,24 +1,24 @@
-from typing import Iterable, Union
+from typing import Any, Callable, Iterable, Optional, Union
 
-from mathutil import Vec2
 from animationgraph.curvedata import Curve, Key
-from qtutil import *
+from mathutil import Vec2
+from qt import *
 
 
 class RemappedEvent:
     """Utility to store event data in camera-space instead of pixel-space"""
 
-    def __init__(self, pos: QPoint, event: QMouseEvent) -> None:
+    def __init__(self, pos: QPointF, event: QMouseEvent) -> None:
         self.__pos = pos
         self.__event = event
 
-    def pos(self) -> QPoint:
+    def pos(self) -> QPointF:
         return self.__pos
 
-    def x(self) -> int:
+    def x(self) -> float:
         return self.__pos.x()
 
-    def y(self) -> int:
+    def y(self) -> float:
         return self.__pos.y()
 
     # TODO: This looks shoddy
@@ -38,7 +38,7 @@ class DragAction(QUndoCommand):
         super(DragAction, self).__init__('MoveKeys')
         self.__start = event.pos()
         self.__clickCallback = clickCallback  # If we didn't actually drag the data, call this to simulate a click.
-        self.__singleAxis = event.modifiers() & Qt.ShiftModifier == Qt.ShiftModifier
+        self.__singleAxis = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
         self.__ignoredAxis: Optional[int] = None
         self.__selection = selection
         self.__delta = 0.0, 0.0
@@ -66,15 +66,15 @@ class DragAction(QUndoCommand):
                 if ax > ay:
                     self.__ignoredAxis = 1
                     self.__cursorOverride = True
-                    QApplication.setOverrideCursor(Qt.SizeHorCursor)
+                    QApplication.setOverrideCursor(Qt.CursorShape.SizeHorCursor)
                 else:
                     self.__ignoredAxis = 0
                     self.__cursorOverride = True
-                    QApplication.setOverrideCursor(Qt.SizeVerCursor)
+                    QApplication.setOverrideCursor(Qt.CursorShape.SizeVerCursor)
             self.__delta[self.__ignoredAxis] = 0.0
         elif not self.__cursorOverride:
             self.__cursorOverride = True
-            QApplication.setOverrideCursor(Qt.SizeAllCursor)
+            QApplication.setOverrideCursor(Qt.CursorShape.SizeAllCursor)
         return True
 
     def _restore(self) -> None:
