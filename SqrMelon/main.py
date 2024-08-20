@@ -481,6 +481,15 @@ class App(QMainWindowState):
 
 
 def run() -> None:
+    # We found that not setting a version in Ubuntu didn't work
+    glFormat = QSurfaceFormat()
+    glFormat.setVersion(4, 1)
+    glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+    glFormat.setDefaultFormat(glFormat)
+
+    # We found that Qt started destroying OpenGL contexts
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+
     app = QApplication(sys.argv)
     win = App()
     win.show()
