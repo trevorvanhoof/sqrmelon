@@ -37,11 +37,11 @@ class Key:
 
     # TODO: refactor to use getters/setters instead of properties
     @property
-    def tangentBroken(self) -> int:
+    def tangentBroken(self) -> bool:
         return self.__tangentBroken
 
     @tangentBroken.setter
-    def tangentBroken(self, tangentBroken: int) -> None:
+    def tangentBroken(self, tangentBroken: bool) -> None:
         self.__tangentBroken = tangentBroken
         self.updateTangents()
 

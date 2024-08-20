@@ -5,6 +5,11 @@ import icons
 from qtutil import *
 from mathutil import addVec3, multVec3, rotateVec3
 from scene import CameraTransform
+from shots import ShotManager
+from animationgraph.curveview import CurveEditor
+from timeslider import Timer
+
+Float6 = tuple[float, float, float, float, float, float]
 
 
 class Camera(QWidget):
@@ -16,23 +21,23 @@ class Camera(QWidget):
     TURN_SPEEDS = (0.2, 0.8, 3.0)
     MOUSE_SPEED = 3.0
 
-    MOVE_LUT = {Qt.Key_A: (-1.0, 0.0, 0.0),
-                Qt.Key_D: (1.0, 0.0, 0.0),
-                Qt.Key_Q: (0.0, 1.0, 0.0),
-                Qt.Key_E: (0.0, -1.0, 0.0),
-                Qt.Key_S: (0.0, 0.0, -1.0),
-                Qt.Key_W: (0.0, 0.0, 1.0)}
+    MOVE_LUT = {Qt.Key.Key_A: (-1.0, 0.0, 0.0),
+                Qt.Key.Key_D: (1.0, 0.0, 0.0),
+                Qt.Key.Key_Q: (0.0, 1.0, 0.0),
+                Qt.Key.Key_E: (0.0, -1.0, 0.0),
+                Qt.Key.Key_S: (0.0, 0.0, -1.0),
+                Qt.Key.Key_W: (0.0, 0.0, 1.0)}
 
-    TURN_LUT = {Qt.Key_Up: (1.0, 0.0, 0.0),
-                Qt.Key_Down: (-1.0, 0.0, 0.0),
-                Qt.Key_Left: (0.0, -1.0, 0.0),
-                Qt.Key_Right: (0.0, 1.0, 0.0),
-                Qt.Key_Home: (0.0, 0.0, -1.0),
-                Qt.Key_End: (0.0, 0.0, 1.0)}
+    TURN_LUT = {Qt.Key.Key_Up: (1.0, 0.0, 0.0),
+                Qt.Key.Key_Down: (-1.0, 0.0, 0.0),
+                Qt.Key.Key_Left: (0.0, -1.0, 0.0),
+                Qt.Key.Key_Right: (0.0, 1.0, 0.0),
+                Qt.Key.Key_Home: (0.0, 0.0, -1.0),
+                Qt.Key.Key_End: (0.0, 0.0, 1.0)}
 
     cameraChanged = Signal()
 
-    def __init__(self, animator, animationEditor, timer):
+    def __init__(self, animator: ShotManager, animationEditor: CurveEditor, timer: Timer):
         super(Camera, self).__init__()
         self.setLayout(hlayout())
 
@@ -55,7 +60,7 @@ class Camera(QWidget):
         self.layout().addWidget(copyAnim)
         copyAnim.setIconSize(QSize(24, 24))
 
-        self.__keyStates = {Qt.Key_Shift: False, Qt.Key_Control: False}
+        self.__keyStates = {Qt.Key.Key_Shift: False, Qt.Key.Key_Control: False}
         for key in Camera.MOVE_LUT:
             self.__keyStates[key] = False
         for key in Camera.TURN_LUT:
@@ -66,39 +71,44 @@ class Camera(QWidget):
             s = DoubleSpinBox(value)
             s.setMinimumWidth(50)
             self.__inputs.append(s)
-            if i in (3,4,5):
+            if i in (3, 4, 5):
                 s.setSingleStep(5)
             self.layout().addWidget(s)
             s.valueChanged.connect(functools.partial(self.__setData, i))
         self.__prevTime = None
         self.__appLoop = QTimer()
         self.__appLoop.timeout.connect(self.flyUpdate)
-        self.__appLoop.start(1.0 / 15.0)
+        self.__appLoop.start(1000 // 15)
         self.__drag = None
         self.__dirty = False
 
-    def insertKey(self):
+    def insertKey(self) -> None:
+        """Insert a key into the default camera channels with the current timeslider time and current camera transform."""
         channels = 'uOrigin.x', 'uOrigin.y', 'uOrigin.z', 'uAngles.x', 'uAngles.y', 'uAngles.z'
         self.__animationEditor.setKey(channels, tuple(self.__data[:]))
 
-    def forwardPositionKey(self):
+    def forwardPositionKey(self) -> None:
+        """Insert a key into the selected channels with the current timeslider time and current camera position."""
         self.__animationEditor.setTransformKey(tuple(self.__data.translate))
 
-    def forwardRotationKey(self):
+    def forwardRotationKey(self) -> None:
+        """Insert a key into the selected channels with the current timeslider time and current camera rotation."""
         self.__animationEditor.setTransformKey(tuple(self.__data.rotate))
 
-    def __copyAnim(self, *args):
+    def __copyAnim(self, *_) -> None:
         if not self.__cameraControlActive:
             self.copyAnim()
 
-    def copyAnim(self):
+    def copyAnim(self) -> None:
+        """Snap the camera transform to the currently animated camera position."""
         data = self.__animator.evaluate(self._timer.time)
         if 'uOrigin' not in data or 'uAngles' not in data:
             return
         self.__data = CameraTransform(*(data['uOrigin'] + data['uAngles']))
         self.cameraChanged.emit()
 
-    def toggle(self, *args):
+    def toggle(self, *_) -> None:
+        """Toggle making the camera follow the animated values or staying in the user's hands while playing back or scrubbing the timeline."""
         self.__cameraControlActive = not self.__cameraControlActive
         if self.__cameraControlActive:
             self.__enabled.setIcon(icons.get('Toggle Off-48'))
@@ -109,34 +119,34 @@ class Camera(QWidget):
             self.__enabled.setToolTip('Disable camera animation')
             self.__enabled.setStatusTip('Disable camera animation')
 
-    def __setData(self, index, value):
-        """ Called from the UI, performing unit conversion on angles """
+    def __setData(self, index: int, value: float) -> None:
+        """Called from the UI, performing unit conversion on angles."""
         if index in (3, 4, 5):
             value = radians(value)
         self.__data[index] = value
         self.cameraChanged.emit()
 
-    def data(self):
+    def data(self) -> CameraTransform:
         return self.__data
 
-    def setData(self, *args):
+    def setData(self, *args: float) -> None:
         self.__data = CameraTransform(*args)
 
-    def releaseAll(self):
+    def releaseAll(self) -> None:
         for key in self.__keyStates:
             self.__keyStates[key] = False
         self.__drag = None
 
-    def camera(self):
+    def camera(self) -> Float6:
         return tuple(self.__data)
 
-    def setCamera(self, data):
+    def setCamera(self, data: Float6) -> None:
         self.__data = CameraTransform(*data)
 
-    def flyMouseStart(self, event):
+    def flyMouseStart(self, event: QMouseEvent) -> None:
         self.__drag = event.pos(), self.__data.rotate
 
-    def flyMouseUpdate(self, event, size):
+    def flyMouseUpdate(self, event: QMouseEvent, size: QSize) -> None:
         if self.__drag is None:
             return
         delta = event.pos() - self.__drag[0]
@@ -149,14 +159,14 @@ class Camera(QWidget):
                                   self.__data.rotate[2])
             self.__dirty = True
 
-    def flyMouseEnd(self, event):
+    def flyMouseEnd(self, _) -> None:
         self.__drag = None
 
-    def flyKeyboardInput(self, keyEvent, state):
+    def flyKeyboardInput(self, keyEvent: QKeyEvent, state: bool) -> None:
         if keyEvent.key() in self.__keyStates:
             self.__keyStates[keyEvent.key()] = state
 
-    def flyUpdate(self):
+    def flyUpdate(self) -> None:
         if self.__prevTime is None:
             self.__prevTime = time.time()
             return
@@ -167,7 +177,7 @@ class Camera(QWidget):
         dirtyTranslate = False
         dirtyRotate = False
 
-        speedId = 1 - int(self.__keyStates[Qt.Key_Control]) + int(self.__keyStates[Qt.Key_Shift])
+        speedId = 1 - int(self.__keyStates[Qt.Key.Key_Control]) + int(self.__keyStates[Qt.Key.Key_Shift])
 
         # compute move vector
         translate = (0.0, 0.0, 0.0)
@@ -194,7 +204,7 @@ class Camera(QWidget):
 
         if dirtyTranslate:
             translate = multVec3(translate, deltaTime * Camera.MOVE_SPEEDS[speedId])
-            self.__data.translate = addVec3(self.__data.translate, rotateVec3(translate, self.__data.rotate))
+            self.__data.translate = addVec3(self.__data.translate, rotateVec3(translate, self.__data.rotate[:2]))
 
         for i in range(len(self.__data)):
             value = self.__data[i]

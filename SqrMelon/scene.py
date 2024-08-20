@@ -1,10 +1,10 @@
 import re
 import time
-import sys
+from typing import Union
 
-if sys.version_info.major == 3:
-    time.clock = time.time
 from collections import OrderedDict
+from typing import cast
+
 from fileutil import FileSystemWatcher, FilePath
 from profileui import Profiler
 from multiplatformutil import canValidateShaders
@@ -14,8 +14,10 @@ from OpenGL.GL.EXT import texture_filter_anisotropic
 
 from heightfield import loadHeightfield
 from buffers import *
+from projutil import currentProjectDirectory, currentProjectFilePath, templatePathFromScenePath
 from qtutil import *
-from util import currentProjectFilePath, parseXMLWithIncludes, currentProjectDirectory, templatePathFromScenePath
+from xmlutil import parseXMLWithIncludes
+
 from gl_shaders import compileProgram
 
 
@@ -53,7 +55,7 @@ class TexturePool:
         img.convertTo(QImage.Format.Format_RGBA8888)
         tex = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, ctypes.c_void_p(int(img.bits())))
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, img.constBits())
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         TexturePool.__cache[key] = tex
@@ -181,40 +183,46 @@ def _deserializePasses(sceneFile):
 
 
 class CameraTransform:
-    def __init__(self, tx=0, ty=0, tz=0, rx=0, ry=0, rz=0):
+    def __init__(self, tx: float = 0.0, ty: float = 0.0, tz: float = 0.0, rx: float = 0.0, ry: float = 0.0, rz: float = 0.0) -> None:
         self.data = [tx, ty, tz, rx, ry, rz]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Union[int, slice]) -> float:
         return self.data[index]
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index: int, value: float) -> None:
         self.data[index] = value
 
-    @property
-    def translate(self):
-        return tuple(self.data[:3])
+    def __iter__(self) -> Iterable[float]:
+        for element in self.data:
+            yield element
 
     @property
-    def rotate(self):
-        return tuple(self.data[3:6])
+    def translate(self) -> tuple[float, float, float]:
+        # Casting because the type checker can't count.
+        return cast(tuple[float, float, float], tuple(self.data[:3]))
+
+    @property
+    def rotate(self) -> tuple[float, float, float]:
+        # Casting because the type checker can't count.
+        return cast(tuple[float, float, float], tuple(self.data[3:6]))
 
     @translate.setter
-    def translate(self, translate):
+    def translate(self, translate: tuple[float, float, float]) -> None:
         self.data[:3] = translate
 
     @rotate.setter
-    def rotate(self, rotate):
+    def rotate(self, rotate: tuple[float, float, float]) -> None:
         self.data[3:6] = rotate
 
 
 class _ShaderPool:
-    def __init__(self):
+    def __init__(self) -> None:
         self.__cache = {}
 
-    def compileProgram(self, vertCode, fragCode):
+    def compileProgram(self, vertCode: str, fragCode: str) -> int:
         """
         A compileProgram version that ensures we don't recompile unnecessarily.
         """
@@ -233,7 +241,7 @@ class _ShaderPool:
 gShaderPool = _ShaderPool()
 
 
-def _loadGLSLWithIncludes(glslPath, ioIncludePaths):
+def _loadGLSLWithIncludes(glslPath: FilePath, ioIncludePaths: set[FilePath]):
     assert isinstance(glslPath, FilePath)
     search = re.compile(r'(?![^/*]*\*/)^[\t ]*(#include "[a-z0-9_]+")[\t ]*$', re.MULTILINE | re.IGNORECASE | re.DOTALL)
     text = glslPath.content()
@@ -654,9 +662,9 @@ class Scene(QObject):
         if isProfiling:
             self.profileLog = []
             glFinish()
-            startT = time.clock()
+            startT = time.time()
         else:
-            startT = time.clock()
+            startT = time.time()
 
         maxActiveInputs = 0
         for i, passData in enumerate(self.passes):
@@ -678,7 +686,7 @@ class Scene(QObject):
             uniforms['uSeconds'] = seconds
             uniforms['uBeats'] = beats
             uniforms['uResolution'] = self.frameBuffers[passData.targetBufferId].width(), \
-                                      self.frameBuffers[passData.targetBufferId].height()
+                self.frameBuffers[passData.targetBufferId].height()
 
             if i >= len(self.shaders) or self.shaders[i] == 0:
                 self._rebuild(None, index=i)
@@ -686,7 +694,7 @@ class Scene(QObject):
             # make sure we don't take into account previous GL calls when measuring time
             if isProfiling:
                 glFinish()
-                beforeT = time.clock()
+                beforeT = time.time()
 
             self.frameBuffers[passData.targetBufferId].use()
 
@@ -766,7 +774,7 @@ class Scene(QObject):
             # make sure all graphics calls are finished processing in GL land before we measure time
             if isProfiling:
                 glFinish()
-                afterT = time.clock()
+                afterT = time.time()
                 self.profileLog.append((passData.name or str(i), afterT - beforeT))
 
             if self._debugPassId is not None and i == self._debugPassId[0]:
@@ -776,7 +784,7 @@ class Scene(QObject):
         if isProfiling:
             glFinish()
         # inform the profiler a new result is ready
-        endT = time.clock()
+        endT = time.time()
         self.profileInfoChanged.emit(endT - startT)
 
         return maxActiveInputs

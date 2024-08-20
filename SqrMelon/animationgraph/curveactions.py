@@ -218,14 +218,14 @@ class EditKeyAction(QUndoCommand):
     MODE_TIME = 2
     MODE_VALUE = 3
 
-    def __init__(self, keys: Iterable[Key], values: list[Union[int, float]], mode: int) -> None:
+    def __init__(self, keys: Iterable[Key], values: list[Union[int, float, bool]], mode: int) -> None:
         super(EditKeyAction, self).__init__()
 
-        self.__mode = mode
+        self.__mode: int = mode
 
-        self.__keys = []
-        self.__newValues = []
-        self.__oldValues = []
+        self.__keys: list[Key] = []
+        self.__newValues: list[Union[int, float, bool]] = []
+        self.__oldValues: list[Union[int, float, bool]] = []
 
         if mode == self.MODE_TANGENT_TYPE:
             for i, key in enumerate(keys):
@@ -257,7 +257,7 @@ class EditKeyAction(QUndoCommand):
     def isEmpty(self) -> bool:
         return not self.__keys
 
-    def __set(self, key: Key, value: int) -> None:
+    def __set(self, key: Key, value: Union[int, float, bool]) -> None:
         if self.__mode == self.MODE_TANGENT_TYPE:
             key.tangentMode = value
         elif self.__mode == self.MODE_TANGENT_BROKEN:

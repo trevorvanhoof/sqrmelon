@@ -3,19 +3,19 @@ from fileutil import FilePath
 import subprocess
 
 
-def platformIdentifier():
+def platformIdentifier() -> str:
     return sys.platform.lower()
 
 
-def isWindows():
+def isWindows() -> bool:
     return platformIdentifier() == 'win32'
 
 
-def isMac():
+def isMac() -> bool:
     return platformIdentifier().startswith('darwin')
 
 
-def selectInFileBrowser(filePath):
+def selectInFileBrowser(filePath: FilePath) -> None:
     assert isinstance(filePath, FilePath)
     filePath = filePath.abs()
 
@@ -43,7 +43,7 @@ def selectInFileBrowser(filePath):
         subprocess.call(('xdg-open', str(filePath)))
 
 
-def openFileWithDefaultApplication(filePath):
+def openFileWithDefaultApplication(filePath: FilePath) -> None:
     assert isinstance(filePath, FilePath)
 
     if isWindows():
@@ -55,6 +55,6 @@ def openFileWithDefaultApplication(filePath):
         subprocess.call(('xdg-open', str(filePath)))
 
 
-def canValidateShaders():
+def canValidateShaders() -> bool:
     # skip shader validation step on other platforms
     return isWindows()

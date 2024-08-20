@@ -10,7 +10,7 @@ http://sourceforge.net/projects/qcachegrindwin/
 Example usage:
 runctx(pythonCodeStr, globals(), locals(), executable=QCACHEGRIND)
 """
-
+from typing import Optional
 import os
 import cProfile
 import tempfile
@@ -22,7 +22,7 @@ import fileutil
 QCACHEGRIND = r'os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\qcachegrind074-x86\qcachegrind.exe'
 
 
-def runctx(cmdstr, globals={}, locals={}, outpath=None, executable=None):
+def runctx(cmdstr, globals: Optional[dict] = None, locals: Optional[dict] = None, outpath: Optional[str] = None, executable: Optional[str] = None) -> str:
     tmp = tempfile.mktemp()
     target = tmp
 
@@ -34,7 +34,7 @@ def runctx(cmdstr, globals={}, locals={}, outpath=None, executable=None):
         target.parent().ensureExists()
 
     # profile into out file
-    cProfile.runctx(cmdstr, globals, locals, filename=tmp)
+    cProfile.runctx(cmdstr, globals or {}, locals or {}, filename=tmp)
     pyprof2calltree.convert(pstats.Stats(tmp), target)
 
     # open

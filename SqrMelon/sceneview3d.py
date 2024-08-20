@@ -3,14 +3,15 @@ from fileutil import FilePath
 from qtutil import *
 import time
 from overlays import loadImage
-from util import gSettings, currentProjectDirectory
+from SqrMelon import currentProjectDirectory, gSettings
 from scene import Scene
 from OpenGL.GL import *
+from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 _noSignalImage = None
 
 
-class SceneView(QGLWidget):
+class SceneView(QOpenGLWidget):
     """
     OpenGL 3D viewport.
 
@@ -47,7 +48,7 @@ class SceneView(QGLWidget):
         if gSettings.contains('GLViewScale'):
             self._previewRes = None, None, float(gSettings.value('GLViewScale'))
         self._cameraInput = None
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._textures = {}
         self._prevTime = time.time()
 
@@ -139,12 +140,12 @@ class SceneView(QGLWidget):
         self._prevTime = time.time()
         self._timer.kick()
 
-        if qt_wrapper == 'PySide6':
-            SceneView.screenFBO = self.defaultFramebufferObject()
+        SceneView.screenFBO = self.defaultFramebufferObject()
 
     screenFBO = 0
 
-    def calculateAspect(self, w, h):
+    @staticmethod
+    def calculateAspect(w: int, h: int):
         aspectH = w / 16 * 9
         aspectW = h / 9 * 16
 

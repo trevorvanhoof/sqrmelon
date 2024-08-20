@@ -1,3 +1,4 @@
 PySide6
 PyOpenGL
 Send2Trash
+pyprof2calltree

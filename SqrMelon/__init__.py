@@ -1,8 +1,6 @@
-from pycompat import *
 import datetime
 import sys
 import shutil
-import ctypes
 import functools
 import traceback
 
@@ -12,12 +10,12 @@ from overlays import Overlays
 
 from animationgraph.curveview import CurveEditor
 from profileui import Profiler
+from projutil import currentProjectDirectory, currentProjectFilePath, currentScenesDirectory, gSettings, PROJ_EXT, SCENE_EXT, setCurrentProjectFilePath
 from scene import Scene
 from scenelist import SceneList
 from sceneview3d import SceneView
 from shots import ShotManager
 from timeslider import Timer, TimeSlider
-from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory, setCurrentProjectFilePath, currentScenesDirectory
 import os
 from qtutil import *
 import icons
@@ -25,6 +23,11 @@ import icons
 IGNORED_EXTENSIONS = (PROJ_EXT, '.user')
 DEFAULT_PROJECT = 'defaultproject'
 FFMPEG_PATH = 'ffmpeg.exe'
+
+
+def execfile(path, globals=None, locals=None):
+    exec(open(path).read(), globals or {}, locals or {})
+
 
 class PyDebugLog:
     """
@@ -257,10 +260,10 @@ class App(QMainWindowState):
 
         FPS = int(fps.currentText())
         HEIGHT = int(resolution.currentText())
-        WIDTH = (HEIGHT * 16) / 9
+        WIDTH = (HEIGHT * 16) // 9
         FMT = 'jpg'
 
-        data = (ctypes.c_ubyte * (WIDTH * HEIGHT * 3))()  # alloc buffer once
+        data = b'\0' * (WIDTH * HEIGHT * 3)
         flooredStart = self._timer.secondsToBeats(int(self._timer.beatsToSeconds(self._timer.start) * FPS) / float(FPS))
         duration = self._timer.beatsToSeconds(self._timer.end - flooredStart)
 
@@ -321,7 +324,7 @@ class App(QMainWindowState):
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
 
             fh.write('cd "../capture"\n"{}" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FFMPEG_PATH, FPS, start, FPS, FMT,
-                                                                                                                                                                                  start2, FPS))
+                                                                                                                                                             start2, FPS))
         with convertCaptureDir.join('convertGif.bat').edit() as fh:
             start = ''
             start2 = ''
@@ -479,7 +482,7 @@ def run():
     app = QApplication(sys.argv)
     win = App()
     win.show()
-    app.exec_()
+    app.exec()
 
 
 if __name__ == '__main__':
@@ -488,7 +491,4 @@ if __name__ == '__main__':
     try:
         run()
     except Exception as e:
-        if sys.version_info.major == 3:
-            QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())
-        else:
-            QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))
+        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())

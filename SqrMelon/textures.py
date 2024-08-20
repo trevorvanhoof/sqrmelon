@@ -1,4 +1,4 @@
-from util import currentProjectDirectory
+from projutil import currentProjectDirectory
 from qtutil import *
 import icons
 from fileutil import FileDialog

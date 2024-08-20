@@ -1,4 +1,3 @@
-from pycompat import *
 import re
 from xml.etree import cElementTree
 from fileutil import FilePath
@@ -33,7 +32,6 @@ def parseXMLWithIncludes(xmlFilePath):
     xRoot = cElementTree.fromstring(text)
     xmlFixSlashesRecursively(xRoot)
     return xRoot
-
 
 
 def toPrettyXml(root):

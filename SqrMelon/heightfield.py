@@ -11,7 +11,7 @@ from buffers import Texture
 from fileutil import FilePath
 
 
-def loadHeightfield(filePath):
+def loadHeightfield(filePath: FilePath) -> Texture:
     assert isinstance(filePath, FilePath)
     # data is a single float32 color channel
     # so resolution is sqrt(number of floats)
@@ -20,6 +20,7 @@ def loadHeightfield(filePath):
     os.chmod(filePath, stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH)
     fd = os.open(filePath, os.O_RDWR | os.O_BINARY)
     try:
+        # TODO: Is this the right way to use mmap?
         ptr = (ctypes.c_float * (resolution * resolution)).from_buffer(mmap.mmap(fd, 0))
         tex = Texture(Texture.R32F, resolution, resolution, tile=True, data=ptr)
     finally:

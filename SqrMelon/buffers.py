@@ -1,19 +1,20 @@
-"""
-Utility that wraps OpenGL textures, frame buffers and render buffers.
-"""
+"""Utility that wraps OpenGL textures, frame buffers and render buffers."""
 import contextlib
+from typing import Iterable, Optional
+import struct
+
+from fileutil import FilePath
 from OpenGL.GL import *
 from qtutil import QImage
 
 
 class Texture:
-    """
-    Creates a GL texture2D.
-    The static members below are all color formats at this point in time &
-    make it only 1 variable instead of 3.
+    """Creates a GL texture2D.
 
-    Call use() to bind the texture with Gl.
+    The static members below are all color formats at this point in time &
+    make it only 1 variable instead of 3. Call use() to bind the texture with Gl.
     """
+    # TODO: Make this an enum of namedtuples?
     R8 = GL_R8, GL_RED, GL_UNSIGNED_BYTE
     R8_SNORM = GL_R8_SNORM, GL_RED, GL_BYTE
     R16F = GL_R16F, GL_RED, GL_HALF_FLOAT, GL_FLOAT
@@ -74,7 +75,7 @@ class Texture:
     FLOAT_DEPTH = GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT
     FLOAT_DEPTH_STENCIL = GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV
 
-    def __init__(self, channels, width, height, tile=True, data=None):
+    def __init__(self, channels: tuple[int, int, int], width: int, height: int, tile: bool = True, data: Optional[bytes] = None) -> None:
         """
         :param channels: One of the above static members describing the pixel format.
         :param int width: Width in pixels
@@ -98,31 +99,36 @@ class Texture:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
 
-    def id(self):
+    def id(self) -> int:
+        """Returns the internal OpenGL handle."""
         return self._id
 
-    def use(self):
+    def use(self) -> None:
         glBindTexture(GL_TEXTURE_2D, self._id)
 
-    def width(self):
+    def width(self) -> int:
         return self._width
 
-    def height(self):
+    def height(self) -> int:
         return self._height
 
-    def save(self, filePath):
+    def save(self, filePath: FilePath) -> None:
+        """Saves the image to disk using QImage.
+
+        If the file extension is 'r32' we get the
+        red channel as float32 instead and dump it raw.
+        This was used to generate heightfields with the
+        tool and then save them to load offline later.
+        """
         self.use()
+        pixels = self._width * self._height
+        buffer = b'\0' * (pixels * 4)
         if filePath.hasExt('.r32'):
-            import struct
             # heightfield export
-            pixels = self._width * self._height
-            buffer = (ctypes.c_float * pixels)()
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, buffer)
             with filePath.edit(flag='wb') as fh:
-                fh.write(struct.pack('%sf' % pixels, *buffer))
+                fh.write(struct.pack(f'{pixels}f', *buffer))
             return
-        pixels = self._width * self._height
-        buffer = (ctypes.c_ubyte * (pixels * 4))()
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
         img = QImage(buffer, self._width, self._height, QImage.Format.Format_RGBA8888)
         img.mirror(False, True)
@@ -130,7 +136,7 @@ class Texture:
 
 
 class Texture3D:
-    def __init__(self, channels, resolution, tile=True, data=None):
+    def __init__(self, channels: tuple[int, int, int], resolution: int, tile: bool = True, data: Optional[bytes] = None) -> None:
         # for channels refer to the options in Texture
         self._width = resolution
         self._height = resolution
@@ -147,98 +153,20 @@ class Texture3D:
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 
-    def use(self):
+    def use(self) -> None:
         glBindTexture(GL_TEXTURE_3D, self._id)
 
-    def width(self):
+    def width(self) -> int:
         return self._width
 
-    def height(self):
+    def height(self) -> int:
         return self._height
 
-    def depth(self):
+    def depth(self) -> int:
         return self._depth
 
-    def id(self):
+    def id(self) -> int:
         return self._id
-
-
-class Cubemap:
-    def __init__(self, channels, size, contents=None):
-        self.__size = size
-        self.__id = glGenTextures(1)
-
-        self.use()
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-        data = None
-        for i in range(6):
-            if contents is not None:
-                data = contents[i]
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, channels[0], size, size, 0, channels[1], channels[2], data)
-
-    def id(self):
-        return self.__id
-
-    def use(self):
-        glBindTexture(GL_TEXTURE_CUBE_MAP, self.__id)
-
-    def size(self):
-        return self.__size
-
-
-class RenderBuffer:
-    R8 = GL_R8
-    R8UI = GL_R8UI
-    R8I = GL_R8I
-    R16UI = GL_R16UI
-    R16I = GL_R16I
-    R32UI = GL_R32UI
-    R32I = GL_R32I
-    RG8 = GL_RG8
-    RG8UI = GL_RG8UI
-    RG8I = GL_RG8I
-    RG16UI = GL_RG16UI
-    RG16I = GL_RG16I
-    RG32UI = GL_RG32UI
-    RG32I = GL_RG32I
-    RGB8 = GL_RGB8
-    RGB565 = GL_RGB565
-    RGBA8 = GL_RGBA8
-    SRGB8_ALPHA8 = GL_SRGB8_ALPHA8
-    RGB5_A1 = GL_RGB5_A1
-    RGBA4 = GL_RGBA4
-    RGB10_A2 = GL_RGB10_A2
-    RGBA8UI = GL_RGBA8UI
-    RGBA8I = GL_RGBA8I
-    RGB10_A2UI = GL_RGB10_A2UI
-    RGBA16UI = GL_RGBA16UI
-    RGBA16I = GL_RGBA16I
-    RGBA32I = GL_RGBA32I
-    RGBA32UI = GL_RGBA32UI
-    DEPTH_COMPONENT16 = GL_DEPTH_COMPONENT16
-    DEPTH_COMPONENT24 = GL_DEPTH_COMPONENT24
-    DEPTH_COMPONENT32F = GL_DEPTH_COMPONENT32F
-    DEPTH24_STENCIL8 = GL_DEPTH24_STENCIL8
-    DEPTH32F_STENCIL8 = GL_DEPTH32F_STENCIL8
-    STENCIL_INDEX8 = GL_STENCIL_INDEX8
-    # common aliases
-    FLOAT_DEPTH = GL_DEPTH_COMPONENT32F
-    FLOAT_DEPTH_STENCIL = GL_DEPTH32F_STENCIL8
-
-    def __init__(self, channels, width, height):
-        self.__id = glGenRenderbuffers(1)
-        self.use()
-        glRenderbufferStorage(GL_RENDERBUFFER, channels, width, height)
-
-    def id(self):
-        return self.__id
-
-    def use(self):
-        glBindRenderbuffer(GL_RENDERBUFFER, self.__id)
 
 
 class FrameBuffer:
@@ -248,22 +176,26 @@ class FrameBuffer:
     Call use() to render into the buffer and automatically bind all the color buffers as well as adjust glViewport.
     """
 
-    def __init__(self, width, height):
+    def __init__(self, width: int, height: int) -> None:
         self.__id = glGenFramebuffers(1)
-        self.__stats = [None]
-        self.__buffers = []
+        self.__stats: list[Optional[Texture]] = [None]
+        self.__buffers: list[int] = []
         assert isinstance(width, int)
         assert isinstance(height, int)
         self.__width = width
         self.__height = height
 
-    def width(self):
+    def width(self) -> int:
         return self.__width
 
-    def height(self):
+    def height(self) -> int:
         return self.__height
 
-    def use(self, soft=False):
+    def use(self, soft: bool = False) -> None:
+        """
+        Soft binding avoids setting the viewport and raw buffers.
+        Used for setting up the color buffer bindings.
+        """
         glBindFramebuffer(GL_FRAMEBUFFER, self.__id)
         if soft:
             return
@@ -271,21 +203,21 @@ class FrameBuffer:
         glViewport(0, 0, self.__width, self.__height)
 
     @contextlib.contextmanager
-    def useInContext(self, screenSize, soft=False):
+    def useInContext(self, screenSize: tuple[int, int], soft: bool = False) -> None:
         self.use(soft)
         yield
         FrameBuffer.clear()
         glViewport(0, 0, *screenSize)
 
     @staticmethod
-    def clear():
+    def clear() -> None:
         from sceneview3d import SceneView
         glBindFramebuffer(GL_FRAMEBUFFER, SceneView.screenFBO)
 
-    def id(self):
+    def id(self) -> int:
         return self.__id
 
-    def addTexture(self, texture):
+    def addTexture(self, texture: Texture):
         # TODO: check if given texture has right channels (depth, rgba, depth-stencil), etc
         assert (texture.width() == self.__width)
         assert (texture.height() == self.__height)
@@ -293,47 +225,35 @@ class FrameBuffer:
         self.__stats.append(texture)
         self.__buffers.append(bid)
         self.use(True)
-        if isinstance(texture, RenderBuffer):
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, bid, GL_RENDERBUFFER, texture.id())
-        else:  # buffer is a texture
-            glFramebufferTexture2D(GL_FRAMEBUFFER, bid, GL_TEXTURE_2D, texture.id(), 0)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, bid, GL_TEXTURE_2D, texture.id(), 0)
 
-    def initDepthStencil(self, depthStencil):
+    def initDepthStencil(self, depthStencil:  Texture):
         # TODO: check if given texture has right channels DEPTH_STENCIL texture
         if self.__stats[0] is not None:
             raise RuntimeError('FrameBuffer already has a depth, stencil or depth_stencil attachment.')
         self.use(True)
-        if isinstance(depthStencil, RenderBuffer):
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencil.id())
-        else:  # buffer is a texture
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencil.id(), 0)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencil.id(), 0)
         self.__stats[0] = depthStencil
 
-    def initDepth(self, depth):
+    def initDepth(self, depth: Texture):
         # TODO: check if given texture has right channels, DEPTH texture
         if self.__stats[0] is not None:
             raise RuntimeError('FrameBuffer already has a depth, stencil or depth_stencil attachment.')
         self.use(True)
-        if isinstance(depth, RenderBuffer):
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth.id())
-        else:  # buffer is a texture
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth.id(), 0)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth.id(), 0)
         self.__stats[0] = depth
 
-    def initStencil(self, stencil):
+    def initStencil(self, stencil: Texture):
         # TODO: check if given texture has right channels, STENCIL texture
         if self.__stats[0] is not None:
             raise RuntimeError('FrameBuffer already has a depth, stencil or depth_stencil attachment.')
         self.use(True)
-        if isinstance(stencil, RenderBuffer):
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, stencil.id())
-        else:  # buffer is a texture
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, stencil.id(), 0)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, stencil.id(), 0)
         self.__stats[0] = stencil
 
-    def depth(self):
+    def depth(self) -> Texture:
         return self.__stats[0]
 
-    def textures(self):
+    def textures(self) -> Iterable[Texture]:
         for i in range(1, len(self.__stats)):
             yield self.__stats[i]

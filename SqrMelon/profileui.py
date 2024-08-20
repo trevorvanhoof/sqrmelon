@@ -1,22 +1,24 @@
+from __future__ import annotations
 import functools
-
 from qtutil import *
-from util import randomColor, gSettings
+from util import randomColor
+from projutil import gSettings
+from scene import Scene
 
 
 class _ProfileRenderer(QWidget):
     def __init__(self):
         super(_ProfileRenderer, self).__init__()
-        self.scene = None
-        self.tooltipinfo = {}
+        self.scene: Optional[Scene] = None
+        self.tooltipinfo: dict[str, QRectF] = {}
         self.setMouseTracking(True)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         for label, rect in self.tooltipinfo.items():
             if rect.contains(event.pos()):
                 QToolTip.showText(QCursor.pos(), label)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         if self.scene is None:
             return
         painter = QPainter(self)
@@ -31,22 +33,21 @@ class _ProfileRenderer(QWidget):
             text = '%s %ims' % (label, round(seconds * 1000.0))
             rect = QRectF(cursor * scale, 0, seconds * scale, self.height())
             self.tooltipinfo[text] = rect
-            painter.setPen(Qt.NoPen)
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor.fromRgb(*randomColor(i * 0.1357111317)))
             painter.drawRect(rect)
-            painter.setPen(Qt.black)
-            painter.setBrush(Qt.NoBrush)
+            painter.setPen(Qt.GlobalColor.black)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawText(rect, 0, text)
             cursor += seconds
 
 
 class Profiler(QWidget):
-    """
-    Simple utility to draw profile results
-    """
-    instance = None
+    """Simple utility to draw profile results."""
+    instance: Optional[Profiler] = None
 
-    def __init__(self):
+    def __init__(self) -> None:
+        assert Profiler.instance is None
         super(Profiler, self).__init__()
         Profiler.instance = self
         self._renderer = _ProfileRenderer()
@@ -69,15 +70,15 @@ class Profiler(QWidget):
         self._sub.valueChanged.connect(self._setDebugPass)
         self._passes.currentIndexChanged.connect(self._setDebugPass)
 
-    def isProfiling(self):
+    def isProfiling(self) -> bool:
         return self._enabled.isChecked()
 
-    def _setDebugPass(self, *args):
+    def _setDebugPass(self, *_) -> None:
         if self._renderer.scene is not None:
             # TODO: should trigger a redraw
             self._renderer.scene.setDebugPass(self._passes.currentIndex() - 1, self._sub.value())
 
-    def setScene(self, scene):
+    def setScene(self, scene: Optional[Scene]):
         if scene == self._renderer.scene:
             return
 
@@ -102,7 +103,7 @@ class Profiler(QWidget):
             for i, passData in enumerate(scene.passes):
                 self._passes.addItem(passData.name or ('(nameless pass %s)' % i))
 
-    def _update(self, lastFrameDuration):
+    def _update(self, lastFrameDuration: float) -> None:
         self.frameTimes.append(lastFrameDuration)
         if len(self.frameTimes) > 10:
             self.frameTimes.pop(0)

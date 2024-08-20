@@ -2,13 +2,13 @@ from qtutil import *
 from xmlutil import parseXMLWithIncludes
 from fileutil import FilePath
 
-gSettings = QSettings('PB', 'Py64k')
+gSettings = QSettings('SqrMelon.ini', QSettings.Format.IniFormat)
 PROJ_EXT = '.p64'
 TEMPLATE_EXT = '.xml'
 SCENE_EXT = '.xml'
 
 
-def currentProjectFilePath():
+def currentProjectFilePath() -> Optional[FilePath]:
     if not gSettings.contains('currentproject'):
         return None
     return FilePath(gSettings.value('currentproject'))

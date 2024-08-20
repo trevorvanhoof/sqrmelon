@@ -1,3 +1,4 @@
+from projutil import currentProjectFilePath, currentScenesDirectory, currentTemplatesDirectory, iterSceneNames, SCENE_EXT
 from qtutil import *
 import icons
 from fileutil import FilePath
@@ -6,8 +7,8 @@ from animationgraph.curvedata import Curve, Key
 from collections import OrderedDict
 from scene import Scene
 from xml.etree import cElementTree
-from util import randomColor, parseXMLWithIncludes, toPrettyXml, SCENE_EXT, currentProjectFilePath, \
-    currentScenesDirectory, currentTemplatesDirectory, iterSceneNames
+from util import randomColor
+from xmlutil import parseXMLWithIncludes, toPrettyXml
 
 
 def readChannelTemplates():
@@ -228,7 +229,7 @@ class FloatItemDelegate(QItemDelegate):
 
     def __commitAndCloseEditor(self):
         self.commitData.emit(self.__editor)
-        self.closeEditor.emit(self.__editor, QAbstractItemDelegate.NoHint)
+        self.closeEditor.emit(self.__editor, QAbstractItemDelegate.EndEditHint.NoHint)
 
 
 def _deserializeSceneShots(sceneName):
@@ -252,8 +253,8 @@ def _deserializeSceneShots(sceneName):
                     keys = xEntry.text.split(',')
                 curve = Curve()
                 for i in range(0, len(keys), 8):
-                    curve.addKeyWithTangents(tangentBroken=int(keys[i + 6]), tangentMode=int(keys[i + 7]),
-                                             *[float(x) for x in keys[i:i + 6]])
+                    curve.addKeyWithTangents(tangentBroken=bool(int(keys[i + 6])), tangentMode=int(keys[i + 7]),
+                                             *(float(x) for x in keys[i:i + 6]))
                 curves[curveName] = curve
 
             if xEntry.tag.lower() == 'texture':

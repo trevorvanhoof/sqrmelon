@@ -1,7 +1,4 @@
 import colorsys
-from fileutil import *
-from xmlutil import *
-from projutil import *
 
 _randomColorSeed = 0.0
 

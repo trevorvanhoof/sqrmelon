@@ -41,7 +41,7 @@ def rotateVec3(v: _Vec3, a: tuple[float, float]) -> _Vec3:
 
 
 class Vec2:
-    def __init__(self, x: Union[Vec2, float], y: Optional[float] = None):
+    def __init__(self, x: Union[Vec2, float], y: Optional[float] = None) -> None:
         if isinstance(x, Vec2):
             self.data = [x.x, x.y]
         else:
@@ -59,7 +59,7 @@ class Vec2:
         return self.data[0]
 
     @x.setter
-    def x(self, v:float)->None:
+    def x(self, v: float) -> None:
         self.data[0] = v
 
     @property
@@ -67,18 +67,18 @@ class Vec2:
         return self.data[1]
 
     @y.setter
-    def y(self, v: float)->None:
+    def y(self, v: float) -> None:
         self.data[1] = v
 
-    def __neg__(self)->Vec2:
+    def __neg__(self) -> Vec2:
         return Vec2(-self.x, -self.y)
 
-    def __add__(self, other:Union[float,Vec2])->Vec2:
+    def __add__(self, other: Union[float, Vec2]) -> Vec2:
         r = Vec2(self)
         r += other
         return r
 
-    def __iadd__(self, other:Union[float,Vec2])->Vec2:
+    def __iadd__(self, other: Union[float, Vec2]) -> Vec2:
         if isinstance(other, Vec2):
             self.data[0] += other.data[0]
             self.data[1] += other.data[1]
@@ -87,12 +87,12 @@ class Vec2:
             self.data[1] += other
         return self
 
-    def __sub__(self, other:Union[float,Vec2])->Vec2:
+    def __sub__(self, other: Union[float, Vec2]) -> Vec2:
         r = Vec2(self)
         r -= other
         return r
 
-    def __isub__(self, other:Union[float,Vec2])->Vec2:
+    def __isub__(self, other: Union[float, Vec2]) -> Vec2:
         if isinstance(other, Vec2):
             self.data[0] -= other.data[0]
             self.data[1] -= other.data[1]
@@ -101,12 +101,12 @@ class Vec2:
             self.data[1] -= other
         return self
 
-    def __mul__(self, other:Union[float,Vec2])->Vec2:
+    def __mul__(self, other: Union[float, Vec2]) -> Vec2:
         r = Vec2(self)
         r *= other
         return r
 
-    def __imul__(self, other:Union[float,Vec2])->Vec2:
+    def __imul__(self, other: Union[float, Vec2]) -> Vec2:
         if isinstance(other, Vec2):
             self.data[0] *= other.data[0]
             self.data[1] *= other.data[1]
@@ -115,17 +115,17 @@ class Vec2:
             self.data[1] *= other
         return self
 
-    def __floordiv__(self, other:Union[float,Vec2])->Vec2:
+    def __floordiv__(self, other: Union[float, Vec2]) -> Vec2:
         r = Vec2(self)
         r /= other
         return r
 
-    def __truediv__(self, other:Union[float,Vec2])->Vec2:
+    def __truediv__(self, other: Union[float, Vec2]) -> Vec2:
         r = Vec2(self)
         r /= other
         return r
 
-    def __ifloordiv__(self, other:Union[float,Vec2])->Vec2:
+    def __ifloordiv__(self, other: Union[float, Vec2]) -> Vec2:
         if isinstance(other, Vec2):
             self.data[0] /= other.data[0]
             self.data[1] /= other.data[1]
@@ -134,7 +134,7 @@ class Vec2:
             self.data[1] /= other
         return self
 
-    def __itruediv__(self, other:Union[float,Vec2])->Vec2:
+    def __itruediv__(self, other: Union[float, Vec2]) -> Vec2:
         if isinstance(other, Vec2):
             self.data[0] /= other.data[0]
             self.data[1] /= other.data[1]
@@ -143,23 +143,23 @@ class Vec2:
             self.data[1] /= other
         return self
 
-    def dot(self, other:Vec2)->float:
+    def dot(self, other: Vec2) -> float:
         return self.data[0] * other.data[0] + self.data[1] * other.data[1]
 
-    def sqrLen(self)->float:
+    def sqrLen(self) -> float:
         return self.dot(self)
 
-    def length(self)->float:
+    def length(self) -> float:
         return self.sqrLen() ** 0.5
 
-    def abs(self)->Vec2:
+    def abs(self) -> Vec2:
         return Vec2(abs(self.data[0]), abs(self.data[1]))
 
-    def normalized(self)->Vec2:
+    def normalized(self) -> Vec2:
         f = self.length()
         return self / f
 
-    def normalize(self):
+    def normalize(self) -> None:
         factor = self.length()
         assert factor
         self.data[0] /= factor

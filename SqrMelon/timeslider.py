@@ -1,6 +1,7 @@
 from typing import Iterable
 
 from audio import Song
+from projutil import currentProjectFilePath, gSettings
 from qtutil import *
 import time
 from math import floor
@@ -8,9 +9,10 @@ from xml.etree import cElementTree
 
 import icons
 from shots import Shot, ShotManager
-from util import gSettings, toPrettyXml, currentProjectFilePath, currentProjectDirectory
 
 from pythonosc import udp_client
+
+from xmlutil import toPrettyXml
 
 
 class OSCClient:

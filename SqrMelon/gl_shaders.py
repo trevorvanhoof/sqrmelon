@@ -1,8 +1,10 @@
+from typing import Union
+
 from OpenGL.GL import *
 from OpenGL.GL.shaders import ShaderProgram
 
 
-def compileProgram(*shaders, **named):
+def compileProgram(*shaders: str, **named: Union[int, bool]) -> int:
     """Create a new program, attach shaders and validate
     shaders -- arbitrary number of shaders to attach to the
         generated program.
@@ -37,9 +39,9 @@ def compileProgram(*shaders, **named):
     """
     program = glCreateProgram()
     if named.get('separable'):
-        glProgramParameteri( program, separate_shader_objects.GL_PROGRAM_SEPARABLE, GL_TRUE )
+        glProgramParameteri( program, GL_PROGRAM_SEPARABLE, GL_TRUE )
     if named.get('retrievable'):
-        glProgramParameteri( program, get_program_binary.GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE )
+        glProgramParameteri( program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE )
     for shader in shaders:
         glAttachShader(program, shader)
     program = ShaderProgram( program )

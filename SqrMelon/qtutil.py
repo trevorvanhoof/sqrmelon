@@ -2,7 +2,7 @@
 Imports QT with the right version settings
 Exposes a bunch of useful subclasses and utility functions.
 """
-from typing import Any, Optional
+from typing import Any, cast, Optional
 
 from PySide6.QtCore import *
 from PySide6.QtGui import *
@@ -30,10 +30,10 @@ class QMainWindowState(QMainWindow):
     def _restore(self) -> None:
         r = self.settings.value('%s/geometry' % self.__class__.__name__, None)
         if r is not None:
-            self.restoreGeometry(r)
+            self.restoreGeometry(cast(bytes, r))
         s = self.settings.value('%s/state' % self.__class__.__name__, None)
         if s is not None:
-            self.restoreState(s)
+            self.restoreState(cast(bytes, s))
 
     def showEvent(self, event: QShowEvent) -> None:
         self._restore()
@@ -92,7 +92,7 @@ def hlayout(spacing: int = 0, margin: int = 0) -> QHBoxLayout:
     layout = QHBoxLayout()
     layout.setContentsMargins(margin, margin, margin, margin)
     layout.setSpacing(spacing)
-    layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+    layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
     return layout
 
 
@@ -101,7 +101,7 @@ def vlayout(spacing: int = 0, margin: int = 0) -> QVBoxLayout:
     layout = QVBoxLayout()
     layout.setContentsMargins(margin, margin, margin, margin)
     layout.setSpacing(spacing)
-    layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+    layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
     return layout
 
 
@@ -123,35 +123,35 @@ class SpinBox(QSpinBox):
 class USpinBox(QSpinBox):
     """Integer input with default limits for uint31,
     which is the limit of QSpinBox."""
-    
-    def __init__(self, value:int=0, bits:int=31)->None:
+
+    def __init__(self, value: int = 0, bits: int = 31) -> None:
         super(USpinBox, self).__init__()
         self.setMinimum(0)
         self.setMaximum(2 ** (bits - 1) - 1)
         self.setValue(value)
 
-    def setValueSilent(self, value:int)->None:
+    def setValueSilent(self, value: int) -> None:
         self.blockSignals(True)
         self.setValue(value)
         self.blockSignals(False)
 
 
-def spinBox8(value:int) -> SpinBox: return SpinBox(value, 8)
+def spinBox8(value: int) -> SpinBox: return SpinBox(value, 8)
 
 
-def spinBox16(value:int) -> SpinBox: return SpinBox(value, 16)
+def spinBox16(value: int) -> SpinBox: return SpinBox(value, 16)
 
 
-def uSpinBox8(value:int) -> USpinBox: return USpinBox(value, 8)
+def uSpinBox8(value: int) -> USpinBox: return USpinBox(value, 8)
 
 
-def uSpinBox16(value:int) -> USpinBox: return USpinBox(value, 16)
+def uSpinBox16(value: int) -> USpinBox: return USpinBox(value, 16)
 
 
 class DoubleSpinBox(QDoubleSpinBox):
     """Float input with full floating point range."""
 
-    def __init__(self, value:float=0.0)->None:
+    def __init__(self, value: float = 0.0) -> None:
         super(DoubleSpinBox, self).__init__()
         self.setMinimum(-float('inf'))
         self.setMaximum(float('inf'))
@@ -159,23 +159,24 @@ class DoubleSpinBox(QDoubleSpinBox):
         self.setSingleStep(0.01)
         self.setLineEdit(LineEditSelected())
 
-    def setValueSilent(self, value:float)->None:
+    def setValueSilent(self, value: float) -> None:
         self.blockSignals(True)
         self.setValue(value)
         self.blockSignals(False)
 
 
+# TODO: Should this use bools instead of checkstates?
 class CheckBox(QCheckBox):
     valueChanged = Signal(int)
 
-    def __init__(self, *args:Any)->None:
+    def __init__(self, *args: Any) -> None:
         super(CheckBox, self).__init__(*args)
         self.stateChanged.connect(self.valueChanged.emit)
 
-    def value(self) -> bool:
+    def value(self) -> Qt.CheckState:
         return self.checkState()
 
-    def setValue(self, state: bool) -> None:
+    def setValue(self, state: Qt.CheckState) -> None:
         self.setCheckState(state)
 
 
@@ -267,8 +268,9 @@ class ColorBox(QWidget):
         """
         super(ColorBox, self).__init__()
         self.setMinimumSize(QSize(32, 20))
-        self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred))
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Preferred))
         self.__color = color
+        self.focus = False
 
     def paintEvent(self, event):
         painter = QPainter(self)
