@@ -1,10 +1,9 @@
 """
 Wrapped SIMD math library.
 
-Regardless of the python classes wrapping & lot's of if checks in initializers
+Regardless of the python classes wrapping & lots of if checks in initializers
 this is loads faster than a python implementation + guarantees matching output with C++ code.
 """
-from pycompat import *
 import os
 import ctypes
 import platform
@@ -139,14 +138,14 @@ def prepare():
     _dllHandle.Mat44_MultiplyVector.restype = ctypes.c_void_p
 
 
-class Axis(object):
+class Axis:
     X = 0
     Y = 1
     Z = 2
     ALL = (X, Y, Z)
 
 
-class VectorBase(object):
+class VectorBase:
     _size = 4
 
     def __init__(self, *args):
@@ -154,7 +153,7 @@ class VectorBase(object):
 
         self._data = None
         if args:
-            if isinstance(args[0], (long, ctypes.c_voidp, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
+            if isinstance(args[0], (int, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
                 self._ptr = args[0]
             elif isinstance(args[0], self.__class__):
                 self._ptr = _dllHandle.Vector_Copy(args[0]._ptr)
@@ -265,11 +264,11 @@ class Vec3(VectorBase):
         return Vec3(_dllHandle.Vector_Cross(self._ptr, other._ptr))
 
 
-class Mat44(object):
+class Mat44:
     def __init__(self, *args):
         self._data = None
         if args:
-            if isinstance(args[0], (long, ctypes.c_voidp, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
+            if isinstance(args[0], (int, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
                 self._ptr = args[0]
             elif isinstance(args[0], Mat44):
                 self._ptr = _dllHandle.Mat44_Copy(args[0]._ptr)

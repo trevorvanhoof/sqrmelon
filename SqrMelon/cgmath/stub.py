@@ -1,11 +1,10 @@
-from pycompat import *
 from math import sin, cos, tan, sqrt
 
 
 def prepare(): pass  # stub for consistency, avoids breaking old code
 
 
-class Axis(object):
+class Axis:
     X = 0
     Y = 1
     Z = 2
@@ -65,7 +64,7 @@ def Mat44_AxisCosAngle(axis, cosAngle):
         1.0]
 
 
-class VectorBase(object):
+class VectorBase:
     _size = 4
 
     def __init__(self, *args):
@@ -184,7 +183,7 @@ class Vec3(VectorBase):
                     self._data[1] * other[0] - self._data[0] * other[1])
 
 
-class Mat44(object):
+class Mat44:
     def __init__(self, *args):
         self._data = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         if args:
