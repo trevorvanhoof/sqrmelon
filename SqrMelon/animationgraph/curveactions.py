@@ -1,19 +1,45 @@
+from typing import Iterable, Union
+
 from mathutil import Vec2
-from animationgraph.curvedata import Key
+from animationgraph.curvedata import Curve, Key
 from qtutil import *
 
 
-class DragAction(QUndoCommand):
-    """
-    Wrapper to move given set of keys & track undo-state.
-    """
+class RemappedEvent:
+    """Utility to store event data in camera-space instead of pixel-space"""
 
-    def __init__(self, event, selection, clickCallback, scale, snap):
+    def __init__(self, pos: QPoint, event: QMouseEvent) -> None:
+        self.__pos = pos
+        self.__event = event
+
+    def pos(self) -> QPoint:
+        return self.__pos
+
+    def x(self) -> int:
+        return self.__pos.x()
+
+    def y(self) -> int:
+        return self.__pos.y()
+
+    # TODO: This looks shoddy
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self.__event, attr)
+
+
+class DragAction(QUndoCommand):
+    """Wrapper to move given set of keys & track undo-state."""
+
+    def __init__(self,
+                 event: RemappedEvent,
+                 selection: Iterable[Key],
+                 clickCallback: Optional[Callable],
+                 scale: tuple[float, float],
+                 snap: tuple[int, int]) -> None:
         super(DragAction, self).__init__('MoveKeys')
         self.__start = event.pos()
         self.__clickCallback = clickCallback  # If we didn't actually drag the data, call this to simulate a click.
         self.__singleAxis = event.modifiers() & Qt.ShiftModifier == Qt.ShiftModifier
-        self.__ignoredAxis = None
+        self.__ignoredAxis: Optional[int] = None
         self.__selection = selection
         self.__delta = 0.0, 0.0
         self.__snap = snap
@@ -23,7 +49,7 @@ class DragAction(QUndoCommand):
         for key in selection:
             self.__restoreData.append(key.point())
 
-    def _validate(self, event):
+    def _validate(self, event: RemappedEvent) -> bool:
         """
         Check if we move far enough so we don't accidentally move minute amounts.
         When shift is pressed we want to move only on 1 axis, so detect which
@@ -51,33 +77,29 @@ class DragAction(QUndoCommand):
             QApplication.setOverrideCursor(Qt.SizeAllCursor)
         return True
 
-    def _restore(self):
-        """
-        Revert key state.
-        """
+    def _restore(self) -> None:
+        """Revert key state."""
         i = 0
         for key in self.__selection:
             key.setPoint(self.__restoreData[i])
             i += 1
 
-    def _apply(self):
-        """
-        Set key state.
-        """
+    def _apply(self) -> None:
+        """Set key state."""
         i = 0
         for key in self.__selection:
             x = self.__restoreData[i][0] + self.__delta[0]
             y = self.__restoreData[i][1] + self.__delta[1]
             if self.__snap[0]:
-                x = round(x * self.__snap[0]) / float(self.__snap[0])
+                x = round(x * self.__snap[0]) / self.__snap[0]
             if self.__snap[1]:
-                y = round(y * self.__snap[1]) / float(self.__snap[1])
+                y = round(y * self.__snap[1]) / self.__snap[1]
             key.setPoint(Vec2(x, y))
             i += 1
 
-    def update(self, event):
-        """
-        Handle mouse move.
+    def update(self, event: RemappedEvent) -> bool:
+        """Handle mouse move.
+
         Move keys based on initial click event & key position, so there is no error accumulation.
         """
         # drag should be implicit, so we can just validate and redraw the new state (moved or undone)
@@ -88,11 +110,12 @@ class DragAction(QUndoCommand):
         self._restore()
         return False
 
-    def finalize(self, event):
-        """
-        Handle mouse release.
+    def finalize(self, event: RemappedEvent) -> bool:
+        """Handle mouse release.
+
         Restore cursor and trigger click if we didn't move the keys.
         """
+
         if self.__cursorOverride:
             QApplication.restoreOverrideCursor()
         if self.update(event):
@@ -101,35 +124,33 @@ class DragAction(QUndoCommand):
             self.__clickCallback()
         return False
 
-    def undo(self):
+    def undo(self) -> None:
         self._restore()
 
-    def redo(self):
+    def redo(self) -> None:
         self._apply()
 
 
 class DeleteAction(QUndoCommand):
-    """
-    Cache given set of keys in the undo stack and remove them upon pushing the command in the stack.
-    """
+    """Cache given set of keys in the undo stack and remove them upon pushing the command in the stack."""
 
-    def __init__(self, selectionPerChannel):
+    def __init__(self, selectionPerChannel) -> None:
         super(DeleteAction, self).__init__('DeleteKey')
         self.__selectionPerChannel = selectionPerChannel
 
-    def redo(self):
+    def redo(self) -> None:
         for key in self.__selectionPerChannel:
             key.delete()
 
-    def undo(self):
+    def undo(self) -> None:
         for key in self.__selectionPerChannel:
             key.reInsert()
 
 
 class InsertKeyAction(QUndoCommand):
-    def __init__(self, time, curves):
+    def __init__(self, time: float, curves: Iterable[Curve]) -> None:
         super(InsertKeyAction, self).__init__('InsertKey')
-        self.__keys = []
+        self.__keys: list[Key] = []
         for curve in curves:
             key = curve.keyAt(time)
             if key:
@@ -139,36 +160,37 @@ class InsertKeyAction(QUndoCommand):
             k._Key__tangentMode = Key.TANGENT_AUTO
             self.__keys.append(k)
 
-    def redo(self):
+    def redo(self) -> None:
         for key in self.__keys:
             key.reInsert()
 
-    def undo(self):
+    def undo(self) -> None:
         for key in self.__keys:
             key.delete()
 
 
-class KeyChange(object):
+class KeyChange:
     """
     A wrapper class that looks like a Key() but in fact only changes an existing Key.
     Used by SetKeyAction in case we are setting a key at a time that already has a key.
     """
-    def __init__(self, newY, key):
+
+    def __init__(self, newY: float, key: Key) -> None:
         self.__newY = newY
         self.__key = key
         self.__oldY = key.value()
 
-    def reInsert(self):
+    def reInsert(self) -> None:
         self.__key.setValue(self.__newY)
 
-    def delete(self):
+    def delete(self) -> None:
         self.__key.setValue(self.__oldY)
 
 
 class SetKeyAction(QUndoCommand):
-    def __init__(self, time, curves, values):
+    def __init__(self, time, curves: Iterable[Curve], values: tuple[float]) -> None:
         super(SetKeyAction, self).__init__('SetKey')
-        self.__keys = []
+        self.__keys: list[Union[KeyChange, Key]] = []
         for i, curve in enumerate(curves):
             key = curve.keyAt(time)
             if key:
@@ -176,11 +198,11 @@ class SetKeyAction(QUndoCommand):
             else:
                 self.__keys.append(Key(time, values[i], curve))
 
-    def redo(self):
+    def redo(self) -> None:
         for key in self.__keys:
             key.reInsert()
 
-    def undo(self):
+    def undo(self) -> None:
         for key in self.__keys:
             key.delete()
 
@@ -196,7 +218,7 @@ class EditKeyAction(QUndoCommand):
     MODE_TIME = 2
     MODE_VALUE = 3
 
-    def __init__(self, keys, values, mode):
+    def __init__(self, keys: Iterable[Key], values: list[Union[int, float]], mode: int) -> None:
         super(EditKeyAction, self).__init__()
 
         self.__mode = mode
@@ -232,10 +254,10 @@ class EditKeyAction(QUndoCommand):
         else:
             raise RuntimeError('Invalid key edit mode specified.')
 
-    def isEmpty(self):
+    def isEmpty(self) -> bool:
         return not self.__keys
 
-    def __set(self, key, value):
+    def __set(self, key: Key, value: int) -> None:
         if self.__mode == self.MODE_TANGENT_TYPE:
             key.tangentMode = value
         elif self.__mode == self.MODE_TANGENT_BROKEN:
@@ -245,10 +267,10 @@ class EditKeyAction(QUndoCommand):
         elif self.__mode == self.MODE_VALUE:
             key.setValue(value)
 
-    def redo(self):
+    def redo(self) -> None:
         for i, key in enumerate(self.__keys):
             self.__set(key, self.__newValues[i])
 
-    def undo(self):
+    def undo(self) -> None:
         for i, key in enumerate(self.__keys):
             self.__set(key, self.__oldValues[i])

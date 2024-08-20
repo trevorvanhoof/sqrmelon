@@ -1,4 +1,7 @@
 from qtutil import *
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from curveview import CurveViewCamera, Float4
 
 
 class CameraUndoCommand(QUndoCommand):
@@ -6,24 +9,22 @@ class CameraUndoCommand(QUndoCommand):
 
 
 class CameraFrameAction(CameraUndoCommand):
-    """
-    Snaps the camera to the given region.
-    """
-    def __init__(self, camera, region):
+    """Snaps the camera to the given region."""
+    def __init__(self, camera: CurveViewCamera, region: Float4) -> None:
         super(CameraFrameAction, self).__init__('FrameCamera')
         self.__restoreRegion = camera.region()
         self.__camera = camera
         self.__region = region
 
-    def undo(self):
+    def undo(self) -> None:
         self.__camera.setRegion(*self.__restoreRegion)
 
-    def redo(self):
+    def redo(self) -> None:
         self.__camera.setRegion(*self.__region)
 
 
 class CameraZoomAction(CameraUndoCommand):
-    def __init__(self, event, widgetSize, camera):
+    def __init__(self, event: QMouseEvent, widgetSize: QSize, camera: CurveViewCamera) -> None:
         super(CameraZoomAction, self).__init__('ZoomCamera')
         self.__camera = camera
         self.__start = event.x(), event.y()
@@ -39,7 +40,7 @@ class CameraZoomAction(CameraUndoCommand):
                              self.__restoreRegion[3] + \
                              self.__restoreRegion[1]
 
-    def _computeDelta(self, event):
+    def _computeDelta(self, event: QMouseEvent) -> None:
         delta = [event.x() - self.__start[0], event.y() - self.__start[1]]
         self.__zoomFactor = [delta[0] / float(self.__restoreRegion[2]), delta[1] / float(self.__restoreRegion[3])]
         ax = abs(delta[0])
@@ -66,7 +67,7 @@ class CameraZoomAction(CameraUndoCommand):
                 self.__cursorOverride = True
                 QApplication.setOverrideCursor(Qt.SizeAllCursor)
 
-    def _apply(self):
+    def _apply(self) -> None:
         if self.__ignoredAxis != 0:
             w = self.__restoreRegion[2] * (self.__zoomStrength ** -self.__zoomFactor[0])
             w = max(0.01, w)
@@ -87,24 +88,24 @@ class CameraZoomAction(CameraUndoCommand):
 
         self.__camera.setRegion(x, y, w, h)
 
-    def _restore(self):
+    def _restore(self) -> None:
         self.__camera.setRegion(*self.__restoreRegion)
 
-    def update(self, event):
+    def update(self, event: QMouseEvent) -> None:
         self._computeDelta(event)
         self._apply()
 
-    def finalize(self, event):
+    def finalize(self, event: QMouseEvent) -> bool:
         if self.__cursorOverride:
             QApplication.restoreOverrideCursor()
         self._computeDelta(event)
         self._apply()
         return True
 
-    def undo(self):
+    def undo(self) -> None:
         self._restore()
 
-    def redo(self):
+    def redo(self) -> None:
         self._apply()
 
 

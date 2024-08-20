@@ -1,20 +1,25 @@
-from pycompat import *
+from animationgraph.curveactions import RemappedEvent
 from qtutil import *
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from animationgraph.curvedata import Key
+    from animationgraph.curveview import CurveView
 
 
 class SelectedKey:
-    def __init__(self, row, index):
+    def __init__(self, row: int, index: int):
         self.__row = row
         self.__index = index
 
-    def row(self):
+    def row(self) -> int:
         return self.__row
 
-    def index(self):
+    def index(self) -> int:
         return self.__index
 
 
-class Selection(object):
+class Selection:
     """
     Helper class for managing the set of selected keys, or their tangents.
 
@@ -22,19 +27,19 @@ class Selection(object):
     """
     KEYS, IN_TANGENT, OUT_TANGENT = range(3)
 
-    def __init__(self):
-        self.__keys = []
+    def __init__(self) -> None:
+        self.__keys: list[SelectedKey] = []
         self.__selectionType = Selection.KEYS
-        self.__model = None
+        self.__model: Optional[QStandardItemModel] = None
 
-    def setModel(self, model):
+    def setModel(self, model: QStandardItemModel) -> None:
         self.__model = model
 
-    def clear(self):
+    def clear(self) -> None:
         self.__keys = []
         self.__selectionType = Selection.KEYS
 
-    def keys(self):
+    def keys(self) -> list[Key]:
         if self.__selectionType != Selection.KEYS:
             return []
         result = []
@@ -42,7 +47,7 @@ class Selection(object):
             result.append(self.__model.item(selectedKey.row()).data()[selectedKey.index()])
         return result
 
-    def isKeySelected(self, row, index):
+    def isKeySelected(self, row: int, index: int) -> bool:
         if self.__selectionType != Selection.KEYS:
             return False
         for selectedKey in self.__keys:
@@ -50,14 +55,15 @@ class Selection(object):
                 return True
         return False
 
-    def addKey(self, row, index):
+    # TODO: Bad naming, select and deselect, not add and delete
+    def addKey(self, row: int, index: int) -> None:
         # Reset selection if we were selecting a tangent
         if self.__selectionType != Selection.KEYS:
             self.__keys = []
         self.__selectionType = Selection.KEYS
         self.__keys.append(SelectedKey(row, index))
 
-    def deleteKey(self, row, index):
+    def deleteKey(self, row: int, index: int) -> None:
         # Reset selection if we were selecting a tangent
         if self.__selectionType != Selection.KEYS:
             self.__keys = []
@@ -69,26 +75,26 @@ class Selection(object):
                 return
 
 
-class MarqueeSelectAction(object):
-    """
-    Rectangle selection with modifier support.
+class MarqueeSelectAction:
+    """ Rectangle selection with modifier support.
+
     none: clear & select
     shift: toggle
     ctrl: deselect
     ctrl + shift: add
     """
 
-    def __init__(self, event, parent):
+    def __init__(self, event: RemappedEvent, parent: CurveView):
         self.__start = event.pos()
         self.__cursor = event.pos()
         self.__parent = parent
         self.__shift = event.modifiers() & Qt.ShiftModifier == Qt.ShiftModifier
         self.__ctrl = event.modifiers() & Qt.ControlModifier == Qt.ControlModifier
 
-    def update(self, event):
+    def update(self, event: QMouseEvent) -> None:
         self.__cursor = event.pos()
 
-    def finalize(self, _):
+    def finalize(self, _) -> None:
         x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
         bounds = min(x, x2), min(y, y2), max(x, x2), max(y, y2)
         first = True
@@ -109,10 +115,10 @@ class MarqueeSelectAction(object):
                         self.__ctrl = True
                     first = False
 
-    def paint(self, painter):
+    def paint(self, painter: QPainter) -> None:
         x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
         rect = min(x, x2), min(y, y2), abs(x2 - x), abs(y2 - y)
-        pen = QPen(Qt.white)
+        pen = QPen(Qt.GlobalColor.white)
         pen.setStyle(Qt.DotLine)
 
         painter.setPen(Qt.black)
