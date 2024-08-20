@@ -1,19 +1,20 @@
-"""
-Some python math utilities for simple types used by the UI.
-"""
-
+"""Some python math utilities for simple types used by the UI."""
+from __future__ import annotations
 from math import sin, cos
+from typing import Optional, Union
+
+_Vec3 = tuple[float, float, float]
 
 
-def addVec3(a, b):
+def addVec3(a: _Vec3, b: _Vec3) -> _Vec3:
     return a[0] + b[0], a[1] + b[1], a[2] + b[2]
 
 
-def multVec3(a, s):
+def multVec3(a: _Vec3, s: float) -> _Vec3:
     return a[0] * s, a[1] * s, a[2] * s
 
 
-def rotateVec3(v, a):
+def rotateVec3(v: _Vec3, a: tuple[float, float]) -> _Vec3:
     rx = (1.0, 0.0, 0.0,
           0.0, cos(a[0]), -sin(a[0]),
           0.0, sin(a[0]), cos(a[0]))
@@ -40,44 +41,44 @@ def rotateVec3(v, a):
 
 
 class Vec2(object):
-    def __init__(self, x, y=None):
+    def __init__(self, x: Union[Vec2, float], y: Optional[float] = None):
         if isinstance(x, Vec2):
             self.data = [x.x, x.y]
         else:
             assert isinstance(x, float) and isinstance(y, float), 'Error, invalid call to Vec2() can either be Vec2(Vec2) or Vec2(float, float)'
             self.data = [x, y]
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> float:
         return self.data[i]
 
-    def __setitem__(self, i, v):
+    def __setitem__(self, i: int, v: float) -> None:
         self.data[i] = v
 
     @property
-    def x(self):
+    def x(self) -> float:
         return self.data[0]
 
     @x.setter
-    def x(self, v):
+    def x(self, v:float)->None:
         self.data[0] = v
 
     @property
-    def y(self):
+    def y(self) -> float:
         return self.data[1]
 
     @y.setter
-    def y(self, v):
+    def y(self, v: float)->None:
         self.data[1] = v
 
-    def __neg__(self):
+    def __neg__(self)->Vec2:
         return Vec2(-self.x, -self.y)
 
-    def __add__(self, other):
+    def __add__(self, other:Union[float,Vec2])->Vec2:
         r = Vec2(self)
         r += other
         return r
 
-    def __iadd__(self, other):
+    def __iadd__(self, other:Union[float,Vec2])->Vec2:
         if isinstance(other, Vec2):
             self.data[0] += other.data[0]
             self.data[1] += other.data[1]
@@ -86,12 +87,12 @@ class Vec2(object):
             self.data[1] += other
         return self
 
-    def __sub__(self, other):
+    def __sub__(self, other:Union[float,Vec2])->Vec2:
         r = Vec2(self)
         r -= other
         return r
 
-    def __isub__(self, other):
+    def __isub__(self, other:Union[float,Vec2])->Vec2:
         if isinstance(other, Vec2):
             self.data[0] -= other.data[0]
             self.data[1] -= other.data[1]
@@ -100,12 +101,12 @@ class Vec2(object):
             self.data[1] -= other
         return self
 
-    def __mul__(self, other):
+    def __mul__(self, other:Union[float,Vec2])->Vec2:
         r = Vec2(self)
         r *= other
         return r
 
-    def __imul__(self, other):
+    def __imul__(self, other:Union[float,Vec2])->Vec2:
         if isinstance(other, Vec2):
             self.data[0] *= other.data[0]
             self.data[1] *= other.data[1]
@@ -114,17 +115,17 @@ class Vec2(object):
             self.data[1] *= other
         return self
 
-    def __div__(self, other):
+    def __floordiv__(self, other:Union[float,Vec2])->Vec2:
         r = Vec2(self)
         r /= other
         return r
 
-    def __truediv__(self, other):
+    def __truediv__(self, other:Union[float,Vec2])->Vec2:
         r = Vec2(self)
         r /= other
         return r
 
-    def __idiv__(self, other):
+    def __ifloordiv__(self, other:Union[float,Vec2])->Vec2:
         if isinstance(other, Vec2):
             self.data[0] /= other.data[0]
             self.data[1] /= other.data[1]
@@ -133,7 +134,7 @@ class Vec2(object):
             self.data[1] /= other
         return self
 
-    def __itruediv__(self, other):
+    def __itruediv__(self, other:Union[float,Vec2])->Vec2:
         if isinstance(other, Vec2):
             self.data[0] /= other.data[0]
             self.data[1] /= other.data[1]
@@ -142,25 +143,27 @@ class Vec2(object):
             self.data[1] /= other
         return self
 
-    def dot(self, other):
+    def dot(self, other:Vec2)->float:
         return self.data[0] * other.data[0] + self.data[1] * other.data[1]
 
-    def sqrLen(self):
+    def sqrLen(self)->float:
         return self.dot(self)
 
-    def length(self):
+    def length(self)->float:
         return self.sqrLen() ** 0.5
 
-    def abs(self):
+    def abs(self)->Vec2:
         return Vec2(abs(self.data[0]), abs(self.data[1]))
 
-    def normalized(self):
+    def normalized(self)->Vec2:
         f = self.length()
         return self / f
 
     def normalize(self):
-        f = self.length()
-        self.__idiv__(f)
+        factor = self.length()
+        assert factor
+        self.data[0] /= factor
+        self.data[1] /= factor
 
-    def __repr__(self):
-        return str('Vec2(%s, %s)' % (self.data[0], self.data[1]))
+    def __repr__(self) -> str:
+        return f'Vec2({self.data[0]}, {self.data[1]})'
