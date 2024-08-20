@@ -104,10 +104,9 @@ class App(QMainWindowState):
 
         self._addDockWidget(self.__sceneList, where=Qt.DockWidgetArea.TopDockWidgetArea)
         self._addDockWidget(self.__shotsManager, where=Qt.DockWidgetArea.TopDockWidgetArea)
-        # viewDock = self._addDockWidget(cast(QWidget, self.__sceneView), '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
+        viewDock = self._addDockWidget(cast(QWidget, self.__sceneView), '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
         logDock = self._addDockWidget(cast(QWidget, PyDebugLog.create()), 'Python log', where=Qt.DockWidgetArea.TopDockWidgetArea)
-        # self.tabifyDockWidget(logDock, viewDock)
-        self.setCentralWidget(self.__sceneView)
+        self.tabifyDockWidget(logDock, viewDock)
 
         self._addDockWidget(self.timeSlider, where=Qt.DockWidgetArea.LeftDockWidgetArea)
         cameraDock = self._addDockWidget(cameraView, where=Qt.DockWidgetArea.LeftDockWidgetArea)
