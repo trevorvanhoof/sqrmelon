@@ -300,14 +300,11 @@ class TimeLine(QWidget):
     def __init__(self, timer: Timer, shotsManager: ShotManager) -> None:
         super(TimeLine, self).__init__()
         self.__shotsManager = shotsManager
-        timer.startChanged.connect(self.__onRepaint)
-        timer.endChanged.connect(self.__onRepaint)
-        timer.timeChanged.connect(self.__onRepaint)
+        timer.startChanged.connect(self.update)
+        timer.endChanged.connect(self.update)
+        timer.timeChanged.connect(self.update)
         self.__timer = timer
         self.setMinimumWidth(128)
-
-    def __onRepaint(self, *_) -> None:
-        self.repaint()
 
     def _selectTime(self, x: float) -> None:
         x = min(max(x / float(self.width()), 0.0), 1.0)
@@ -386,16 +383,13 @@ class RangeSlider(QWidget):
 
     def __init__(self, timer: Timer) -> None:
         super(RangeSlider, self).__init__()
-        timer.minTimeChanged.connect(self.__onRepaint)
-        timer.maxTimeChanged.connect(self.__onRepaint)
-        timer.startChanged.connect(self.__onRepaint)
-        timer.endChanged.connect(self.__onRepaint)
+        timer.minTimeChanged.connect(self.update)
+        timer.maxTimeChanged.connect(self.update)
+        timer.startChanged.connect(self.update)
+        timer.endChanged.connect(self.update)
         self.__timer = timer
         self.__drag = None
         self.setMinimumWidth(RangeSlider.HANDLE_SIZE * 6)
-
-    def __onRepaint(self, *_) -> None:
-        self.repaint()
 
     def _handleRects(self) -> tuple[QRect, QRect, QRect]:
         w = self.width() - RangeSlider.HANDLE_SIZE * 2 - 1

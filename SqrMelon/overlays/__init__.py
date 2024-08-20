@@ -64,7 +64,7 @@ class Overlays(QWidget):
 
     @staticmethod
     def overlayIndex() -> int:
-        return gSettings.value('overlayIndex', 0)
+        return int(gSettings.value('overlayIndex', 0))
 
     def setOverlayIndex(self, index: int) -> None:
         gSettings.setValue('overlayIndex', index)

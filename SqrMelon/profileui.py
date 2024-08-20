@@ -121,4 +121,4 @@ class Profiler(QWidget):
         if not self.isProfiling():
             return
 
-        self._renderer.repaint()
+        self._renderer.update()

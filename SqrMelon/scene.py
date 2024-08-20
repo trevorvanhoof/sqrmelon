@@ -6,7 +6,7 @@ import re
 import time
 from typing import Any, cast, Iterable, Optional, Union
 
-from OpenGL.GL import GL_CURRENT_PROGRAM, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_FLOAT, GL_FRAGMENT_SHADER, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_RGBA, GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TRIANGLE_FAN, GL_UNSIGNED_BYTE, GL_VERTEX_SHADER, glActiveTexture, glBindTexture, glBindVertexArray, glClear, glDisable, glDrawArrays, glEnable, glFinish, glGenerateMipmap, glGenTextures, glGenVertexArrays, glGetIntegerv, glGetTexImage, glGetUniformLocation, glTexImage2D, glTexParameterf, glTexParameteri, glUniform1f, glUniform1fv, glUniform1i, glUniform1iv, glUniform1uiv, glUniform2f, glUniform3f, glUniform4f, glUniformMatrix3fv, glUniformMatrix4fv, glUseProgram, glViewport, shaders
+from OpenGL.GL import GL_CURRENT_PROGRAM, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_FLOAT, GL_FRAGMENT_SHADER, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_RGBA, GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TRIANGLE_FAN, GL_UNSIGNED_BYTE, GL_VERTEX_SHADER, glActiveTexture, glBindTexture, glBindVertexArray, glClear, glDisable, glDrawArrays, glEnable, glFinish, glGenerateMipmap, glGenTextures, glGenVertexArrays, glGetIntegerv, glGetTexImage, glGetUniformLocation, glTexImage2D, glTexParameterf, glTexParameteri, glUniform1f, glUniform1fv, glUniform1i, glUniform1iv, glUniform1uiv, glUniform2f, glUniform3f, glUniform4f, glUniformMatrix3fv, glUniformMatrix4fv, glUseProgram, glViewport, shaders, glDeleteFramebuffers, glDeleteTextures, GL_COLOR_BUFFER_BIT
 from OpenGL.GL.EXT import texture_filter_anisotropic
 
 from buffers import FrameBuffer, Texture, Texture3D
@@ -18,6 +18,8 @@ from projutil import currentProjectDirectory, currentProjectFilePath, templatePa
 from qt import *
 from qtutil import hlayout, vlayout
 from xmlutil import parseXMLWithIncludes
+
+tick = 0
 
 
 class TexturePool:
@@ -518,6 +520,7 @@ class Scene(QObject):
     def setSize(self, w: int, h: int) -> None:
         if w == self.__w and h == self.__h:
             return
+
         self.__w = w
         self.__h = h
 
@@ -550,8 +553,14 @@ class Scene(QObject):
         numBuffers += 2
         bufferData[numBuffers - 1] = 1, 1, None, False
 
-        self.frameBuffers: list[FrameBuffer] = []
-        self.colorBuffers: list[list[Texture]] = []
+        for fbo in self.frameBuffers:
+            glDeleteFramebuffers(1, fbo.id())
+        for cbos in self.colorBuffers:
+            for cbo in cbos:
+                glDeleteTextures(1, cbo.id())
+
+        self.frameBuffers.clear()
+        self.colorBuffers.clear()
         for value in bufferData.values():
             if value[2] is not None:
                 w, h = value[2]
@@ -651,6 +660,9 @@ class Scene(QObject):
         glEnable(GL_DEPTH_TEST)
 
     def draw(self, seconds: float, beats: float, uniforms: dict[str, Any], additionalTextureUniforms: Optional[dict[str, str]] = None) -> int:
+        global tick
+        tick += 1
+
         if not self.shaders:
             # compiler errors
             return 0
@@ -661,9 +673,7 @@ class Scene(QObject):
         if isProfiling:
             self.profileLog = []
             glFinish()
-            startT = time.time()
-        else:
-            startT = time.time()
+        startT = time.time()
 
         maxActiveInputs = 0
         for i, passData in enumerate(self.passes):

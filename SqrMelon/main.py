@@ -73,14 +73,14 @@ class App(QMainWindowState):
         self.__shotsManager.currentChanged.connect(self.__graphEditor.setShot)
         self.__overlays = Overlays()
         self.__sceneView = SceneView(self.__shotsManager, self._timer, self.__overlays)
-        self.__overlays.changed.connect(self.__sceneView.repaint)
+        self.__overlays.changed.connect(self.__sceneView.update)
         self._timer.timeChanged.connect(self.__setCurrentShot)
         self.__shotsManager.shotPinned.connect(self.__setCurrentShot)
         self.__shotsManager.shotsEnabled.connect(self.__setCurrentShot)
         self.__shotsManager.shotsDisabled.connect(self.__setCurrentShot)
 
         cameraView = Camera(self.__shotsManager, self.__graphEditor, self._timer)
-        cameraView.cameraChanged.connect(self.__sceneView.repaint)
+        cameraView.cameraChanged.connect(self.__sceneView.update)
         self.__graphEditor.requestPositionKey.connect(cameraView.forwardPositionKey)
         self.__graphEditor.requestRotationKey.connect(cameraView.forwardRotationKey)
         self.__sceneView.setCamera(cameraView)
@@ -100,7 +100,7 @@ class App(QMainWindowState):
         self.__profiler = Profiler()
 
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
-        self.__shotsManager.shotChanged.connect(self.timeSlider.repaint)
+        self.__shotsManager.shotChanged.connect(self.timeSlider.update)
 
         self._addDockWidget(self.__sceneList, where=Qt.DockWidgetArea.TopDockWidgetArea)
         self._addDockWidget(self.__shotsManager, where=Qt.DockWidgetArea.TopDockWidgetArea)
@@ -226,8 +226,8 @@ class App(QMainWindowState):
 
     def __record(self) -> None:
         diag = QDialog()
-        fId = gSettings.value('RecordFPS', 2)
-        rId = gSettings.value('RecordResolution', 3)
+        fId = int(gSettings.value('RecordFPS', 2))
+        rId = int(gSettings.value('RecordResolution', 3))
         layout = QGridLayout()
         diag.setLayout(layout)
         layout.addWidget(QLabel('FPS: '), 0, 0)
@@ -246,7 +246,7 @@ class App(QMainWindowState):
         cancel.clicked.connect(diag.reject)
         layout.addWidget(ok, 2, 0)
         layout.addWidget(cancel, 2, 1)
-        diag.exec_()
+        diag.exec()
         if diag.result() != QDialog.DialogCode.Accepted:
             return
         gSettings.setValue('RecordFPS', fps.currentIndex())
@@ -267,6 +267,7 @@ class App(QMainWindowState):
         progress = QProgressDialog(self)
         progress.setMaximum(int(duration * FPS))
         prevFrame = 0
+
         for frame in range(int(duration * FPS)):
             deltaTime = (frame - prevFrame) / float(FPS)
             prevFrame = frame
@@ -274,12 +275,14 @@ class App(QMainWindowState):
             QApplication.processEvents()
             if progress.wasCanceled():
                 break
+
             beats = flooredStart + self._timer.secondsToBeats(frame / float(FPS))
 
             shot = self.__shotsManager.shotAtTime(beats)
             if shot is None:
                 continue
             sceneFile = currentScenesDirectory().join(shot.sceneName).ensureExt(SCENE_EXT)
+            self.__sceneView.makeCurrent()
             scene = Scene.getScene(sceneFile)
             scene.setSize(WIDTH, HEIGHT)
 
@@ -304,6 +307,7 @@ class App(QMainWindowState):
             img = QImage(data, WIDTH, HEIGHT, QImage.Format.Format_RGB888)
             img.mirror(False, True)
             img.save(captureDir.join('dump_%s_%05d.%s' % (FPS, int(self._timer.beatsToSeconds(self._timer.start) * FPS) + frame, FMT)))
+
         progress.close()
 
         convertCaptureDir = currentProjectDirectory().join('convertcapture')

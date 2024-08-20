@@ -62,9 +62,9 @@ class CurveView(QWidget):
         if timer:
             timer.timeChanged.connect(self.__doRepaint)
         self.__undoStack = QUndoStack()
-        self.__undoStack.indexChanged.connect(lambda x: self.repaint())
+        self.__undoStack.indexChanged.connect(lambda x: self.update())
         self.__cameraUndoStack = QUndoStack()
-        self.__cameraUndoStack.indexChanged.connect(lambda x: self.repaint())
+        self.__cameraUndoStack.indexChanged.connect(lambda x: self.update())
         self.__models: Optional[tuple[QStandardItemModel, QItemSelectionModel]] = None
         self.__selection = Selection()
         self.__drag: Optional[Union[CameraZoomAction, CameraPanAction, DragAction, MarqueeSelectAction]] = None
@@ -93,9 +93,9 @@ class CurveView(QWidget):
             rect = self.__camera.region()
             scaleX = self.width() / float(rect[2])
             x = (self.__localTime() - rect[0]) * scaleX
-            self.repaint(int(x) - 10, 0, 20, self.height())
+            self.update(int(x) - 10, 0, 20, self.height())
         else:
-            self.repaint()
+            self.update()
 
     # Frame our view on a set of keys
     def __frameOnKeys(self, keys: Iterable[Key]) -> None:
@@ -126,7 +126,7 @@ class CurveView(QWidget):
                   boundsMax.x - boundsMin.x + 2 * paddingX,
                   boundsMax.y - boundsMin.y + 2 * paddingY)
         self.__cameraUndoStack.push(CameraFrameAction(self.__camera, region))
-        self.repaint()
+        self.update()
 
     # Frame our view on the selected keys (if any, otherwise on all)
     def frameSelected(self) -> None:
@@ -197,7 +197,7 @@ class CurveView(QWidget):
             t = round(t * self.__snap[0]) / self.__snap[0]
         self.__undoStack.push(InsertKeyAction(t, curve))
 
-        self.repaint()
+        self.update()
 
     def setKey(self, channels: Iterable[str], values: tuple[float]) -> None:
         curves = []
@@ -210,7 +210,7 @@ class CurveView(QWidget):
             t = round(t * self.__snap[0]) / self.__snap[0]
         self.__undoStack.push(SetKeyAction(t, curves, values))
 
-        self.repaint()
+        self.update()
 
     def onDuplicateKeys(self) -> None:
         keys = self.__selection.keys()
@@ -235,7 +235,7 @@ class CurveView(QWidget):
             action = SetKeyAction(key.time() + deltaTime, (key.parentCurve(),), (key.value(),))
             self.__undoStack.push(action)
 
-        self.repaint()
+        self.update()
 
     def deleteKey(self) -> None:
         selection = self.__selection.keys()
@@ -244,7 +244,7 @@ class CurveView(QWidget):
         self.__selection.clear()
         self.__undoStack.push(DeleteAction(selection))
         self.selectionChanged.emit()
-        self.repaint()
+        self.update()
 
     def pixelToScene(self, point: QPoint, overrideRegion: Optional[Float4] = None) -> QPointF:
         if not overrideRegion:
@@ -258,7 +258,7 @@ class CurveView(QWidget):
     def showEvent(self, event: QShowEvent) -> None:
         if self.__camera is None:
             self.__camera = CurveViewCamera(0.0, 0.0, 1.0, 1.0)
-            self.__camera.regionChanged.connect(self.repaint)
+            self.__camera.regionChanged.connect(self.update)
 
     def createUndoView(self) -> QUndoView:
         view = QUndoView()
@@ -332,7 +332,7 @@ class CurveView(QWidget):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
             # set current time action
             self.__setLocalTime(event.x())
-            self.repaint()
+            self.update()
             return
 
         scale = self.width() / self.__cache[2], self.height() / self.__cache[3]
@@ -390,7 +390,7 @@ class CurveView(QWidget):
             elif isinstance(self.__drag, QUndoCommand):
                 self.__undoStack.push(self.__drag)
         self.__drag = None
-        self.repaint()
+        self.update()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         event = RemappedEvent(self.pixelToScene(event.pos(), self.__cache), event)
@@ -400,12 +400,12 @@ class CurveView(QWidget):
             if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
                 # set current time action
                 self.__setLocalTime(event.x())
-                self.repaint()
+                self.update()
             return
 
         # drag should be implicit, so we can just validate and redraw the new state (moved or undone)
         self.__drag.update(event)
-        self.repaint()
+        self.update()
 
     def setModel(self, model: QStandardItemModel, selectionModel: QItemSelectionModel) -> None:
         self.__models = model, selectionModel
@@ -590,7 +590,7 @@ class CurveView(QWidget):
 
     def onChannelsChanged(self, *_) -> None:
         self.deselectAll()
-        self.repaint()
+        self.update()
 
 
 class TangentMode(QWidget):
@@ -746,8 +746,8 @@ class CurveEditor(QWidget):
         self.__view = CurveView(timer, self)
         self.__view.setModel(self.__model, self.__channels.selectionModel())
 
-        self.__time.editingFinished.connect(self.__view.repaint)
-        self.__value.editingFinished.connect(self.__view.repaint)
+        self.__time.editingFinished.connect(self.__view.update)
+        self.__value.editingFinished.connect(self.__view.update)
         self.__updateSnapping(self.__snapping.value())
 
         def forwardFocus(_) -> None:
@@ -922,7 +922,7 @@ class CurveEditor(QWidget):
         self.__model.clear()
         if shot is None:
             self.setEnabled(False)
-            self.__view.repaint()
+            self.__view.update()
             return
         self.setEnabled(True)
         for name in shot.curves:

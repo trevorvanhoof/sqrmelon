@@ -78,13 +78,6 @@ class Texture:
     FLOAT_DEPTH_STENCIL = GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV
 
     def __init__(self, channels: tuple[int, int, int], width: int, height: int, tile: bool = True, data: Optional[bytes] = None) -> None:
-        """
-        :param channels: One of the above static members describing the pixel format.
-        :param int width: Width in pixels
-        :param int height: Height in pixels
-        :param bool tile: Sets GL_CLAMP or GL_REPEAT accordingly.
-        :param void* data: Can pass any ctypes pointer to fill the buffer on the GPU. Used for direct data upload from e.g. QImage or heightfields.
-        """
         self._width = width
         self._height = height
 

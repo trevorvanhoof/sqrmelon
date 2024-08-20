@@ -2,7 +2,7 @@ import os
 import time
 from typing import Iterable, Optional
 
-from OpenGL.GL import GL_BLEND, GL_DEPTH_TEST, GL_LEQUAL, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_VERSION, glBlendFunc, glDepthFunc, glDisable, glEnable, glGetString
+from OpenGL.GL import GL_BLEND, GL_DEPTH_TEST, GL_LEQUAL, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_VERSION, glBlendFunc, glDepthFunc, glDisable, glEnable, glGetString, glClear, GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT
 
 from buffers import Texture
 from camerawidget import Camera
@@ -105,7 +105,7 @@ class SceneView(QOpenGLWidget):
 
     def setScene(self, scene: Optional[Scene]) -> None:
         if scene == self._scene:
-            self.repaint()
+            self.update()
             return
 
         if self._cameraInput:
@@ -118,23 +118,21 @@ class SceneView(QOpenGLWidget):
         # update which scene's files we are watching for updates
         if self._scene:
             try:
-                self._scene.fileSystemWatcher.fileChanged.disconnect(self.repaint)
+                self._scene.fileSystemWatcher.fileChanged.disconnect(self.update)
             except:
                 pass
 
         if scene:
-            scene.fileSystemWatcher.fileChanged.connect(self.repaint)
+            scene.fileSystemWatcher.fileChanged.connect(self.update)
 
         # resize color buffers used by scene
         self._scene = scene
         if scene is not None:
             self._scene.setSize(*self._size)
 
-        self.repaint()
+        self.update()
 
     def initializeGL(self) -> None:
-        # TODO: Handle re-parenting of the widget in PySide6, it invalidates the context so we need to dirty every cache, or maybe just setCentralWidget and not dock the 3D view,
-        #       but it is a fundamental dual monitor or beamer feature so we might just have to deal with it. Lazy choice on Qt's part though, we have to reload EVERY model and texture and buffer.
         print(glGetString(GL_VERSION))
 
         glEnable(GL_DEPTH_TEST)
@@ -168,6 +166,12 @@ class SceneView(QOpenGLWidget):
         return newW, int(aspectH)
 
     def paintGL(self) -> None:
+        self.makeCurrent()
+        SceneView.screenFBO = self.defaultFramebufferObject()
+
+        # If we don't clear the default FBO first we can get garbage pixels in the black bars
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
         newTime = time.time()
         deltaTime = newTime - self._prevTime
 
@@ -204,12 +208,13 @@ class SceneView(QOpenGLWidget):
             global _noSignalImage
             if _noSignalImage is None:
                 _noSignalImage = loadImage(FilePath(__file__).parent().join('icons', 'nosignal.png'))
-            glDisable(GL_DEPTH_TEST)
             if _noSignalImage:
+                glDisable(GL_DEPTH_TEST)
                 glEnable(GL_BLEND)
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
                 Scene.drawColorBufferToScreen(_noSignalImage, viewport)
                 glDisable(GL_BLEND)
+                glEnable(GL_DEPTH_TEST)
 
         if self.__overlays:
             image = self.__overlays.colorBuffer()
@@ -223,6 +228,7 @@ class SceneView(QOpenGLWidget):
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
                 Scene.drawColorBufferToScreen(image, viewport, color)
                 glDisable(GL_BLEND)
+                glEnable(GL_DEPTH_TEST)
 
     def __onResize(self) -> None:
         w = self.width()
@@ -236,7 +242,7 @@ class SceneView(QOpenGLWidget):
         self._size = self.calculateAspect(w, h)[0:2]
         if self._scene:
             self._scene.setSize(*self._size)
-        self.repaint()
+        self.update()
 
     def resizeGL(self, w: int, h: int):
         SceneView.screenFBO = self.defaultFramebufferObject()
