@@ -104,7 +104,14 @@ class App(QMainWindowState):
 
         self._addDockWidget(self.__sceneList, where=Qt.DockWidgetArea.TopDockWidgetArea)
         self._addDockWidget(self.__shotsManager, where=Qt.DockWidgetArea.TopDockWidgetArea)
-        viewDock = self._addDockWidget(cast(QWidget, self.__sceneView), '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
+        # In PySide6 something goes wrong when we enable a scene while the view is already visible.
+        # For that reason we have to use this trick where scene view inherits QOpenGLWindow
+        # instead of QOpenGLWidget, because that one does not have this bug.
+        # I believe this is related to Qt's composition of widgets, a window container ditches
+        # a ton of features that I think started interfering with our rendering code.
+        window = self.createWindowContainer(self.__sceneView, self)
+        window.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        viewDock = self._addDockWidget(cast(QWidget, window), '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
         logDock = self._addDockWidget(cast(QWidget, PyDebugLog.create()), 'Python log', where=Qt.DockWidgetArea.TopDockWidgetArea)
         self.tabifyDockWidget(logDock, viewDock)
 

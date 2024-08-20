@@ -21,8 +21,11 @@ def execfile(path: str, globals_: Optional[dict] = None, locals_: Optional[dict]
     exec(open(path).read(), globals_ or {}, locals_ or {})
 
 
-class SceneView(QOpenGLWidget):
+class SceneView(QOpenGLWindow):
     """OpenGL 3D viewport.
+
+    NOTE: See the usage of "createWindowContainer" in main.App on why this has
+    to be a window and not a widget.
 
     Core functionalities are that it is aware of the camera sequencer and timeline,
     so it can decide what camera to evaluate & extract animation data for this frame.
@@ -49,7 +52,6 @@ class SceneView(QOpenGLWidget):
         if gSettings.contains('GLViewScale'):
             self._previewRes = None, None, float(gSettings.value('GLViewScale'))
         self._cameraInput = None
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
 
