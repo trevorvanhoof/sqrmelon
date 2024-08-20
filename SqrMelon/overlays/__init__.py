@@ -21,7 +21,7 @@ def loadImage(filePath: str, tile: bool = True) -> Texture:
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
     img = QImage(filePath)
     img.convertTo(QImage.Format.Format_RGBA8888)
-    # TODO: Do we also need img.mirror(False, True) ?
+    img.mirror(False, True)
     return Texture(Texture.RGBA8, img.width(), img.height(), tile, img.bits())
 
 

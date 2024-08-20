@@ -275,7 +275,7 @@ class CurveView(QWidget):
         # 'cast' because there is a typing bug with tuple indexing here
         selectionModel = cast(QItemSelectionModel, self.__models[1])
         for idx in selectionModel.selectedRows():
-            yield idx
+            yield idx.row()
 
     def iterVisibleKeys(self) -> Iterable[tuple[int, int, Key]]:
         rows = self.visibleRows()

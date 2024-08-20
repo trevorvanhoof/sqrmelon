@@ -1,1 +1,0 @@
-float uBlurSize=3.0;

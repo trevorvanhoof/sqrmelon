@@ -16,3 +16,5 @@ SqrMelon/convertcapture/
 *.user
 
 SqrMelon/Player/Release/
+SqrMelon/SqrMelon.ini
+TestProject

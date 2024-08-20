@@ -1,1 +1,0 @@
-vec2 uDirection=vec2(1.0,0.0);
