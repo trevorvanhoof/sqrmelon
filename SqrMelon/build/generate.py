@@ -2,9 +2,10 @@ import os
 import sys
 import struct
 
+# TODO: Surely we can do better than this
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from pycompat import *
+
 from build.codeoptimize import optimizeText
 from fileutil import FilePath
 from util import parseXMLWithIncludes, SCENE_EXT, currentScenesDirectory
@@ -36,15 +37,15 @@ def rMatch(mainList, subList):
     return 0
 
 
-class TextPool(object):
+class TextPool:
     def __init__(self):
         self.data = []
         self.keys = []
 
     def addFile(self, filePath):
         assert isinstance(filePath, FilePath)
-        text = optimizeText(filePath.content())
-        return self.addString(text.replace('\n', '\\n\\\n') + '\\n\\0')
+        text_ = optimizeText(filePath.content())
+        return self.addString(text_.replace('\n', '\\n\\\n') + '\\n\\0')
 
     def addString(self, value):
         key = value.lower()
@@ -61,7 +62,7 @@ class TextPool(object):
         yield 'const char* gTextPool[] {"%s"};\n' % '",\n"'.join(v for v in self.data)
 
 
-class ShaderPool(object):
+class ShaderPool:
     def __init__(self):
         self.data = []
         self.offsets = []
@@ -106,7 +107,7 @@ class ShaderPool(object):
         yield '}\n'
 
 
-class FrameBufferPool(object):
+class FrameBufferPool:
     BLOCK_SIZE = 6
 
     def __init__(self):
@@ -191,7 +192,7 @@ class FrameBufferPool(object):
         yield '}\n'
 
 
-class PassPool(object):
+class PassPool:
     def __init__(self):
         self.data = []
         self.data2 = []

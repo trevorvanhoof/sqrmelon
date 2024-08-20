@@ -1,4 +1,5 @@
 import re
+from typing import Iterable, Sequence, MutableSequence
 
 # text parser statemachine states
 gOPEN = 0
@@ -7,14 +8,14 @@ gLINE = 2
 gBLOCK = 3
 
 
-def previewCode(programStitchIds, stitches):
+def previewCode(programStitchIds: Iterable[int], stitches: Sequence[str]) -> str:
     shaderCode = []
-    for i in range(len(programStitchIds)):
-        shaderCode.append(stitches[programStitchIds[i]])
+    for programStitchId in programStitchIds:
+        shaderCode.append(stitches[programStitchId])
     return ''.join(shaderCode)
 
 
-def _findUnusedFunctions(frameBuffer, stitches):
+def _findUnusedFunctions(frameBuffer: Iterable[int], stitches: Sequence[str]):
     flatCode = previewCode(frameBuffer, stitches)
 
     # find words and usage count
@@ -79,7 +80,7 @@ def _findUnusedFunctions(frameBuffer, stitches):
             yield name, flatCode[cursor:end]
 
 
-def removeUnusedFunctions(stack, stitches):
+def removeUnusedFunctions(stack: Iterable[Iterable[int]], stitches: MutableSequence[str]) -> MutableSequence[str]:
     # for each framebuffer identify unused functions
     # functions not used by any framebuffer can be removed
     unusedSet = None
@@ -101,18 +102,18 @@ def removeUnusedFunctions(stack, stitches):
     return stitches
 
 
-def _unifyLineBreaks(text):
+def _unifyLineBreaks(text: str) -> str:
     # remove windows newlines
     return text.replace('\r', '\n')
 
 
-def _stripLines(text):
+def _stripLines(text: str) -> str:
     # remove trailing and leading whitespace
     text = re.sub('^[ \t]', '', text, re.MULTILINE)
     return re.sub('[ \t]$', '', text, re.MULTILINE)
 
 
-def _stripWhitespace(text):
+def _stripWhitespace(text: str) -> str:
     text = text.strip('\n')
 
     # remove indentation to make macro & newline matching easier
@@ -164,7 +165,7 @@ def _stripWhitespace(text):
     return text
 
 
-def _stripComments(text):
+def _stripComments(text: str) -> str:
     assert '\r' not in text, 'Comment removal relies on escaped newlines and does not support windows-style line breaks. Please use _unifyLineBreaks() first.'
 
     # strip comments
@@ -206,7 +207,7 @@ def _stripComments(text):
     return text
 
 
-def _truncateFloats(text):
+def _truncateFloats(text: str) -> str:
     # TODO: instead of boldly truncating all numbers we have to look at function usage, certain overloads like clamp(i,f,f) don't exist. Hence we should figure out what function call & what parameter index the float is and match it against an "exclusion" map
     replace = []
     n = len(text)
@@ -234,7 +235,7 @@ def _truncateFloats(text):
     return text
 
 
-def optimizeText(text):
+def optimizeText(text: str) -> str:
     # remove windows newlines
     text = _unifyLineBreaks(text)
     # strip comments
@@ -248,7 +249,8 @@ def optimizeText(text):
     return text.strip()
 
 
-def optimizeCode(programStitchIds, stitches):
+# TODO: Unused, is it broken? Should we remove it?
+def optimizeCode(programStitchIds: Iterable[Iterable[int]], stitches: MutableSequence[str]):
     for i, text in enumerate(stitches):
         # remove windows newlines
         text = _unifyLineBreaks(text)
