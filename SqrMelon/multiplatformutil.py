@@ -55,8 +55,3 @@ def openFileWithDefaultApplication(filePath: FilePath) -> None:
         subprocess.call(('open', str(filePath)))
     else:  # assume unknown OS has xdg-utils
         subprocess.call(('xdg-open', str(filePath)))
-
-
-def canValidateShaders() -> bool:
-    # skip shader validation step on other platforms
-    return isWindows()

@@ -433,6 +433,7 @@ class App(QMainWindowState):
         self.__sceneList.projectOpened()
         self.__shotsManager.projectOpened()
         self._timer.projectOpened()
+        self.timeSlider.projectOpened()
 
     def __initializeProject(self) -> None:
         project = currentProjectFilePath()

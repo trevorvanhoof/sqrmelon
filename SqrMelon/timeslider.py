@@ -667,6 +667,11 @@ class TimeSlider(QWidget):
         timer.timeLooped.connect(self.__seekSoundtrack)
         timeline.valueChanged.connect(self.__seekSoundtrack)
 
+    def projectOpened(self) -> None:
+        self.__stopSoundtrack()
+        self.__soundtrackPath = None
+        self.__soundtrack = None
+
     def __togglePlayPause(self) -> None:
         if self.__playPause.toolTip() == 'Play':
             self.__playPause.setIcon(icons.get('Pause-48'))

@@ -13,7 +13,6 @@ from buffers import FrameBuffer, Texture, Texture3D
 from fileutil import FilePath, FileSystemWatcher
 from gl_shaders import compileProgram
 from heightfield import loadHeightfield
-from multiplatformutil import canValidateShaders
 from projutil import currentProjectDirectory, currentProjectFilePath, templatePathFromScenePath
 from qt import *
 from qtutil import hlayout, vlayout
@@ -54,6 +53,7 @@ class TexturePool:
             return 0
         # TODO: Check if we need to flip vertically too?
         img.convertTo(QImage.Format.Format_RGBA8888)
+        img.mirror(False, True)
         tex = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width(), img.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, img.constBits())
@@ -228,7 +228,7 @@ class _ShaderPool:
         program = compileProgram(
             shaders.compileShader(vertCode, GL_VERTEX_SHADER),
             shaders.compileShader(fragCode, GL_FRAGMENT_SHADER),
-            validate=canValidateShaders()
+            validate=False
         )
         self.__cache[(vertCode, fragCode)] = program
         return program
@@ -457,7 +457,7 @@ class Scene(QObject):
                     code = e.args[1][0].decode('ascii').split('\n')
                 except IndexError:
                     print(e.args)
-                    print('pass: ' + passData.name)
+                    print(f'pass: {passData.name}')
                     print('fragCode:')
                     print(fragCode)
                     return

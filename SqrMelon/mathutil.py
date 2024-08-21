@@ -162,7 +162,6 @@ class Vec2:
 
     def normalize(self) -> None:
         factor = self.length()
-        assert factor
         self.data[0] /= factor
         self.data[1] /= factor
 
