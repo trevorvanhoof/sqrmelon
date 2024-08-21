@@ -432,7 +432,7 @@ class Scene(QObject):
                     errors.append(stitch.abs())
 
             if errors:
-                QMessageBox.critical(None, 'Missing files', 'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(errors))  # type: ignore
+                QMessageBox.critical(None, 'Missing files', 'A template or scene could not be loaded & is missing the following files:\n\n%s' % '\n'.join(errors))
                 return
 
             if includePaths:

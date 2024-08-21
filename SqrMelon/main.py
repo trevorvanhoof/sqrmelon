@@ -469,7 +469,7 @@ class App(QMainWindowState):
         currentPath = self.__changeProjectHelper('Creating new project')
         if not currentPath:
             return
-        res = FileDialog.getSaveFileName(self, 'Create new project', currentPath, 'Project folder')  # type: ignore
+        res = FileDialog.getSaveFileName(self, 'Create new project', currentPath, 'Project folder')
         if not res:
             return
         shutil.copytree(DEFAULT_PROJECT, res, ignore=lambda p, f: [] if os.path.basename(p).lower() == 'Scenes' else [n for n in f if os.path.splitext(n)[-1].lower() in IGNORED_EXTENSIONS])
@@ -481,7 +481,7 @@ class App(QMainWindowState):
         currentPath = self.__changeProjectHelper('Changing project')
         if not currentPath:
             return
-        res = FileDialog.getOpenFileName(self, 'Open project', currentPath, f'Project files (*{PROJ_EXT})')  # type: ignore
+        res = FileDialog.getOpenFileName(self, 'Open project', currentPath, f'Project files (*{PROJ_EXT})')
         if not res:
             return
         self.__openProject(res)
@@ -509,4 +509,4 @@ if __name__ == '__main__':
     try:
         run()
     except:
-        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())  # type: ignore
+        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())

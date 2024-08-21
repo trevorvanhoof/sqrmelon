@@ -82,7 +82,7 @@ class Camera(QWidget):
         self.__prevTime = None
         self.__appLoop = QTimer()
         self.__appLoop.timeout.connect(self.flyUpdate)
-        self.__appLoop.start(1000 // 15)
+        self.__appLoop.start(1000 // 60)
         self.__drag = None
         self.__dirty = False
 

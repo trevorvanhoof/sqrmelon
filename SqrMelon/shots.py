@@ -501,7 +501,7 @@ class ShotManager(QWidget):
 
     @property
     def shotChanged(self) -> SignalInstance:
-        return self.__model.itemChanged  # type: ignore
+        return self.__model.itemChanged
 
     def shotAtTime(self, time: float) -> Shot:
         candidate = None

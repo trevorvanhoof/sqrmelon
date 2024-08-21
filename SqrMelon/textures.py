@@ -69,7 +69,7 @@ class TextureManager(QDialog):
             return
         uniformName = uniformName[0]
 
-        imagePath = FileDialog.getOpenFileName(self, currentProjectDirectory(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')  # type: ignore
+        imagePath = FileDialog.getOpenFileName(self, currentProjectDirectory(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')
         if imagePath and imagePath.exists():
             relPath = imagePath.relativeTo(currentProjectDirectory())
             self.__target.textures[uniformName] = relPath

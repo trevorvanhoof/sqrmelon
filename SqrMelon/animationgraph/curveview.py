@@ -4,7 +4,7 @@ from __future__ import annotations
 import functools
 import re
 import time
-from math import log10
+from math import log10, floor
 from typing import cast, Iterable, Optional, TYPE_CHECKING, Union
 
 import icons
@@ -246,6 +246,29 @@ class CurveView(QWidget):
         self.selectionChanged.emit()
         self.update()
 
+    def sceneToPixelDistance(self, point: QPointF, overrideRegion: Optional[Float4] = None) -> QPoint:
+        if not overrideRegion:
+            w, h = self.__camera.region()[2:]
+        else:
+            w, h = overrideRegion[2:]
+        return QPoint(int(point.x() * self.width() / w), int(point.y() * self.height() / h))
+
+    def pixelToSceneDistance(self, point: QPoint, overrideRegion: Optional[Float4] = None) -> QPointF:
+        if not overrideRegion:
+            w, h = self.__camera.region()[2:]
+        else:
+            w, h = overrideRegion[2:]
+        px = point.x() / self.width()
+        py = point.y() / self.height()
+        return QPointF(px * w, py * h)
+
+    def sceneToPixel(self, point: QPointF, overrideRegion: Optional[Float4] = None) -> QPoint:
+        if not overrideRegion:
+            x, y, w, h = self.__camera.region()
+        else:
+            x, y, w, h = overrideRegion
+        return QPoint(int((point.x() - x) * self.width() / w), int((point.y() - y) * self.height() / h))
+
     def pixelToScene(self, point: QPoint, overrideRegion: Optional[Float4] = None) -> QPointF:
         if not overrideRegion:
             x, y, w, h = self.__camera.region()
@@ -411,24 +434,6 @@ class CurveView(QWidget):
         self.__models = model, selectionModel
         self.__selection.setModel(model)
 
-    def mapTangentToScreen(self, key: Key, isInTangent: bool) -> Vec2:
-        # Calculate the tangent position on screen (as a PointF)
-        point = key.point()
-
-        cameraRect = self.__camera.region()
-        screenSize = Vec2(float(self.width()), float(self.height()))
-        viewPort = Vec2(cameraRect[2], cameraRect[3])
-
-        delta = Vec2(-key.inTangent if isInTangent else key.outTangent)
-        if delta.sqrLen() == 0:
-            delta = Vec2(-1.0 if isInTangent else 1.0, 0.0)
-        px = (delta * screenSize) / viewPort
-        px.normalize()
-        px *= 50.0
-        delta = (px / screenSize) * viewPort
-
-        return Vec2(point.x + delta.x, point.y + delta.y)
-
     def _drawBg(self, painter: QPainter, scaleX: float, scaleY: float, rect: Float4):
         backColor = QColor.fromRgb(96, 96, 96)
         linesColor = QColor.fromRgb(83, 83, 83)
@@ -440,54 +445,52 @@ class CurveView(QWidget):
         # draw grid and axes
         painter.save()
         painter.setPen(Qt.GlobalColor.black)
-        painter.scale(scaleX, scaleY)
-        painter.translate(-rect[0], -rect[1])
-        painter.scale(1.0 / scaleX, 1.0 / scaleY)
 
         # draw vertical lines (positive ones first, then negative ones)
         sx = 150.0 / scaleX
         sx = 5.0 ** round(log10(sx) - log10(5.5) + 0.5)
-        x = 0
-        for direction in range(2):
-            while ((direction == 0) and (x < int(rect[0]) + int(rect[2]) + 2 * sx)) or (
-                    (direction == 1) and (x > int(rect[0]) - sx)):
-                painter.setPen(Qt.GlobalColor.black)
-                painter.drawText(x * scaleX + 3.0, (rect[1] + rect[3]) * scaleY - 5.0, str(round(x, 4)))  # type: ignore
-                painter.setPen(axisColor if x == 0 else linesColor)
-                painter.drawLine(x * scaleX, rect[1] * scaleY, x * scaleX, (rect[1] + rect[3]) * scaleY)  # type: ignore
-                x += sx if direction == 0 else -sx
-            x = -sx  # restart on left side
+        x = (floor(rect[0] / sx) - 1) * sx
+        while x < rect[0] + rect[2] + sx:
+            x += sx
+            px = self.sceneToPixel(QPointF(x, 0.0)).x()
+
+            painter.setPen(Qt.GlobalColor.black)
+            painter.drawText(px + 3.0, self.height() - 5.0, str(round(x, 4)))
+
+            painter.setPen(axisColor if x == 0 else linesColor)
+            painter.drawLine(px, 0, px, self.height())
 
         # draw horizontal lines (positive ones first, then negative ones)
         sy = 80.0 / scaleY
         sy = 5.0 ** round(log10(sy) - log10(5.5) + 0.5)
-        y = 0
-        for direction in range(2):
-            while ((direction == 0) and (y < int(rect[1]) + int(rect[3]) + 2 * sy)) or (
-                    (direction == 1) and (y > int(rect[1]) - sy)):
-                painter.setPen(Qt.GlobalColor.black)
-                painter.drawText(rect[0] * scaleX + 3.0, y * scaleY - 1.0, str(round(y, 4)))  # type: ignore
-                painter.setPen(axisColor if y == 0 else linesColor)
-                painter.drawLine(rect[0] * scaleX, y * scaleY, (rect[0] + rect[2]) * scaleX, y * scaleY)  # type: ignore
-                y += sy if direction == 0 else -sy
-            y = -sy  # restart on top side
+        y = (floor(rect[1] / sy) - 1) * sy
+        while y < rect[1] + rect[3] + sy:
+            y += sy
+            py = self.sceneToPixel(QPointF(0.0, y)).y()
+
+            painter.setPen(Qt.GlobalColor.black)
+            painter.drawText(0 + 3.0, py - 1.0, str(round(y, 4)))
+
+            painter.setPen(axisColor if y == 0 else linesColor)
+            painter.drawLine(0, py, self.width(), py)
 
         painter.restore()
 
-    def _drawCursor(self, painter: QPainter, scaleX: float, _, rect: Float4):
+    def _drawCursor(self, painter: QPainter):
         # draw time cursor
-        x = int((self.__localTime() - rect[0]) * scaleX)
+        x = self.sceneToPixel(QPointF(self.__localTime(), 0.0)).x()
         painter.setPen(Qt.GlobalColor.red)
         painter.drawLine(QPoint(x, 2), QPoint(x, self.height()))
         markerTop = icons.getImage('TimeMarkerTop-24')
-        painter.drawPixmap(QPoint(x - 4, 2), markerTop)  # type: ignore
+        painter.drawPixmap(QPoint(x - 4, 2), markerTop)
 
-    def _drawFocus(self, painter: QPainter, _, __, ___):
+    def _drawFocus(self, painter: QPainter):
+        if not self.hasFocus():
+            return
         # outer border
-        if self.hasFocus():
-            painter.setPen(QPen(self.palette().highlight(), 2.0))
-            painter.drawRect(1, 1, self.width() - 2, self.height() - 2)
-            painter.setClipRect(2, 2, self.width() - 4, self.height() - 4)
+        painter.setPen(QPen(self.palette().highlight(), 2.0))
+        painter.drawRect(1, 1, self.width() - 2, self.height() - 2)
+        painter.setClipRect(2, 2, self.width() - 4, self.height() - 4)
 
     __COLORS = {'x': Qt.GlobalColor.red, 'y': Qt.GlobalColor.green, 'z': Qt.GlobalColor.blue, 'w': Qt.GlobalColor.white}
 
@@ -503,51 +506,50 @@ class CurveView(QWidget):
                 painter.setPen(self.__COLORS[identifier])
             else:
                 painter.setPen(Qt.GlobalColor.red)
-            px, py = None, None
+            prevPx = None
             x = max(start, curve[0].time())
             while x < min(end, curve[-1].time()):
                 y = curve.evaluate(x)
-                if py is not None:
-                    painter.drawLine(QPointF(px, py), QPointF(x, y))
-                px = x
-                py = y
+                px = self.sceneToPixel(QPointF(x, y))
+                if prevPx is not None:
+                    painter.drawLine(prevPx, px)
+                prevPx = px
                 x += precision
 
-    def _drawKeys(self, painter: QPainter, scaleX: float, scaleY: float, rows: Iterable[int]) -> None:
-        # draw points
-        pointWidth = 5.0 / scaleX
-        pointHeight = 5.0 / scaleY
-        tangentWidth = pointWidth
-        tangentHeight = pointHeight
+    def _drawTangent(self, painter: QPainter, keyPoint: QPoint, tangent: Vec2):
+        tangentScale = Vec2(self.width() / self.__camera.region()[2], self.height() / self.__camera.region()[3])
 
+        # We want to draw a line of 50 px in the tangent direction
+        # But we need that direction to be skewed based on the viewport zoom
+        # So first we convert the tangent in units to a tangent in pixels
+        tangent *= tangentScale
+        # And THEN we get the direction
+        tangent.normalize()
+
+        tangentPoint = QPoint(int(keyPoint.x() + tangent.x * 50), int(keyPoint.y() + tangent.y * 50))
+        painter.fillRect(QRect(tangentPoint.x() - 2, tangentPoint.y() - 2, 5, 5), Qt.GlobalColor.magenta)
+        painter.setPen(Qt.GlobalColor.magenta)
+        painter.drawLine(keyPoint, tangentPoint)
+
+    def _drawKeys(self, painter: QPainter, rows: Iterable[int]) -> None:
+        # draw points
         for row in rows:
             curve = self.__models[0].item(row).data()
             for i, key in enumerate(curve):
-                point = key.point()
+                point = self.sceneToPixel(QPointF(key.time(), key.value()))
                 if self.__selection.isKeySelected(row, i):
                     # We're currently selected! Draw our tangent points
-                    pointInTangent = self.mapTangentToScreen(key, True)
-
+                    inTangent = (Vec2(-1.0, 0.0) if key.inTangent.sqrLen() == 0 else -key.inTangent)
+                    self._drawTangent(painter, point, inTangent)
                     isStep = key.outTangent.y == float('inf')
-                    if isStep:  # stepped tangent, don't draw because it's hella slow and infinitely far up
-                        pointOutTangent = None
-                    else:
-                        pointOutTangent = self.mapTangentToScreen(key, False)
-
-                    painter.fillRect(QRectF(pointInTangent.x - tangentWidth / 2.0, pointInTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.GlobalColor.magenta)
-                    if not isStep:
-                        painter.fillRect(QRectF(pointOutTangent.x - tangentWidth / 2.0, pointOutTangent.y - tangentHeight / 2.0, tangentWidth, tangentHeight), Qt.GlobalColor.magenta)
-                    painter.setPen(Qt.GlobalColor.magenta)
-                    painter.drawLine(QPointF(pointInTangent.x, pointInTangent.y), QPointF(point.x, point.y))
-                    if not isStep:
-                        painter.drawLine(QPointF(pointOutTangent.x, pointOutTangent.y), QPointF(point.x, point.y))
-
+                    if not isStep:  # don't draw stapped tangents
+                        outTangent = (Vec2(1.0, 0.0) if key.outTangent.sqrLen() == 0 else key.outTangent)
+                        outTangent.normalize()
+                        self._drawTangent(painter, point, outTangent)
                     color = Qt.GlobalColor.yellow
                 else:
                     color = Qt.GlobalColor.black
-
-                painter.fillRect(
-                    QRectF(point.x - pointWidth / 2.0, point.y - pointHeight / 2.0, pointWidth, pointHeight), color)
+                painter.fillRect(QRectF(point.x() - 2, point.y() - 2, 5, 5), color)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         if self.paintTime == time.time():
@@ -566,21 +568,17 @@ class CurveView(QWidget):
         scaleY = self.height() / rect[3]
 
         self._drawBg(painter, scaleX, scaleY, rect)
-        self._drawCursor(painter, scaleX, scaleY, rect)
-        self._drawFocus(painter, scaleX, scaleY, rect)
+        self._drawCursor(painter)
+        self._drawFocus(painter)
 
-        painter.scale(scaleX, scaleY)
-        painter.translate(-rect[0], -rect[1])
-
-        rows = self.visibleRows()
         start = self.pixelToScene(QPoint(event.rect().x(), event.rect().y())).x()
         end = self.pixelToScene(QPoint(event.rect().right(), event.rect().bottom())).x()
         PRECISION = 4
         x, y, w, h = self.__camera.region()
         precision = (PRECISION / self.width()) * w
 
-        self._drawCurves(painter, rows, start, end, precision)
-        self._drawKeys(painter, scaleX, scaleY, rows)
+        self._drawCurves(painter, self.visibleRows(), start, end, precision)
+        self._drawKeys(painter, self.visibleRows())
 
         # draw marquee selection area
         if self.__drag and hasattr(self.__drag, 'paint'):

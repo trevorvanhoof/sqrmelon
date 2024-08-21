@@ -61,7 +61,7 @@ class Timer(QObject):
     bpmChanged = Signal(float)
 
     def __init__(self) -> None:
-        super().__init__()  # type: ignore
+        super().__init__()
 
         self.__osc = OSCClient()
 
@@ -80,8 +80,8 @@ class Timer(QObject):
 
         if self.__maxTime == self.__minTime:
             self.__maxTime += 1.0
-        self.__timer = QTimer()  # type: ignore
-        self.__timer.timeout.connect(self.__tick)  # type: ignore
+        self.__timer = QTimer()
+        self.__timer.timeout.connect(self.__tick)
         self.__prevTime = None
 
     def __oscSetLoopRange(self, *_) -> None:
@@ -325,7 +325,7 @@ class TimeLine(QWidget):
             paramEnd = (shot.end - self.__timer.start) * normalizeFactor
             if (paramStart < 0.0 and paramEnd < 0.0) or (paramStart > 1.0 and paramEnd > 1.0):
                 continue
-            r = QRect(QPoint(int(paramStart * visibleWidth), 4), QPoint(int(paramEnd * visibleWidth), 17))  # type: ignore
+            r = QRect(QPoint(int(paramStart * visibleWidth), 4), QPoint(int(paramEnd * visibleWidth), 17))
             yield i, shot, r
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -375,7 +375,7 @@ class TimeLine(QWidget):
         painter.setPen(Qt.GlobalColor.red)
         painter.drawLine(pixelX, 0, pixelX, self.height() - 3)
 
-        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))  # type: ignore
+        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))
 
 
 class RangeSlider(QWidget):

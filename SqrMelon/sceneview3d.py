@@ -51,7 +51,7 @@ class SceneView(QOpenGLWindow):
         self._previewRes = None, None, 1.0
         if gSettings.contains('GLViewScale'):
             self._previewRes = None, None, float(gSettings.value('GLViewScale'))
-        self._cameraInput = None
+        self._cameraInput: Optional[Camera] = None
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
 
