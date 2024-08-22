@@ -374,7 +374,7 @@ class App(QMainWindowState):
                 dockWidget.setFloating(self.__restoreFullScreenInfo[1])
             if dockWidget.isFloating():
                 dockWidget.resize(self.__restoreFullScreenInfo)
-    
+
     def __toggleUILock(self, state: bool) -> None:
         gSettings.setValue('lockui', '1' if state else '0')
         features = QDockWidget.DockWidgetFeature(0 if state else 0b1111)

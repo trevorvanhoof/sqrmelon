@@ -63,6 +63,7 @@ class TexturePool:
         return tex
 
 
+# TODO: use dataclass?
 class PassData:
     def __init__(self,
                  vertStitches: list[FilePath],
@@ -97,7 +98,7 @@ class PassData:
         self.name = label
 
 
-def _deserializePasses(sceneFile: FilePath) -> list[PassData]:
+def deserializePasses(sceneFile: FilePath) -> list[PassData]:
     assert isinstance(sceneFile, FilePath)
     sceneDir = sceneFile.stripExt()
     templatePath = templatePathFromScenePath(sceneFile)
@@ -374,7 +375,7 @@ class Scene(QObject):
                 return
             self.fileSystemWatcher_scene.addPath(path)
 
-        self.passes = _deserializePasses(self.__filePath)
+        self.passes = deserializePasses(self.__filePath)
 
         self.fileSystemWatcher = FileSystemWatcher()
         self.fileSystemWatcher.fileChanged.connect(self._rebuild)

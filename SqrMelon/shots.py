@@ -235,8 +235,8 @@ class FloatItemDelegate(QItemDelegate):
         self.closeEditor.emit(self.__editor, QAbstractItemDelegate.EndEditHint.NoHint)
 
 
-def _deserializeSceneShots(sceneName: FilePath) -> Iterable[Shot]:
-    sceneFile = currentScenesDirectory().join(sceneName.ensureExt(SCENE_EXT))
+def deserializeSceneShots(sceneName: str) -> Iterable[Shot]:
+    sceneFile = currentScenesDirectory().join(FilePath(sceneName).ensureExt(SCENE_EXT))
     xScene = parseXMLWithIncludes(sceneFile)
 
     for xShot in xScene:
@@ -539,7 +539,7 @@ class ShotManager(QWidget):
         # model.clear() removes the header labels
         self.__model.setHorizontalHeaderLabels(['Name', 'Scene', 'Start', 'End', 'Duration', 'Speed', 'Preroll'])
         for sceneName in iterSceneNames():
-            for shot in _deserializeSceneShots(sceneName):
+            for shot in deserializeSceneShots(sceneName):
                 self.__model.appendRow(shot.items)
 
         self.__table.sortByColumn(2, Qt.SortOrder.AscendingOrder)
