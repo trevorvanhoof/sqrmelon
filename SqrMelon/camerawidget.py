@@ -112,6 +112,10 @@ class Camera(QWidget):
         if 'uOrigin' not in data or 'uAngles' not in data:
             return
         self.__data = CameraTransform(*(data['uOrigin'] + data['uAngles']))
+        for spinBox, value in zip(self.__inputs, self.__data.data):
+            tmp = spinBox.blockSignals(True)
+            spinBox.setValue(value)
+            spinBox.blockSignals(tmp)
         self.cameraChanged.emit()
 
     def toggle(self, *_) -> None:
