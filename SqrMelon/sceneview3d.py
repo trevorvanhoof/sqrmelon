@@ -1,6 +1,7 @@
 import os
 import time
 from typing import Iterable, Optional
+from math import ceil
 
 from OpenGL.GL import GL_BLEND, GL_DEPTH_TEST, GL_LEQUAL, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_VERSION, glBlendFunc, glDepthFunc, glDisable, glEnable, glGetString, glClear, GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT
 
@@ -147,7 +148,7 @@ class SceneView(QOpenGLWindow):
     screenFBO = 0
 
     @staticmethod
-    def calculateAspect(w: int, h: int):
+    def calculateAspect(w: int, h: int) -> tuple[int, int]:
         aspectH = w / 16 * 9
         aspectW = h / 9 * 16
 
@@ -233,6 +234,9 @@ class SceneView(QOpenGLWindow):
         w = int(w * self._previewRes[2])
         h = int(h * self._previewRes[2])
         self._size = self.calculateAspect(w, h)[0:2]
+        if min(self._size) < 64:
+            f = 64 / min(self._size)
+            self._size = int(ceil(self._size[0] * f)), int(ceil(self._size[1] * f))
         if self._scene:
             self._scene.setSize(*self._size)
         self.update()
