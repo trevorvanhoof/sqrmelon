@@ -190,11 +190,12 @@ class SceneView(QOpenGLWindow):
             uniforms = self._animator.evaluate(self._timer.time)
             textureUniforms = self._animator.additionalTextures(self._timer.time)
 
-            cameraData = self._cameraData
-            scene = self._scene
             modifier = currentProjectDirectory().join('animationprocessor.py')
             if modifier.exists():
+                # inject locals
+                cameraData = self._cameraData
                 beats = self._timer.time
+                scene = self._scene
                 execfile(modifier, globals(), locals())
 
             for uniformName in self._textures:
