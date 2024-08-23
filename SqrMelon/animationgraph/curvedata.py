@@ -29,8 +29,8 @@ class Key:
 
     def clone(self, parent: Curve) -> Key:
         key = self.__class__(self.time(), self.value(), parent)
-        key.__inTangent = Vec2(self.inTangent)
-        key.__outTangent = Vec2(self.outTangent)
+        key.inTangent = Vec2(self.inTangent)
+        key.outTangent = Vec2(self.outTangent)
         key.__tangentBroken = self.tangentBroken
         key.__tangentMode = self.tangentMode
         return key
