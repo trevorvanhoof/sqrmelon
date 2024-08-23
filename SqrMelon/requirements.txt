@@ -1,5 +1,1 @@
-PySide6
-PyOpenGL
-Send2Trash
-pyprof2calltree
-python-osc
+-e .
