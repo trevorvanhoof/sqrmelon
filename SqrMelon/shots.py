@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union
 from xml.etree import cElementTree
 
 import icons
@@ -98,30 +98,35 @@ class Shot:
         time -= self.start
         time *= self.speed
         time -= self.preroll
-        data = {}
+        data: dict[str, Union[float, dict[str, float], list[float]]] = {}
+        # Gather values as either single channel floats or named multi channel dicts
         for name in self.curves:
             value = self.curves[name].evaluate(time)
             if '.' in name:
                 name, channel = name.split('.', 1)
-                if name in data:
-                    data[name][channel] = value
-                else:
-                    data[name] = {channel: value}
+                v = data.setdefault(name, {})
+                assert isinstance(v, dict)
+                v[channel] = value
             else:
                 assert name not in data
                 data[name] = value
+        # Convert dict values to list values
         for name in data:
-            if isinstance(data[name], dict):
-                v = data[name]
+            v = data[name]
+            if isinstance(v, dict):
                 if 'w' in v:
+                    assert set(v.keys()) == set('xyzw')
                     data[name] = [v['x'], v['y'], v['z'], v['w']]
                 elif 'z' in v:
+                    assert set(v.keys()) == set('xyz')
                     data[name] = [v['x'], v['y'], v['z']]
                 elif 'y' in v:
+                    assert set(v.keys()) == set('xy')
                     data[name] = [v['x'], v['y']]
                 else:
+                    assert set(v.keys()) == set('x')
                     data[name] = [v['x']]
-        return data
+        return data  # type: ignore
 
     def bake(self) -> None:
         speed = self.speed
@@ -214,18 +219,17 @@ class Shot:
 
 
 class FloatItemDelegate(QItemDelegate):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.__editor = None
+        self.__editor = DoubleSpinBox()
 
-    def setEditorData(self, editorWidget: DoubleSpinBox, index: QModelIndex) -> None:
+    def setEditorData(self, editorWidget: DoubleSpinBox, index: QModelIndex) -> None:  # type: ignore
         editorWidget.setValue(float(index.data()))
 
-    def setModelData(self, editorWidget: DoubleSpinBox, model: QAbstractItemModel, index: QModelIndex) -> None:
+    def setModelData(self, editorWidget: DoubleSpinBox, model: QAbstractItemModel, index: QModelIndex) -> None:  # type: ignore
         model.setData(index, str(editorWidget.value()))
 
-    def createEditor(self, parentWidget: QWidget, styleOption: QStyleOption, index: QModelIndex) -> DoubleSpinBox:
-        self.__editor = DoubleSpinBox()
+    def createEditor(self, parentWidget: QWidget, styleOption: QStyleOption, index: QModelIndex) -> DoubleSpinBox:  # type: ignore
         self.__editor.setParent(parentWidget)
         self.__editor.editingFinished.connect(self.__commitAndCloseEditor)
         return self.__editor
@@ -251,13 +255,13 @@ def deserializeSceneShots(sceneName: str) -> Iterable[Shot]:
         for xEntry in xShot:
             if xEntry.tag.lower() == 'channel':
                 curveName = xEntry.attrib['name']
-                keys = []
+                keys: list[str] = []
                 if xEntry.text:
                     keys = xEntry.text.split(',')
                 curve = Curve()
                 for i in range(0, len(keys), 8):
-                    curve.addKeyWithTangents(tangentBroken=bool(int(keys[i + 6])), tangentMode=int(keys[i + 7]),
-                                             *(float(x) for x in keys[i:i + 6]))
+                    args: tuple[float, float, float, float, float, float] = tuple(float(x) for x in keys[i:i + 6])  # type: ignore
+                    curve.addKeyWithTangents(*args, tangentBroken=bool(int(keys[i + 6])), tangentMode=int(keys[i + 7]))
                 curves[curveName] = curve
 
             if xEntry.tag.lower() == 'texture':
@@ -270,11 +274,14 @@ def deserializeSceneShots(sceneName: str) -> Iterable[Shot]:
 
 
 def _saveSceneShots(sceneName: FilePath, shots: Iterable[Shot]) -> None:
+    projectPath = currentProjectFilePath()
+    assert projectPath is not None
+
     sceneFile = currentScenesDirectory().join(sceneName.ensureExt(SCENE_EXT))
     xScene = parseXMLWithIncludes(sceneFile)
 
     # save user camera position per scene
-    userFile = currentProjectFilePath().ensureExt('user')
+    userFile = projectPath.ensureExt('user')
     if userFile.exists():
         xUser = parseXMLWithIncludes(userFile)
     else:
@@ -284,11 +291,10 @@ def _saveSceneShots(sceneName: FilePath, shots: Iterable[Shot]) -> None:
         if cameraData:
             for xSub in xUser:
                 if xSub.tag == 'scene' and xSub.attrib['name'] == sceneName:
-                    xSub.attrib['camera'] = ','.join([str(x) for x in cameraData])
+                    xSub.attrib['camera'] = ','.join([str(x) for x in cameraData])  # type: ignore
                     break
             else:
-                cElementTree.SubElement(xUser, 'scene',
-                                        {'name': sceneName, 'camera': ','.join([str(x) for x in cameraData])})
+                cElementTree.SubElement(xUser, 'scene', {'name': sceneName, 'camera': ','.join([str(x) for x in cameraData])})  # type: ignore
 
     with userFile.edit() as fh:
         fh.write(toPrettyXml(xUser))
@@ -306,17 +312,18 @@ def _saveSceneShots(sceneName: FilePath, shots: Iterable[Shot]) -> None:
             targets.append(shot)
 
     for shot in targets:
-        xShot = cElementTree.SubElement(xScene, 'Shot', {'name': shot.name,
-                                                         'scene': sceneName,
-                                                         'start': str(shot.start),
-                                                         'end': str(shot.end),
-                                                         'enabled': str(shot.enabled),
-                                                         'speed': str(shot.speed),
-                                                         'preroll': str(shot.preroll)})
+        xShot = cElementTree.SubElement(xScene, 'Shot', {
+            'name': shot.name,
+            'scene': sceneName,
+            'start': str(shot.start),
+            'end': str(shot.end),
+            'enabled': str(shot.enabled),
+            'speed': str(shot.speed),
+            'preroll': str(shot.preroll)})
         for curveName in shot.curves:
             xChannel = cElementTree.SubElement(xShot, 'Channel', {'name': curveName, 'mode': 'hermite'})
             data = []
-            for key in shot.curves[curveName]:
+            for key in shot.curves[curveName]:  # type: ignore
                 data.append(str(key.inTangent.x))
                 data.append(str(key.inTangent.y))
                 data.append(str(key.point().x))
@@ -352,6 +359,9 @@ class ShotView(QTableView):
         self.__menu.addAction(icons.get('Bake'), 'Bake preroll && speed').triggered.connect(self.__onBakeShot)
         self.__row = -1
 
+    def model(self) -> ShotModel:
+        return super().model()  # type: ignore
+
     def __onBakeShot(self) -> None:
         item = self.model().item(self.__row)
         item.text()
@@ -374,8 +384,8 @@ class ShotView(QTableView):
                                  float(self.model().item(self.__row, 3).text()),
                                  self.model().item(self.__row).data(Qt.ItemDataRole.UserRole + 1))
 
-    def onPinShot(self, row=None) -> None:
-        item = self.model().item(self.__row if type(row) != int else row)
+    def onPinShot(self, row: Optional[int] = None) -> None:
+        item = self.model().item(self.__row if row is None else row)
         if not item:
             return
         self.shotsEnabled.emit([item.data(Qt.ItemDataRole.UserRole + 1)])
@@ -403,7 +413,7 @@ class ShotView(QTableView):
 
 class ShotModel(QSortFilterProxyModel):
     # noinspection PyMethodOverriding
-    def lessThan(self, lhs: QModelIndex, rhs: QModelIndex) -> bool:
+    def lessThan(self, lhs: Union[QModelIndex, QPersistentModelIndex], rhs: Union[QModelIndex, QPersistentModelIndex]) -> bool:
         lv = lhs.data()
         rv = rhs.data()
         try:
@@ -411,13 +421,19 @@ class ShotModel(QSortFilterProxyModel):
         except (ValueError, TypeError):
             return lv < rv
 
+    def setSourceModel(self, sourceModel: ShotItemModel) -> None:  # type: ignore
+        super().setSourceModel(sourceModel)
+
+    def sourceModel(self) -> ShotItemModel:
+        return super().sourceModel(sourceModel)  # type: ignore
+
     def item(self, row: int, col: int = 0) -> QStandardItem:
         return self.sourceModel().itemFromIndex(self.mapToSource(self.index(row, col)))
 
 
 class ShotItemModel(QStandardItemModel):
     # noinspection PyMethodOverriding
-    def flags(self, modelIndex: QModelIndex) -> Qt.ItemFlag:
+    def flags(self, modelIndex: Union[QModelIndex, QPersistentModelIndex]) -> Qt.ItemFlag:
         flags = super(ShotItemModel, self).flags(modelIndex)
         if modelIndex.column() == 1:
             return flags & ~Qt.ItemFlag.ItemIsEditable
@@ -501,10 +517,10 @@ class ShotManager(QWidget):
 
     @property
     def shotChanged(self) -> SignalInstance:
-        return self.__model.itemChanged
+        return self.__model.itemChanged  # type: ignore
 
-    def shotAtTime(self, time: float) -> Shot:
-        candidate = None
+    def shotAtTime(self, time: float) -> Optional[Shot]:
+        candidate: Optional[Shot] = None
         for row in range(self.__model.rowCount()):
             shot = self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1)
             if not shot.enabled:
@@ -558,7 +574,7 @@ class ShotManager(QWidget):
         for sceneName in iterSceneNames():
             _saveSceneShots(sceneName, self.shots())
 
-    def __onCurrentChanged(self, current: QModelIndex, _) -> None:
+    def __onCurrentChanged(self, current: QModelIndex, _: Any) -> None:
         row = self.__table.model().mapToSource(current).row()
         self.currentChanged.emit(self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1))
 
@@ -567,8 +583,7 @@ class ShotManager(QWidget):
         for idx in self.__table.selectedIndexes():
             row = self.__table.model().mapToSource(idx).row()
             rows.append(row)
-        rows = set(rows)
-        for row in rows:
+        for row in set(rows):
             yield self.__model.item(row).data(Qt.ItemDataRole.UserRole + 1)
 
     def __shotNames(self) -> Iterable[str]:

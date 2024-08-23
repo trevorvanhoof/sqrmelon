@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import stat
 from contextlib import contextmanager
-from typing import BinaryIO, Iterable, Optional, Sequence, TextIO, Union
+from typing import BinaryIO, Iterable, Iterator, Optional, Sequence, TextIO, Union
 
 from qt import *
 
@@ -105,7 +105,7 @@ class FilePath(str):
         # create file
         open(self, 'w').close()
 
-    def join(self, *args: str) -> FilePath:
+    def join(self, *args: str) -> FilePath:  # type: ignore
         """
         join given segments to this file path
         removing prefix \\ and / of any segment
@@ -116,46 +116,46 @@ class FilePath(str):
         """
         return self.__class__(os.path.join(self, *(a.lstrip('\\/') for a in args)))
 
-    def __add__(self, other: str):
+    def __add__(self, other: str) -> FilePath:
         return self.__class__(super(FilePath, self).__add__(other))
 
     @contextmanager
-    def _open(self, flag: str = 'r') -> Union[TextIO, BinaryIO]:
+    def _open(self, flag: str = 'r') -> Iterator[Union[TextIO, BinaryIO]]:
         """Forces a file to be readable and writable, then opens it for reading."""
         allFlags = stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IROTH
         if self.exists() and (os.stat(self).st_mode & allFlags != allFlags):
             os.chmod(self, allFlags)
         fh = open(self, flag)
-        yield fh
+        yield fh  # type: ignore
         fh.close()
 
     @contextmanager
-    def read(self) -> TextIO:
+    def read(self) -> Iterator[TextIO]:
         """Forces a file to be readable and writable, then opens it for writing."""
         with self._open('r') as fh:
-            yield fh
+            yield fh  # type: ignore
 
     @contextmanager
-    def edit(self) -> TextIO:
+    def edit(self) -> Iterator[TextIO]:
         """Forces a file to be readable and writable, then opens it for writing."""
         with self._open('w') as fh:
-            yield fh
+            yield fh  # type: ignore
 
     @contextmanager
-    def readBinary(self) -> BinaryIO:
+    def readBinary(self) -> Iterator[BinaryIO]:
         """Forces a file to be readable and writable, then opens it for writing."""
         with self._open('rb') as fh:
-            yield fh
+            yield fh  # type: ignore
 
     @contextmanager
-    def editBinary(self) -> BinaryIO:
+    def editBinary(self) -> Iterator[BinaryIO]:
         """Forces a file to be readable and writable, then opens it for writing."""
         with self._open('wb') as fh:
-            yield fh
+            yield fh  # type: ignore
 
     def content(self) -> str:
         with self._open('r') as fh:
-            return fh.read()
+            return fh.read()  # type: ignore
 
 
 class FileDialog:
@@ -164,12 +164,14 @@ class FileDialog:
         res = QFileDialog.getSaveFileName(parent, title, startAt, text)
         if res and res[0]:
             return FilePath(res[0])
+        return None
 
     @staticmethod
     def getOpenFileName(parent: Optional[QWidget], title: str, startAt: str, text: str) -> Optional[FilePath]:
         res = QFileDialog.getOpenFileName(parent, title, startAt, text)
         if res and res[0]:
             return FilePath(res[0])
+        return None
 
 
 class FileSystemWatcher(QObject):

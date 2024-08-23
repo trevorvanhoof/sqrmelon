@@ -64,10 +64,10 @@ class TextureManager(QDialog):
             self.__model.appendRow([nameItem, pathItem])
 
     def __onAddImage(self) -> None:
-        uniformName = QInputDialog.getText(self, 'Add texture', 'Uniform name', QLineEdit.EchoMode.Normal, 'uTextures[0]')
-        if not uniformName[0] or not uniformName[1]:
+        uniformName_ = QInputDialog.getText(self, 'Add texture', 'Uniform name', QLineEdit.EchoMode.Normal, 'uTextures[0]')
+        if not uniformName_[0] or not uniformName_[1]:
             return
-        uniformName = uniformName[0]
+        uniformName = uniformName_[0]
 
         imagePath = FileDialog.getOpenFileName(self, currentProjectDirectory(), '', 'Image files (*.png;*.bmp;*.jpg;*.jpeg;*.tiff);;Raw Gray F32 map (*.r32)')
         if imagePath and imagePath.exists():

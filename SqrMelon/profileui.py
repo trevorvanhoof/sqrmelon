@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from projutil import gSettings
 from qt import *
@@ -57,8 +57,9 @@ class Profiler(QWidget):
         super(Profiler, self).__init__()
         Profiler.instance = self
         self._renderer = _ProfileRenderer()
-        self.frameTimes = []
-        self.setLayout(vlayout())
+        self.frameTimes: list[float] = []
+        layout = vlayout()
+        self.setLayout(layout)
         h = QHBoxLayout()
         self._passes = QComboBox()
         h.addWidget(self._passes)
@@ -70,16 +71,16 @@ class Profiler(QWidget):
         self._enabled.setChecked(gSettings.value('ProfilerEnabled', 'false') == 'true')
         self._enabled.toggled.connect(functools.partial(gSettings.setValue, 'ProfilerEnabled'))
         h.addWidget(self._enabled)
-        self.layout().addLayout(h)
-        self.layout().addWidget(self._renderer)
-        self.layout().setStretch(1, 1)
+        layout.addLayout(h)
+        layout.addWidget(self._renderer)
+        layout.setStretch(1, 1)
         self._sub.valueChanged.connect(self._setDebugPass)
         self._passes.currentIndexChanged.connect(self._setDebugPass)
 
     def isProfiling(self) -> bool:
         return self._enabled.isChecked()
 
-    def _setDebugPass(self, *_) -> None:
+    def _setDebugPass(self, *_: Any) -> None:
         if self._renderer.scene is not None:
             # TODO: should trigger a redraw
             self._renderer.scene.setDebugPass(self._passes.currentIndex() - 1, self._sub.value())
@@ -90,7 +91,7 @@ class Profiler(QWidget):
 
         # clear pass debug info
         self._passes.setCurrentIndex(0)
-        self._passes.model().clear()
+        self._passes.model().clear()  # type: ignore
         self._passes.addItems(['<Not debugging render passes>'])
         self._sub.setValueSilent(0)
 
@@ -100,10 +101,10 @@ class Profiler(QWidget):
             self._renderer.scene.profileInfoChanged.disconnect(self._update)
 
         self._renderer.scene = scene
-        if self._renderer.scene is not None:
+        if scene is not None:
             # enforce no debug state
             self._setDebugPass(-1, 0)
-            self._renderer.scene.profileInfoChanged.connect(self._update)
+            scene.profileInfoChanged.connect(self._update)
 
             # set up new pass debug info
             for i, passData in enumerate(scene.passes):
@@ -116,7 +117,7 @@ class Profiler(QWidget):
         averageSecondsPerFrame = float(sum(self.frameTimes) / len(self.frameTimes))
         if not averageSecondsPerFrame:
             return
-        self.parent().setWindowTitle('Profiler: %i FPS / %i ms' % (round(1.0 / averageSecondsPerFrame), round(averageSecondsPerFrame * 1000.0)))
+        self.parent().setWindowTitle('Profiler: %i FPS / %i ms' % (round(1.0 / averageSecondsPerFrame), round(averageSecondsPerFrame * 1000.0)))  # type: ignore
 
         if not self.isProfiling():
             return

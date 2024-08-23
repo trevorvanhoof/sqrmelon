@@ -10,7 +10,7 @@ import os
 import platform
 from typing import Optional, Union, Generic, TypeVar
 
-_dllHandle: Optional[ctypes.CDLL] = None
+_dllHandle: ctypes.CDLL = None # type: ignore
 
 
 def prepare() -> None:
@@ -153,12 +153,12 @@ T = TypeVar("T")
 class VectorBase(Generic[T]):
     _size = 4
 
-    def __init__(self, *args) -> None:
+    def __init__(self, *args: Union[VectorBase, float]) -> None:
         assert self.__class__ != VectorBase, 'Instantiation of abstract class.'
 
         self._data: Optional[ctypes.Array[ctypes.c_float]] = None
         if args:
-            if isinstance(args[0], (int, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
+            if isinstance(args[0], ctypes.c_void_p):
                 self._ptr = args[0]
             elif isinstance(args[0], self.__class__):
                 self._ptr = _dllHandle.Vector_Copy(args[0].address())
@@ -169,7 +169,7 @@ class VectorBase(Generic[T]):
         else:
             self._ptr = _dllHandle.Vector_Vector()
 
-    def address(self) -> int:
+    def address(self) -> ctypes.c_void_p:
         return self._ptr
 
     def _fetchData(self) -> ctypes.Array[ctypes.c_float]:

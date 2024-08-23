@@ -23,7 +23,7 @@ def loadHeightfield(filePath: FilePath) -> Texture:
     try:
         # TODO: Is this the right way to use mmap?
         ptr = (ctypes.c_float * (resolution * resolution)).from_buffer(mmap.mmap(fd, 0))
-        tex = Texture(Texture.R32F, resolution, resolution, tile=True, data=ptr)
+        tex = Texture(Texture.R32F, resolution, resolution, tile=True, data=ptr)  # type: ignore
     finally:
         os.close(fd)
     return tex

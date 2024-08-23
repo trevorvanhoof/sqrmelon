@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Iterable, Optional
+from typing import Iterable, Iterator, Optional
 
 from mathutil import Vec2
 
@@ -29,8 +29,8 @@ class Key:
 
     def clone(self, parent: Curve) -> Key:
         key = self.__class__(self.time(), self.value(), parent)
-        key.__inTangent = Vec2(self.inTangent)
-        key.__outTangent = Vec2(self.outTangent)
+        key.inTangent = Vec2(self.inTangent)
+        key.outTangent = Vec2(self.outTangent)
         key.__tangentBroken = self.tangentBroken
         key.__tangentMode = self.tangentMode
         return key
@@ -53,6 +53,9 @@ class Key:
     def tangentMode(self, tangentMode: int) -> None:
         self.__tangentMode = tangentMode
         self.updateTangents()
+
+    def setTangentModeSilent(self, tangentMode: int) -> None:
+        self.__tangentMode = tangentMode
 
     def updateTangents(self) -> None:
         if self.__tangentMode == Key.TANGENT_USER:
@@ -122,6 +125,7 @@ class Curve:
         for key in self.__keys:
             if key.time() == time:
                 return key
+        return None
 
     def deleteKey(self, key: Key) -> None:
         idx = self.__keys.index(key)
@@ -135,7 +139,7 @@ class Curve:
                            inTangentX: float, inTangentY: float,
                            time: float, value: float,
                            outTangentX: float, outTangentY: float,
-                           tangentBroken: bool, tangentMode: int):
+                           tangentBroken: bool, tangentMode: int) -> Key:
         key = Key(time, value, self)
         self.__keys.append(key)
         self.sortKeys()
@@ -247,14 +251,14 @@ class Curve:
         for key in self.__keys:
             key.updateTangents()
 
-    def __iter__(self) -> Iterable[Key]:
+    def __iter__(self) -> Iterator[Key]:
         for key in self.__keys:
             yield key
 
     def __getitem__(self, index: int) -> Key:
         return self.__keys[index]
 
-    def __setitem__(self, index: int, key: Key):
+    def __setitem__(self, index: int, key: Key) -> None:
         self.__keys[index] = key
 
     def __len__(self) -> int:

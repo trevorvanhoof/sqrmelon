@@ -18,7 +18,7 @@ from timeslider import Timer
 _noSignalImage = None
 
 
-def execfile(path: str, globals_: Optional[dict] = None, locals_: Optional[dict] = None):
+def execfile(path: str, globals_: Optional[dict] = None, locals_: Optional[dict] = None) -> None:
     exec(open(path).read(), globals_ or {}, locals_ or {})
 
 
@@ -37,7 +37,7 @@ class SceneView(QOpenGLWindow):
     to match the scene used by the current shot. When a valid scene is set,
     it is rendered to the viewport on every repaint.
 
-    Last it can be connected to a camera widget (setCamera) to which it fill
+    Last it can be connected to a camera widget (setCamera) to which it will
     forward left mouse drag and keyboard input (WASDQE).
     """
 
@@ -49,14 +49,15 @@ class SceneView(QOpenGLWindow):
         self.__overlays = overlays
         self._scene: Optional[Scene] = None
         self._size = 1, 1
-        self._previewRes = None, None, 1.0
+        self._previewRes: tuple[Optional[int], Optional[int], float] = None, None, 1.0
         if gSettings.contains('GLViewScale'):
-            self._previewRes = None, None, float(gSettings.value('GLViewScale'))
+            self._previewRes = None, None, float(gSettings.value('GLViewScale'))  # type: ignore
         self._cameraInput: Optional[Camera] = None
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
 
     def cameraInput(self) -> Camera:
+        assert self._cameraInput is not None
         return self._cameraInput
 
     def textureUniforms(self) -> Iterable[tuple[str, int]]:
@@ -67,14 +68,17 @@ class SceneView(QOpenGLWindow):
         exportDir = QFileDialog.getExistingDirectory(None, 'Choose destination folder to save static textures as .png files.', '.')
         if not exportDir:
             return
+        assert self._scene is not None
         for passData in self._scene.passes:
             if passData.realtime:
                 continue
             for index, cbo in enumerate(self._scene.colorBuffers[passData.targetBufferId]):
+                assert isinstance(cbo, Texture)
                 cbo.save(FilePath(os.path.join(exportDir, '{}{}.png'.format(passData.name, index))))
 
     def setPreviewRes(self, widthOverride: Optional[int], heightOverride: Optional[int], scale: float) -> None:
         if widthOverride is not None:
+            assert heightOverride is not None
             x = self.parent().width() - self.width()
             y = self.parent().height() - self.height()
             self.parent().setGeometry(self.parent().x(), self.parent().y(), widthOverride + x, heightOverride + y)
@@ -84,16 +88,17 @@ class SceneView(QOpenGLWindow):
 
     @property
     def _cameraData(self) -> CameraTransform:
+        assert self._cameraInput is not None
         return self._cameraInput.data()
 
     def setCamera(self, cameraInput: Camera) -> None:
         self._cameraInput = cameraInput
         if self._scene:
             # copy the scene camera data to the camera input, so each scene can store it's own user-camera
-            self._cameraInput.setCamera(self._scene.readCameraData())
+            self._cameraInput.setData(*self._scene.readCameraData())
 
     def saveCameraData(self) -> None:
-        if self._cameraInput and self._scene:
+        if self._cameraInput is not None and self._scene is not None:
             # back up user camera position in scene data
             self._scene.setCameraData(self._cameraInput.camera())
 
@@ -107,7 +112,7 @@ class SceneView(QOpenGLWindow):
             self.saveCameraData()
             if scene is not None:
                 # copy the scene camera data to the camera input, so each scene can store it's own user-camera
-                self._cameraInput.setCamera(scene.readCameraData())
+                self._cameraInput.setData(*scene.readCameraData())
 
         # update which scene's files we are watching for updates
         if self._scene:
@@ -121,7 +126,7 @@ class SceneView(QOpenGLWindow):
 
         # resize color buffers used by scene
         self._scene = scene
-        if scene is not None:
+        if self._scene is not None:
             self._scene.setSize(*self._size)
 
         self.update()
@@ -241,31 +246,31 @@ class SceneView(QOpenGLWindow):
             self._scene.setSize(*self._size)
         self.update()
 
-    def resizeGL(self, w: int, h: int):
+    def resizeGL(self, w: int, h: int) -> None:
         SceneView.screenFBO = self.defaultFramebufferObject()
         self.__onResize()
 
-    def keyPressEvent(self, keyEvent: QKeyEvent):
+    def keyPressEvent(self, keyEvent: QKeyEvent) -> None:
         super(SceneView, self).keyPressEvent(keyEvent)
         if self._cameraInput:
             self._cameraInput.flyKeyboardInput(keyEvent, True)
 
-    def keyReleaseEvent(self, keyEvent: QKeyEvent):
+    def keyReleaseEvent(self, keyEvent: QKeyEvent) -> None:
         super(SceneView, self).keyReleaseEvent(keyEvent)
         if self._cameraInput:
             self._cameraInput.flyKeyboardInput(keyEvent, False)
 
-    def mousePressEvent(self, mouseEvent: QMouseEvent):
+    def mousePressEvent(self, mouseEvent: QMouseEvent) -> None:
         super(SceneView, self).mousePressEvent(mouseEvent)
         if self._cameraInput:
             self._cameraInput.flyMouseStart(mouseEvent)
 
-    def mouseMoveEvent(self, mouseEvent: QMouseEvent):
+    def mouseMoveEvent(self, mouseEvent: QMouseEvent) -> None:
         super(SceneView, self).mouseMoveEvent(mouseEvent)
         if self._cameraInput:
             self._cameraInput.flyMouseUpdate(mouseEvent, self.size())
 
-    def mouseReleaseEvent(self, mouseEvent: QMouseEvent):
+    def mouseReleaseEvent(self, mouseEvent: QMouseEvent) -> None:
         super(SceneView, self).mouseReleaseEvent(mouseEvent)
         if self._cameraInput:
             self._cameraInput.flyMouseEnd(mouseEvent)

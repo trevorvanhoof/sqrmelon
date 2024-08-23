@@ -5,7 +5,7 @@ from xml.etree import cElementTree
 from fileutil import FilePath
 
 
-def xmlFixSlashesRecursively(xElement: cElementTree.Element):
+def xmlFixSlashesRecursively(xElement: cElementTree.Element) -> None:
     # replace backslashes in all text and values
     if xElement.text:
         xElement.text = xElement.text.replace('\\', '/')
@@ -38,7 +38,7 @@ def parseXMLWithIncludes(xmlFilePath: FilePath) -> cElementTree.Element:
 def toPrettyXml(root: cElementTree.Element) -> str:
     root.text = None
     xmlFixSlashesRecursively(root)
-    text = cElementTree.tostring(root)
+    text: str = cElementTree.tostring(root)  # type: ignore
     text = xml.dom.minidom.parseString(text).toprettyxml()
     text = text.replace('\r', '\n')
     return '\n'.join(line for line in text.split('\n') if line and line.strip())

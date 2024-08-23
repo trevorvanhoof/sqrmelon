@@ -3,7 +3,7 @@
 #  so it is easier to see when our C++-side structs are mismatching.
 import struct
 from difflib import SequenceMatcher
-from typing import Iterable, TypeVar
+from typing import BinaryIO, cast, Iterable, Mapping, TypeVar
 
 from animationgraph.curvedata import Key
 from fileutil import FilePath
@@ -31,7 +31,7 @@ class BinaryPool:
         return b
 
 
-def gatherEnabledShots(sceneNameIndexMap: dict[str, int]) -> list[Shot]:
+def gatherEnabledShots(sceneNameIndexMap: Mapping[str, int]) -> list[Shot]:
     # Gather enabled shots across scense
     enabledShots: list[Shot] = []
     for sceneName in sceneNameIndexMap:
@@ -43,7 +43,7 @@ def gatherEnabledShots(sceneNameIndexMap: dict[str, int]) -> list[Shot]:
     return enabledShots
 
 
-def serializeShots(pool: BinaryPool, enabledShots: list[Shot]):
+def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, list[str], int]:
     # Serialize shot times and validate the timeline
     timeCursor = 0.0
     shotStartTimes = []  # omits the first time as it is always 0.0
@@ -113,13 +113,13 @@ def readPassFBOInfo(passData: PassData) -> tuple[int, int, int, int]:
     w, h = 0, 0
     if passData.resolution:
         w, h = passData.resolution
-    assert passData.resolution[0] < 65536, f'{passData.name} width value out of uint16 bounds. Not supported by current runtime.'
-    assert passData.resolution[1] < 65536, f'{passData.name} height value out of uint16 bounds. Not supported by current runtime.'
+    assert w < 65536, f'{passData.name} width value out of uint16 bounds. Not supported by current runtime.'
+    assert h < 65536, f'{passData.name} height value out of uint16 bounds. Not supported by current runtime.'
 
     f = 1
     if passData.downSampleFactor:
         f = passData.downSampleFactor
-    assert 0 < passData.downSampleFactor < 256, f'{passData.name} factor value out of uint8 bounds. Not supported by current runtime.'
+    assert 0 < f < 256, f'{passData.name} factor value out of uint8 bounds. Not supported by current runtime.'
 
     assert passData.numOutputBuffers > 0, f'{passData.name} has 0 outputs to render into.'
     assert passData.numOutputBuffers < 64, f'{passData.name} outputs value out of uint6 (yes six) bounds. Not supported by current runtime.'
@@ -132,8 +132,8 @@ def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, i
     # For each used template, generate the framebuffer/colorbuffer construction info
     # and get a map of indices for: template frame buffer index -> real fbo index
     # and template color buffer index -> real cbo index
-    fboConstructionInfo = []
-    fboKeyToIndex = {}
+    fboConstructionInfo: list[tuple[int, int, int, int]] = []
+    fboKeyToIndex: dict[int, int] = {}
     fboFirstCboIndex = [0]
     for passes in iterUsedTemplatePasses(enabledShots):
         for passData in passes:
@@ -155,12 +155,12 @@ def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, i
     return fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex
 
 
-def main():
+def main() -> None:
     # We store all demo data as 1 big binary blob
     pool = BinaryPool()
 
     # Find all enabled shots and sort them by start time
-    sceneNameIndexMap = {name: index for (index, name) in enumerate(iterSceneNames())}
+    sceneNameIndexMap: Mapping[str, int] = {name: index for (index, name) in enumerate(iterSceneNames())}
     enabledShots = gatherEnabledShots(sceneNameIndexMap)
 
     # Add all shots to the demo
@@ -179,10 +179,12 @@ def main():
                 raise DeprecationWarning(f'Shader pass {passData.name} uses uniform XML elements inside the template. This used to be supported but was omitted in favor of using small shader stitches that simply declare constants with the right values instead.')
             stitchIds = []
             for shaderFilePath in passData.vertStitches:
-                txt = shaderFilePath.readBinary().read() + b'\0'
+                with shaderFilePath.readBinary() as fh:
+                    txt = fh.read() + b'\0'
                 stitchIds.append(pool.ensureExists(txt))
             for shaderFilePath in passData.fragStitches:
-                txt = shaderFilePath.readBinary().read() + b'\0'
+                with shaderFilePath.readBinary() as fh:
+                    txt = fh.read() + b'\0'
                 stitchIds.append(pool.ensureExists(txt))
             # TODO: Will there ever be more than 256 stitches in a program?
             programId = pool.ensureExists(struct.pack(f'B{len(stitchIds)}I', len(stitchIds), *stitchIds))
@@ -206,7 +208,6 @@ def main():
     # Globals to use in the framework
     raise RuntimeError
     shotStartTimesIndex, shotSceneIdsIndex, shotAnimationInfoIndex, fboBlockAddr, fboCount
-
 
 
 """
