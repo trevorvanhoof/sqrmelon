@@ -19,4 +19,4 @@ if "%LATEST_PYTHON%"=="" (
     echo No Python 3 installment found in  %PYTHON_DIR%.
     exit /b 1
 )
-"%LATEST_PYTHON%\python.exe" main.py
+"%LATEST_PYTHON%\python.exe" main.py %1
