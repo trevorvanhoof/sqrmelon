@@ -3,7 +3,7 @@ A tool for keyframe animation & fragment shader management for 64k executables.
 
 ## Manual
 An extensive PDF can be found in the repo:
-https://github.com/trevorvanhoof/sqrmelon/blob/master/SqrMelon%20manual.pdf
+https://github.com/trevorvanhoof/sqrmelon/blob/main/SqrMelon%20manual.pdf
 
 ## Disclaimer
 This tool is provided as-is, feel free to use it, contact me if you have any questions. 
