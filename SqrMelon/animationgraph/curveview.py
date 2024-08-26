@@ -679,8 +679,8 @@ class CurveEditor(QWidget):
         self.__relative = CheckBox()
         tools.addWidget(QLabel('Relative:'))
         tools.addWidget(self.__relative)
-        self.__relative.setValue((Qt.CheckState.Unchecked, Qt.CheckState.Checked, Qt.CheckState.Checked)[int(gSettings.value('RelativeKeyInput', 0))])  # type: ignore
-        self.__relative.valueChanged.connect(functools.partial(gSettings.setValue, 'RelativeKeyInput'))
+        self.__relative.setValue(bool(int(gSettings.value('RelativeKeyInput', 0))))  # type: ignore
+        self.__relative.valueChanged.connect(lambda state: gSettings.setValue('RelativeKeyInput', int(state)))
 
         self.__time = DoubleSpinBox()
         self.__time.setDecimals(4)

@@ -159,7 +159,6 @@ class DoubleSpinBox(QDoubleSpinBox):
         self.blockSignals(False)
 
 
-# TODO: Should this use bools instead of checkstates?
 class CheckBox(QCheckBox):
     valueChanged = Signal(int)
 
@@ -167,11 +166,11 @@ class CheckBox(QCheckBox):
         super(CheckBox, self).__init__(*args)
         self.stateChanged.connect(self.valueChanged.emit)
 
-    def value(self) -> Qt.CheckState:
-        return self.checkState()
+    def value(self) -> bool:
+        return self.checkState() == Qt.CheckState.Checked
 
-    def setValue(self, state: Qt.CheckState) -> None:
-        self.setCheckState(state)
+    def setValue(self, state: bool) -> None:
+        self.setCheckState(Qt.CheckState.Checked if state else Qt.CheckState.Unchecked)
 
 
 class LineEdit(QLineEdit):
