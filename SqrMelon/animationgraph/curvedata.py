@@ -61,14 +61,12 @@ class Key:
 
     def setInTangent(self, value: Vec2) -> None:
         self.__inTangent = Vec2(value)
-        self.__parent.changed.emit()
 
     def outTangent(self) -> Vec2:
         return Vec2(self.__outTangent)
 
     def setOutTangent(self, value: Vec2) -> None:
         self.__outTangent = Vec2(value)
-        self.__parent.changed.emit()
 
     def updateTangents(self) -> None:
         if self.__tangentMode == Key.TANGENT_USER:
