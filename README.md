@@ -3,7 +3,7 @@ A tool for keyframe animation & fragment shader management for 64k executables.
 
 ## Manual
 An extensive PDF can be found in the repo:
-https://github.com/trevorvanhoof/sqrmelon/blob/master/SqrMelon%20manual.pdf
+https://github.com/trevorvanhoof/sqrmelon/blob/main/SqrMelon%20manual.pdf
 
 ## Disclaimer
 This tool is provided as-is, feel free to use it, contact me if you have any questions. 
@@ -13,7 +13,7 @@ While I am interested in bug reports and willing to help out, I urge you not to 
 Beware that bugs & feature requests can be "beyond scope".
 
 ## Third party
-SqrMelon is written with Python2.7 (64 bit) and PyQt4, it also depends on some third party python packages.
+SqrMelon is written with Python3.11+ (64 bit) and PySide2, it also depends on some third party python packages.
 It comes with an install.txt with the right download links to help you get started.
 The C++ Player project has some other dependencies, listed below:
 
