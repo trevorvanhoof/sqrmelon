@@ -448,7 +448,9 @@ class App(QMainWindowState):
         self.timeSlider.projectOpened()
 
     def __initializeProject(self) -> None:
-        project = currentProjectFilePath()
+        # If project file was specified by the command line, open it, otherwise reuse last opened.
+        project = FilePath(sys.argv[1].strip('\'').strip('"')) if len(sys.argv) > 1 else currentProjectFilePath()
+
         if project is not None:
             if project.exists():
                 self.__openProject(project)
