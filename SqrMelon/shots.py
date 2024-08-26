@@ -324,12 +324,12 @@ def _saveSceneShots(sceneName: FilePath, shots: Iterable[Shot]) -> None:
             xChannel = cElementTree.SubElement(xShot, 'Channel', {'name': curveName, 'mode': 'hermite'})
             data = []
             for key in shot.curves[curveName]:  # type: ignore
-                data.append(str(key.inTangent.x))
-                data.append(str(key.inTangent.y))
+                data.append(str(key.inTangent().x))
+                data.append(str(key.inTangent().y))
                 data.append(str(key.point().x))
                 data.append(str(key.point().y))
-                data.append(str(key.outTangent.x))
-                data.append(str(key.outTangent.y))
+                data.append(str(key.outTangent().x))
+                data.append(str(key.outTangent().y))
                 data.append(str(int(key.tangentBroken)))
                 data.append(str(key.tangentMode))
             xChannel.text = ','.join(data)

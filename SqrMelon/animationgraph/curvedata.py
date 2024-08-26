@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Iterable, Iterator, Optional
+from typing import Iterator, Optional
 
 from mathutil import Vec2
 
@@ -20,8 +20,8 @@ class Key:
         self.__parent = parent
         # note that tangent X values have been deprecated and is not exported;
         #   they were for cubic bezier curves that never got made
-        self.inTangent = Vec2(0.0, 0.0)
-        self.outTangent = Vec2(0.0, 0.0)
+        self.__inTangent = Vec2(0.0, 0.0)
+        self.__outTangent = Vec2(0.0, 0.0)
         self.__inTangentType = Key.TYPE_LINEAR
         self.__outTangentType = Key.TYPE_LINEAR
         self.__tangentBroken = False
@@ -29,13 +29,12 @@ class Key:
 
     def clone(self, parent: Curve) -> Key:
         key = self.__class__(self.time(), self.value(), parent)
-        key.inTangent = Vec2(self.inTangent)
-        key.outTangent = Vec2(self.outTangent)
+        key.__inTangent = Vec2(self.__inTangent)
+        key.__outTangent = Vec2(self.__outTangent)
         key.__tangentBroken = self.tangentBroken
         key.__tangentMode = self.tangentMode
         return key
 
-    # TODO: refactor to use getters/setters instead of properties
     @property
     def tangentBroken(self) -> bool:
         return self.__tangentBroken
@@ -57,6 +56,20 @@ class Key:
     def setTangentModeSilent(self, tangentMode: int) -> None:
         self.__tangentMode = tangentMode
 
+    def inTangent(self) -> Vec2:
+        return Vec2(self.__inTangent)
+
+    def setInTangent(self, value: Vec2) -> None:
+        self.__inTangent = Vec2(value)
+        self.__parent.changed.emit()
+
+    def outTangent(self) -> Vec2:
+        return Vec2(self.__outTangent)
+
+    def setOutTangent(self, value: Vec2) -> None:
+        self.__outTangent = Vec2(value)
+        self.__parent.changed.emit()
+
     def updateTangents(self) -> None:
         if self.__tangentMode == Key.TANGENT_USER:
             return
@@ -64,11 +77,11 @@ class Key:
             # this leaves the input tangent as is, so you can go set e.g.
             #   "linear" to get the input, then back to "stepped"
             # TODO: have "output is stepped" as separate state ("in tangent" with "stepped output" control is tedious)
-            self.outTangent = Vec2(0.0, float('inf'))
+            self.setOutTangent(Vec2(0.0, float('inf')))
             return
         if self.__tangentMode == Key.TANGENT_FLAT:
-            self.inTangent = Vec2(0.0, 0.0)
-            self.outTangent = Vec2(0.0, 0.0)
+            self.setInTangent(Vec2(0.0, 0.0))
+            self.setOutTangent(Vec2(0.0, 0.0))
         else:
             self.__parent.updateTangents(self, self.__tangentMode)
 
@@ -143,8 +156,8 @@ class Curve:
         key = Key(time, value, self)
         self.__keys.append(key)
         self.sortKeys()
-        key.inTangent = Vec2(inTangentX, inTangentY)
-        key.outTangent = Vec2(outTangentX, outTangentY)
+        key.setInTangent(Vec2(inTangentX, inTangentY))
+        key.setOutTangent(Vec2(outTangentX, outTangentY))
         key.tangentBroken = tangentBroken
         key.tangentMode = tangentMode
         return key
@@ -182,45 +195,47 @@ class Curve:
             return keyDifference
 
         def finalize() -> None:
-            if not first and key.inTangent.length() != 0:
+            if not first and key.inTangent().length() != 0:
                 pd = self.__keys[idx].time() - self.__keys[idx - 1].time()
                 try:
-                    key.inTangent *= pd / key.inTangent.x
+                    key.setInTangent(key.inTangent() * pd / key.inTangent().x)
                 except ZeroDivisionError:
                     pass
-            if not last and key.outTangent.length() != 0:
+            if not last and key.outTangent().length() != 0:
                 nd = self.__keys[idx + 1].time() - self.__keys[idx].time()
                 try:
-                    key.outTangent *= nd / key.outTangent.x
+                    key.setOutTangent(key.outTangent() * nd / key.outTangent().x)
                 except ZeroDivisionError:
                     pass
 
         if mode == Key.TANGENT_LINEAR:
             if first:
-                key.inTangent = Vec2(0.0, 0.0)
+                key.setInTangent(Vec2(0.0, 0.0))
             else:
-                key.inTangent = keyDirection(self.__keys[idx], self.__keys[idx - 1])
-                key.inTangent.x = -key.inTangent.x
+                t = keyDirection(self.__keys[idx], self.__keys[idx - 1])
+                t.x = -t.x
+                key.setInTangent(t)
 
             if last:
-                key.outTangent = Vec2(0.0, 0.0)
+                key.setOutTangent(Vec2(0.0, 0.0))
             else:
-                key.outTangent = keyDirection(self.__keys[idx], self.__keys[idx + 1])
+                key.setOutTangent(keyDirection(self.__keys[idx], self.__keys[idx + 1]))
 
             finalize()
             return
 
         elif mode == Key.TANGENT_SPLINE:
             if first:
-                key.outTangent = keyDirection(self.__keys[idx], self.__keys[idx + 1])
-                key.inTangent = key.outTangent
+                key.setOutTangent(keyDirection(self.__keys[idx], self.__keys[idx + 1]))
+                key.setInTangent(-key.outTangent())  # TODO: I flipped the sign, check if that was the right thing to do
             elif last:
-                key.inTangent = keyDirection(self.__keys[idx], self.__keys[idx - 1])
-                key.inTangent.x = -key.inTangent.x
-                key.outTangent = -key.inTangent
+                t = keyDirection(self.__keys[idx], self.__keys[idx - 1])
+                t.x = -t.x
+                key.setInTangent(t)
+                key.setOutTangent(-key.inTangent())
             else:
-                key.outTangent = keyDirection(self.__keys[idx - 1], self.__keys[idx + 1])
-                key.inTangent = -key.outTangent
+                key.setOutTangent(keyDirection(self.__keys[idx - 1], self.__keys[idx + 1]))
+                key.setInTangent(-key.outTangent())
 
             finalize()
             return
@@ -231,11 +246,11 @@ class Curve:
 
             if first or last or sgn(self.__keys[idx - 1].value() - key.value()) == sgn(
                     self.__keys[idx + 1].value() - key.value()):
-                key.inTangent = Vec2(0.0, 0.0)
-                key.outTangent = Vec2(0.0, 0.0)
+                key.setInTangent(Vec2(0.0, 0.0))
+                key.setOutTangent(Vec2(0.0, 0.0))
             else:
-                key.outTangent = keyDirection(self.__keys[idx - 1], self.__keys[idx + 1])
-                key.inTangent = -key.outTangent
+                key.setOutTangent(keyDirection(self.__keys[idx - 1], self.__keys[idx + 1]))
+                key.setInTangent(-key.outTangent())
 
             finalize()
             return
@@ -293,7 +308,21 @@ class Curve:
                 break
         self.__keys = self.__keys[max(startIdx, 0):min(endIdx, len(self.__keys))]
 
+    @staticmethod
     @lru_cache
+    def _evaluate(lhs_time: float, lhs_value: float, lhs_tangent: float, rhs_tangent: float, rhs_time: float, rhs_value: float, time: float) -> float:
+        # stepped tangents
+        if lhs_tangent == float('inf'):
+            return lhs_value
+        dx = rhs_time - lhs_time
+        dy = rhs_value - lhs_value
+        c0 = (lhs_tangent + rhs_tangent - dy - dy)
+        c1 = (dy + dy + dy - lhs_tangent - lhs_tangent - rhs_tangent)
+        c2 = lhs_tangent
+        c3 = lhs_value
+        t = (time - lhs_time) / dx
+        return t * (t * (t * c0 + c1) + c2) + c3
+
     def evaluate(self, time: float) -> float:
         """
         Hermite spline interpolation at the given time.
@@ -308,21 +337,7 @@ class Curve:
         for i in range(1, len(self.__keys)):
             if self.__keys[i].time() > time:
                 p0 = self.__keys[i - 1].point()
-                p1 = self.__keys[i - 1].outTangent.y
-                # stepped tangents
-                if p1 == float('inf'):
-                    return p0.y
-                p2 = self.__keys[i].inTangent.y
                 p3 = self.__keys[i].point()
-
-                dx = p3.x - p0.x
-                dy = p3.y - p0.y
-                c0 = (p1 + p2 - dy - dy)
-                c1 = (dy + dy + dy - p1 - p1 - p2)
-                c2 = p1
-                c3 = p0.y
-
-                t = (time - p0.x) / dx
-                return t * (t * (t * c0 + c1) + c2) + c3
+                return self._evaluate(p0.x, p0.y, self.__keys[i - 1].outTangent().y, self.__keys[i].inTangent().y, p3.x, p3.y, time)
 
         return self.__keys[-1].value()

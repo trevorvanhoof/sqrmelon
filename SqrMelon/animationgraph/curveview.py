@@ -541,11 +541,11 @@ class CurveView(QWidget):
                 point = self.sceneToPixel(QPointF(key.time(), key.value()))
                 if self.__selection.isKeySelected(row, i):
                     # We're currently selected! Draw our tangent points
-                    inTangent = (Vec2(-1.0, 0.0) if key.inTangent.sqrLen() == 0 else -key.inTangent)
+                    inTangent = (Vec2(-1.0, 0.0) if key.inTangent().sqrLen() == 0 else -key.inTangent())
                     self._drawTangent(painter, point, inTangent)
-                    isStep = key.outTangent.y == float('inf')
+                    isStep = key.outTangent().y == float('inf')
                     if not isStep:  # don't draw stapped tangents
-                        outTangent = (Vec2(1.0, 0.0) if key.outTangent.sqrLen() == 0 else key.outTangent)
+                        outTangent = (Vec2(1.0, 0.0) if key.outTangent().sqrLen() == 0 else key.outTangent())
                         outTangent.normalize()
                         self._drawTangent(painter, point, outTangent)
                     color = Qt.GlobalColor.yellow
