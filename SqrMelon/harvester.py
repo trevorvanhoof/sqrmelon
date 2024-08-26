@@ -3,6 +3,7 @@
 #  so it is easier to see when our C++-side structs are mismatching.
 import struct
 from typing import Iterable, Mapping, TypeVar
+from xml.etree import cElementTree
 
 from PySide6.QtWidgets import QApplication
 
@@ -295,6 +296,8 @@ def main() -> None:
     programIds = [stitchesAddr for _, stitchesAddr in programs.values()]
     programsIndex = pool.ensureExists(multiPack('H', len(programIds), f'{len(programIds)}I', programIds))
 
+    beatsPerSecond = cElementTree.fromstring(currentProjectFilePath().content()).attrib.get('TimerBPS', 2.0)
+
     # Globals to use in the framework
     outputPath = FilePath(__file__).abs().parent().parent().join('MelonPan', 'generated.hpp')
     with outputPath.edit() as fh:
@@ -311,7 +314,8 @@ def main() -> None:
         fh.write(f'constexpr const unsigned char maxAnimations = {maxAnimations};\n')
         fh.write(f'constexpr const unsigned char cboCount = {cboCount};\n')
         fh.write(f'constexpr const unsigned char shotCount = {shotCount};\n')
-    # TODO: Output BPM
+        fh.write(f'constexpr const float beatsPerSecond = {beatsPerSecond}f;\n')
+
     print(f'Wrote: {currentProjectFilePath()}\nto: {outputPath}')
 
 
