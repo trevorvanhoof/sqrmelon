@@ -1,9 +1,13 @@
+# TODO: resolution selector dialog, png support, recording support, window title
+
 #include "../content/config.h"
 
 #ifdef EIDOLON
 #include "../content/generated_eidolon.hpp"
 #undef NO_AUDIO
 #define AUDIO_64KLANG2
+#undef AUDIO_BASS
+#undef AUDIO_WAVESABRE
 #else
 #include "../content/generated.hpp"
 #endif
@@ -29,8 +33,19 @@ extern "C" {
     extern float atan2f(float,float);
     extern float acosf(float);
 }
+#ifndef AUDIO_WAVESABRE
 inline float cosf(float v) { return sinf(v + 3.14159265359f * 0.5f); }
 inline float tanf(float v) { return sinf(v) / cosf(v); }
+#else
+extern "C" int _purecall() { return 0; };
+int atexit() { return 0; }; // TODO: This was not needed in the other player, is it because we are not using static libs?
+void* __cdecl operator new(size_t x) { return HeapAlloc(GetProcessHeap(), 0, x); }
+void* __cdecl operator new[](size_t x) { return HeapAlloc(GetProcessHeap(), 0, x); }
+void __cdecl operator delete(void* p, size_t x) { HeapFree(GetProcessHeap(), 0, p); }
+void __cdecl operator delete(void* p) { HeapFree(GetProcessHeap(), 0, p); }
+void __cdecl operator delete[](void* p) { HeapFree(GetProcessHeap(), 0, p); }
+void __cdecl operator delete[](void* p, size_t x) { HeapFree(GetProcessHeap(), 0, p); }
+#endif
 #endif
 
 #include "wglext.h"
@@ -42,6 +57,14 @@ inline float tanf(float v) { return sinf(v) / cosf(v); }
 #ifdef AUDIO_64KLANG2
 #include "../synths/64klang2.hpp"
 #endif
+#ifdef AUDIO_BASS
+#include "../synths/bass.hpp"
+#endif
+#ifdef AUDIO_WAVESABRE
+#include <mmiscapi.h>
+#include "../synths/wavesabre.hpp"
+#endif
+
 
 constexpr const int screenWidth = 1920;
 constexpr const int screenHeight = 1080;
@@ -204,7 +227,7 @@ const char* loaderCode = "#version 410\nuniform vec2 r;uniform float t;out vec3 
 "}";
 
 void initLoader(int steps, int screenWidth, int screenHeight) {
-    loaderSteps = steps;
+    loaderSteps = (float)steps;
     loaderProgram = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, &loaderCode);
     glUseProgram(loaderProgram);
     float r[2];
@@ -312,7 +335,7 @@ int main() {
         for(unsigned char i = 0; i < framebuffersCount; ++i) {
             const FramebufferInfo& framebuffer = framebuffers[i];
             glBindFramebuffer(GL_FRAMEBUFFER, fboHandles[i]);
-            fboCboStartIndex[i] = nextCbo - cboHandles;
+            fboCboStartIndex[i] = (int)(nextCbo - cboHandles);
 
 #ifdef _DEBUG
             // DEBUG: Output the framebuffer info to the debugger.

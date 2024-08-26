@@ -14,7 +14,16 @@
       <UniqueIdentifier>{6271fd58-9f4c-4f54-8bed-603c12e5a9c0}</UniqueIdentifier>
     </Filter>
     <Filter Include="synths\64klang2">
-      <UniqueIdentifier>{5763333d-af12-45e4-9b6a-905004a0e2b2}</UniqueIdentifier>
+      <UniqueIdentifier>{60015283-9425-4693-bc58-559fbe2c480c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synths\64klang2_eidolon">
+      <UniqueIdentifier>{78162a09-8d4f-424c-98be-b06dcf1307d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synths\wavesabre">
+      <UniqueIdentifier>{43587a1c-53aa-4252-83cb-a729131cabde}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synths\bass">
+      <UniqueIdentifier>{a30c4665-26ed-4b39-bce7-91eea5ba40be}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -29,20 +38,26 @@
     <ClCompile Include="core\main.cpp">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="synths\64klang2\sample_t.cpp">
+    <ClCompile Include="synths\64klang2_eidolon\sample_t.cpp">
+      <Filter>synths\64klang2_eidolon</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2_eidolon\Synth.cpp">
+      <Filter>synths\64klang2_eidolon</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2_eidolon\SynthAllocator.cpp">
+      <Filter>synths\64klang2_eidolon</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2_eidolon\SynthNode.cpp">
+      <Filter>synths\64klang2_eidolon</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2_eidolon\SynthPlayer.cpp">
+      <Filter>synths\64klang2_eidolon</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2_obj0.cpp">
       <Filter>synths\64klang2</Filter>
     </ClCompile>
-    <ClCompile Include="synths\64klang2\Synth.cpp">
-      <Filter>synths\64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2\SynthAllocator.cpp">
-      <Filter>synths\64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2\SynthNode.cpp">
-      <Filter>synths\64klang2</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2\SynthPlayer.cpp">
-      <Filter>synths\64klang2</Filter>
+    <ClCompile Include="synths\wavesabre_obj0.cpp">
+      <Filter>synths\wavesabre</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -55,31 +70,19 @@
     <ClInclude Include="synths\noaudio.hpp">
       <Filter>synths</Filter>
     </ClInclude>
-    <ClInclude Include="synths\64klang2\64k2Patch.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2\64k2Song.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2\sample_t.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2\Synth.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2\SynthAllocator.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2\SynthNode.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2\SynthPlayer.h">
-      <Filter>synths\64klang2</Filter>
-    </ClInclude>
     <ClInclude Include="synths\64klang2.hpp">
       <Filter>synths</Filter>
     </ClInclude>
     <ClInclude Include="core\wglext.h">
+      <Filter>synths</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\wavesabre.hpp">
+      <Filter>synths</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\bass\bass.h">
+      <Filter>synths\bass</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\bass.hpp">
       <Filter>synths</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,3 +1,5 @@
+#include "../../content/config.h"
+#ifdef EIDOLON
 #include "SynthAllocator.h"
 #ifdef COMPILE_VSTI
 	#include "SynthController.h"	
@@ -73,3 +75,4 @@ void __fastcall SynthMemCopy(void* dst, void* src, int s)
 		rep movsb
 	}
 }
+#endif
