@@ -82,9 +82,9 @@ class Timer(QObject):
             self.__maxTime += 1.0
         self.__timer = QTimer()
         self.__timer.timeout.connect(self.__tick)
-        self.__prevTime = None
+        self.__prevTime: Optional[float] = None
 
-    def __oscSetLoopRange(self, *_) -> None:
+    def __oscSetLoopRange(self, *_: Any) -> None:
         self.__osc.loop(self.__start, self.__end)
 
     def oscScrub(self, state: int) -> None:
@@ -114,9 +114,9 @@ class Timer(QObject):
         self.timeChanged.emit(self.time)
 
     def projectOpened(self) -> None:
-        self.start = float(gSettings.value('TimerStartTime', 0.0))
-        endTime = float(gSettings.value('TimerEndTime', 8.0))
-        self.time = float(gSettings.value('TimerTime', 0.0))
+        self.start = float(gSettings.value('TimerStartTime', 0.0))  # type: ignore
+        endTime = float(gSettings.value('TimerEndTime', 8.0))  # type: ignore
+        self.time = float(gSettings.value('TimerTime', 0.0))  # type: ignore
 
         project = currentProjectFilePath()
         if project and project.exists():
@@ -142,7 +142,7 @@ class Timer(QObject):
         self.maxTime = 4.0
         self.end = min(endTime, self.maxTime)
 
-        self.__BPS = float(gSettings.value('TimerBPS', 2.0))
+        self.__BPS = float(gSettings.value('TimerBPS', 2.0))  # type: ignore
         self.__osc.setBpm(int(round(self.__BPS * 60)))
         self.bpmChanged.emit(self.__BPS * 60.0)
 
@@ -216,27 +216,15 @@ class Timer(QObject):
     def minTime(self) -> float:
         return self.__minTime
 
-    @property
-    def start(self) -> float:
-        return self.__start
-
-    @property
-    def end(self) -> float:
-        return self.__end
-
-    @property
-    def maxTime(self) -> float:
-        return self.__maxTime
-
-    @property
-    def time(self) -> float:
-        return self.__time
-
     @minTime.setter
     def minTime(self, value: float) -> None:
         if self.__minTime != value:
             self.__minTime = value
             self.minTimeChanged.emit(value)
+
+    @property
+    def start(self) -> float:
+        return self.__start
 
     @start.setter
     def start(self, value: float) -> None:
@@ -244,17 +232,29 @@ class Timer(QObject):
             self.__start = value
             self.startChanged.emit(value)
 
+    @property
+    def end(self) -> float:
+        return self.__end
+
     @end.setter
     def end(self, value: float) -> None:
         if self.__end != value:
             self.__end = value
             self.endChanged.emit(value)
 
+    @property
+    def maxTime(self) -> float:
+        return self.__maxTime
+
     @maxTime.setter
     def maxTime(self, value: float) -> None:
         if self.__maxTime != value:
             self.__maxTime = value
             self.maxTimeChanged.emit(value)
+
+    @property
+    def time(self) -> float:
+        return self.__time
 
     @time.setter
     def time(self, value: float) -> None:
@@ -375,7 +375,7 @@ class TimeLine(QWidget):
         painter.setPen(Qt.GlobalColor.red)
         painter.drawLine(pixelX, 0, pixelX, self.height() - 3)
 
-        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))
+        painter.drawPixmap(pixelX - 4, 0, icons.getImage('TimeMarkerTop-24'))  # type: ignore
 
 
 class RangeSlider(QWidget):
@@ -388,7 +388,7 @@ class RangeSlider(QWidget):
         timer.startChanged.connect(self.update)
         timer.endChanged.connect(self.update)
         self.__timer = timer
-        self.__drag = None
+        self.__drag: Optional[tuple[bool, bool, int, float, float]] = None
         self.setMinimumWidth(RangeSlider.HANDLE_SIZE * 6)
 
     def _handleRects(self) -> tuple[QRect, QRect, QRect]:
@@ -403,10 +403,10 @@ class RangeSlider(QWidget):
                 QRect(QPoint(sx + RangeSlider.HANDLE_SIZE, 0), QSize(ex - sx, self.height() - 1)))
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        left, right, both = self._handleRects()
-        left = left.contains(event.pos())
-        right = right.contains(event.pos())
-        both = both.contains(event.pos())
+        left_, right_, both_ = self._handleRects()
+        left = left_.contains(event.pos())
+        right = right_.contains(event.pos())
+        both = both_.contains(event.pos())
         left |= both
         right |= both
         if not left and not right:
@@ -418,8 +418,7 @@ class RangeSlider(QWidget):
         if self.__drag is None:
             return
         delta = event.x() - self.__drag[2]
-        delta = (delta / float(self.width())) * (self.__timer.maxTime - self.__timer.minTime)
-        delta = round(delta)
+        delta = int(round(delta / float(self.width())) * (self.__timer.maxTime - self.__timer.minTime))
         # make sure ranges are in min/max range
         if self.__drag[0] and self.__drag[1]:
             self.__timer.start = min(max(self.__drag[3] + delta, self.__timer.minTime), self.__timer.maxTime - EPSILON)
@@ -474,7 +473,7 @@ class TimestampDisplay(QLabel):
         self.__timer = timer
         self.update()
 
-    def update(self, *_) -> None:
+    def update(self, *_: Any) -> None:
         beat = self.__timer.time
         minute = int(beat / self.__timer.bpm)
         second = int(((beat * 60) / self.__timer.bpm) % 60)
@@ -507,7 +506,7 @@ class BPMInput(QWidget):
         self._label.setText('%s BPM' % self._spinBox.value())
         self._spinBox.hide()
 
-    def mouseDoubleClickEvent(self, *_, **__) -> None:
+    def mouseDoubleClickEvent(self, *_: Any, **__: Any) -> None:
         self._spinBox.show()
         self._spinBox.setFocus(Qt.FocusReason.MouseFocusReason)
         self._spinBox.selectAll()
@@ -686,7 +685,7 @@ class TimeSlider(QWidget):
 
     def __initSoundtrack(self) -> Optional[Song]:
         if muteState():
-            return
+            return None
 
         if self.__soundtrack:
             return self.__soundtrack
@@ -701,12 +700,12 @@ class TimeSlider(QWidget):
                     song = Song(path)
                 except Exception as e:
                     print(f'Found a soundtrack that we could not play.\n{e}')
-                    return
+                    return None
                 break
             if song:
                 break
         if not song:
-            return
+            return None
 
         self.__soundtrackPath = path
         self.__soundtrack = song
@@ -718,11 +717,11 @@ class TimeSlider(QWidget):
             # self.__stopSoundtrack()
             return
         if self.__initSoundtrack():
-            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(beats))
+            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(beats))  # type: ignore
 
     def __playSoundtrack(self) -> None:
         if self.__initSoundtrack():
-            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(self.__timer.time))
+            self.__soundtrack.seekAndPlay(self.__timer.beatsToSeconds(self.__timer.time))  # type: ignore
 
     def __stopSoundtrack(self) -> None:
         if self.__soundtrack:

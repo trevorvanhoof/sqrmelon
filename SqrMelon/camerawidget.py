@@ -1,7 +1,7 @@
 import functools
 import time
 from math import degrees, radians
-from typing import cast, Iterable, Union
+from typing import Any, cast, Iterable, Optional, Union
 
 import icons
 from animationgraph.curveview import CurveEditor
@@ -71,7 +71,7 @@ class Camera(QWidget):
         self.__data = CameraTransform()
         self.__inputs = []
         # Casting because the type checker can't deal with __iter__ for some reason.
-        for i, value in enumerate(cast(Float6, self.__data)):
+        for i, value in enumerate(self.__data):
             s = DoubleSpinBox(value)
             s.setMinimumWidth(50)
             self.__inputs.append(s)
@@ -79,30 +79,27 @@ class Camera(QWidget):
                 s.setSingleStep(5)
             self.layout().addWidget(s)
             s.valueChanged.connect(functools.partial(self.__setData, i))
-        self.__prevTime = None
+        self.__prevTime: Optional[float] = None
         self.__appLoop = QTimer()
         self.__appLoop.timeout.connect(self.flyUpdate)
         self.__appLoop.start(1000 // 60)
-        self.__drag = None
+        self.__drag: Optional[tuple[QPoint, tuple[float, float, float]]] = None
         self.__dirty = False
 
     def insertKey(self) -> None:
         """Insert a key into the default camera channels with the current timeslider time and current camera transform."""
         channels = 'uOrigin.x', 'uOrigin.y', 'uOrigin.z', 'uAngles.x', 'uAngles.y', 'uAngles.z'
-        # Casting because the type checker can't deal with __iter__ for some reason.
-        self.__animationEditor.setKey(channels, tuple(cast(Iterable[float], self.__data[:])))
+        self.__animationEditor.setKey(channels, tuple(self.__data[:]))  # type: ignore
 
     def forwardPositionKey(self) -> None:
         """Insert a key into the selected channels with the current timeslider time and current camera position."""
-        # Casting because the type checker can't deal with __iter__ for some reason.
-        self.__animationEditor.setTransformKey(tuple(cast(Iterable[float], self.__data.translate)))
+        self.__animationEditor.setTransformKey(self.__data.translate)
 
     def forwardRotationKey(self) -> None:
         """Insert a key into the selected channels with the current timeslider time and current camera rotation."""
-        # Casting because the type checker can't deal with __iter__ for some reason.
-        self.__animationEditor.setTransformKey(tuple(cast(Iterable[float], self.__data.rotate)))
+        self.__animationEditor.setTransformKey(self.__data.rotate)
 
-    def __copyAnim(self, *_) -> None:
+    def __copyAnim(self, *_: Any) -> None:
         if not self.__cameraControlActive:
             self.copyAnim()
 
@@ -111,14 +108,18 @@ class Camera(QWidget):
         data = self.__animator.evaluate(self._timer.time)
         if 'uOrigin' not in data or 'uAngles' not in data:
             return
-        self.__data = CameraTransform(*(data['uOrigin'] + data['uAngles']))
+        uOrigin = data['uOrigin']
+        uAngles = data['uAngles']
+        assert isinstance(uOrigin, list)
+        assert isinstance(uAngles, list)
+        self.__data = CameraTransform(*(uOrigin + uAngles))
         for spinBox, value in zip(self.__inputs, self.__data.data):
             tmp = spinBox.blockSignals(True)
             spinBox.setValue(value)
             spinBox.blockSignals(tmp)
         self.cameraChanged.emit()
 
-    def toggle(self, *_) -> None:
+    def toggle(self, *_: Any) -> None:
         """Toggle making the camera follow the animated values or staying in the user's hands while playing back or scrubbing the timeline."""
         self.__cameraControlActive = not self.__cameraControlActive
         if self.__cameraControlActive:
@@ -148,12 +149,8 @@ class Camera(QWidget):
             self.__keyStates[key] = False
         self.__drag = None
 
-    def camera(self) -> Float6:
-        # The type checker doesn't get __iter__ for some reason.
-        return cast(Float6, tuple(cast(Iterable[float], self.__data)))
-
-    def setCamera(self, data: Union[Float6, CameraTransform]) -> None:
-        self.__data = CameraTransform(*data)
+    def camera(self) -> CameraTransform:
+        return self.__data
 
     def flyMouseStart(self, event: QMouseEvent) -> None:
         self.__drag = event.pos(), self.__data.rotate
@@ -171,12 +168,12 @@ class Camera(QWidget):
                                   self.__data.rotate[2])
             self.__dirty = True
 
-    def flyMouseEnd(self, _) -> None:
+    def flyMouseEnd(self, _: Any) -> None:
         self.__drag = None
 
     def flyKeyboardInput(self, keyEvent: QKeyEvent, state: bool) -> None:
         if keyEvent.key() in self.__keyStates:
-            self.__keyStates[cast(Qt.Key, keyEvent.key())] = state
+            self.__keyStates[Qt.Key(keyEvent.key())] = state
 
     def flyUpdate(self) -> None:
         if self.__prevTime is None:

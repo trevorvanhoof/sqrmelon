@@ -24,7 +24,7 @@ import fileutil
 QCACHEGRIND = r'os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\qcachegrind074-x86\qcachegrind.exe'
 
 
-def runctx(cmdstr, globals_: Optional[dict] = None, locals_: Optional[dict] = None, outpath: Optional[str] = None, executable: Optional[str] = None) -> str:
+def runctx(cmdstr: str, globals_: Optional[dict] = None, locals_: Optional[dict] = None, outpath: Optional[str] = None, executable: Optional[str] = None) -> str:
     tmp = tempfile.mktemp()
     target = tmp
 

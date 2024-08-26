@@ -4,9 +4,9 @@ import ctypes
 import html
 import re
 import time
-from typing import Any, cast, Iterable, Optional, Union
+from typing import Any, cast, Iterable, Iterator, Optional, overload, Union
 
-from OpenGL.GL import GL_CURRENT_PROGRAM, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_FLOAT, GL_FRAGMENT_SHADER, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_RGBA, GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TRIANGLE_FAN, GL_UNSIGNED_BYTE, GL_VERTEX_SHADER, glActiveTexture, glBindTexture, glBindVertexArray, glClear, glDisable, glDrawArrays, glEnable, glFinish, glGenerateMipmap, glGenTextures, glGenVertexArrays, glGetIntegerv, glGetTexImage, glGetUniformLocation, glTexImage2D, glTexParameterf, glTexParameteri, glUniform1f, glUniform1fv, glUniform1i, glUniform1iv, glUniform1uiv, glUniform2f, glUniform3f, glUniform4f, glUniformMatrix3fv, glUniformMatrix4fv, glUseProgram, glViewport, shaders, glDeleteFramebuffers, glDeleteTextures, GL_COLOR_BUFFER_BIT
+from OpenGL.GL import GL_CURRENT_PROGRAM, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_FLOAT, GL_FRAGMENT_SHADER, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_RGBA, GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TRIANGLE_FAN, GL_UNSIGNED_BYTE, GL_VERTEX_SHADER, glActiveTexture, glBindTexture, glBindVertexArray, glClear, glDeleteFramebuffers, glDeleteTextures, glDisable, glDrawArrays, glEnable, glFinish, glGenerateMipmap, glGenTextures, glGenVertexArrays, glGetIntegerv, glGetTexImage, glGetUniformLocation, glTexImage2D, glTexParameterf, glTexParameteri, glUniform1f, glUniform1fv, glUniform1i, glUniform1iv, glUniform1uiv, glUniform2f, glUniform3f, glUniform4f, glUniformMatrix3fv, glUniformMatrix4fv, glUseProgram, glViewport, shaders
 from OpenGL.GL.EXT import texture_filter_anisotropic
 
 from buffers import FrameBuffer, Texture, Texture3D
@@ -41,9 +41,9 @@ class TexturePool:
 
         # texture is a single channel raw32 heightmap
         if fileName.endswith('.r32'):
-            tex = loadHeightfield(fullName)
-            TexturePool.__cache[key] = tex.id()
-            return tex.id()
+            tx = loadHeightfield(fullName)
+            TexturePool.__cache[key] = tx.id()
+            return tx.id()
 
         # read file into openGL texture
         img = QImage(fullName)
@@ -63,12 +63,13 @@ class TexturePool:
         return tex
 
 
+# TODO: use dataclass?
 class PassData:
     def __init__(self,
                  vertStitches: list[FilePath],
                  fragStitches: list[FilePath],
                  uniforms: dict[str, list[float]],
-                 inputBufferIds: list[Union[FilePath, tuple[int, int]]] = None,
+                 inputBufferIds: Optional[list[Union[FilePath, tuple[int, int]]]] = None,
                  targetBufferId: int = -1,
                  realtime: bool = True,
                  resolution: Optional[tuple[int, int]] = None,
@@ -97,7 +98,7 @@ class PassData:
         self.name = label
 
 
-def _deserializePasses(sceneFile: FilePath) -> list[PassData]:
+def deserializePasses(sceneFile: FilePath) -> list[PassData]:
     assert isinstance(sceneFile, FilePath)
     sceneDir = sceneFile.stripExt()
     templatePath = templatePathFromScenePath(sceneFile)
@@ -106,7 +107,7 @@ def _deserializePasses(sceneFile: FilePath) -> list[PassData]:
     passes = []
     frameBufferMap: dict[str, int] = {}
     for xPass in xTemplate:
-        buffer = -1
+        buffer = '-1'
         if 'buffer' in xPass.attrib:
             buffer = xPass.attrib['buffer']
             if buffer not in frameBufferMap:
@@ -130,6 +131,7 @@ def _deserializePasses(sceneFile: FilePath) -> list[PassData]:
 
         is3d = int(xPass.attrib.get('is3d', 0)) != 0
         if is3d:
+            assert size is not None
             assert (size[0] ** 0.5) == size[1]
             size = size[0], size[1]
 
@@ -147,8 +149,8 @@ def _deserializePasses(sceneFile: FilePath) -> list[PassData]:
             else:
                 # input is buffer
                 if '.' in xPass.attrib[key]:
-                    frameBuffer, subTexture = xPass.attrib[key].split('.')
-                    frameBuffer, subTexture = frameBuffer, int(subTexture)
+                    frameBuffer, subTexture_ = xPass.attrib[key].split('.')
+                    frameBuffer, subTexture = frameBuffer, int(subTexture_)
                 else:
                     frameBuffer, subTexture = xPass.attrib[key], 0
 
@@ -187,29 +189,39 @@ class CameraTransform:
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, index: Union[int, slice]) -> float:
+    @overload
+    def __getitem__(self, index: int) -> float: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[float]: ...
+
+    def __getitem__(self, index: Any) -> Any:
         return self.data[index]
 
-    def __setitem__(self, index: int, value: float) -> None:
+    @overload
+    def __setitem__(self, index: int, value: float) -> None: ...
+
+    @overload
+    def __setitem__(self, index: slice, value: list[float]) -> None: ...
+
+    def __setitem__(self, index: Any, value: Any) -> None:
         self.data[index] = value
 
-    def __iter__(self) -> Iterable[float]:
+    def __iter__(self) -> Iterator[float]:
         for element in self.data:
             yield element
 
     @property
     def translate(self) -> tuple[float, float, float]:
-        # Casting because the type checker can't count.
-        return cast(tuple[float, float, float], tuple(self.data[:3]))
-
-    @property
-    def rotate(self) -> tuple[float, float, float]:
-        # Casting because the type checker can't count.
-        return cast(tuple[float, float, float], tuple(self.data[3:6]))
+        return self.data[:3]  # type: ignore
 
     @translate.setter
     def translate(self, translate: tuple[float, float, float]) -> None:
         self.data[:3] = translate
+
+    @property
+    def rotate(self) -> tuple[float, float, float]:
+        return self.data[3:6]  # type: ignore
 
     @rotate.setter
     def rotate(self, rotate: tuple[float, float, float]) -> None:
@@ -279,7 +291,7 @@ class Scene(QObject):
     PASS_THROUGH_FRAG = '#version 410\nin vec2 vUV;uniform vec4 uColor;uniform sampler2D uImages[1];out vec4 outColor0;void main(){outColor0=uColor*texture(uImages[0], vUV);}'
 
     @classmethod
-    def drawColorBufferToScreen(cls, colorBuffer: Texture, viewport: tuple[int, int, int, int], color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)) -> None:
+    def drawColorBufferToScreen(cls, colorBuffer: Union[Texture | Texture3D], viewport: tuple[int, int, int, int], color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)) -> None:
         FrameBuffer.clear()
 
         passThrough = Scene.usePassThroughProgram(color)
@@ -346,11 +358,12 @@ class Scene(QObject):
 
         self.__errorDialog = QDialog()  # error log
         self.__errorDialog.setWindowTitle('Compile log')
-        self.__errorDialog.setLayout(vlayout())
+        errorDialogLayout = vlayout()
+        self.__errorDialog.setLayout(errorDialogLayout)
         self.__errorDialogText = QTextEdit()
-        self.__errorDialog.layout().addWidget(self.__errorDialogText)
+        errorDialogLayout.addWidget(self.__errorDialogText)
         hbar = hlayout()
-        self.__errorDialog.layout().addLayout(hbar)
+        errorDialogLayout.addLayout(hbar)
         hbar.addStretch(1)
         btn = QPushButton('Close')
         hbar.addWidget(btn)
@@ -374,11 +387,11 @@ class Scene(QObject):
                 return
             self.fileSystemWatcher_scene.addPath(path)
 
-        self.passes = _deserializePasses(self.__filePath)
+        self.passes = deserializePasses(self.__filePath)
 
         self.fileSystemWatcher = FileSystemWatcher()
         self.fileSystemWatcher.fileChanged.connect(self._rebuild)
-        watched = set()
+        watched: set[FilePath] = set()
         for passData in self.passes:
             newStitches = (set(passData.vertStitches) | set(passData.fragStitches)) - watched
             if newStitches:
@@ -403,10 +416,10 @@ class Scene(QObject):
             frag = True
 
             # make sure the changed path is in our dependencies
-            if path:
-                if path not in (stitch.abs() for stitch in passData.vertStitches):
+            if path is not None:
+                if path not in (stitch.abs() for stitch in passData.vertStitches):  # type: ignore
                     vert = False
-                if path not in (stitch.abs() for stitch in passData.fragStitches):
+                if path not in (stitch.abs() for stitch in passData.fragStitches):  # type: ignore
                     frag = False
                 if not vert and not frag:
                     continue
@@ -414,20 +427,20 @@ class Scene(QObject):
             if index is not None and index != i:
                 continue
 
-            includePaths = set()
-            errors = []
+            includePaths: set[FilePath] = set()
+            errors: list[str] = []
 
-            vertCode = []
+            vertCode_ = []
             for stitch in passData.vertStitches:
                 try:
-                    vertCode.append(_loadGLSLWithIncludes(stitch, includePaths))
+                    vertCode_.append(_loadGLSLWithIncludes(stitch, includePaths))
                 except IOError as _:
                     errors.append(stitch.abs())
 
-            fragCode = []
+            fragCode_ = []
             for stitch in passData.fragStitches:
                 try:
-                    fragCode.append(_loadGLSLWithIncludes(stitch, includePaths))
+                    fragCode_.append(_loadGLSLWithIncludes(stitch, includePaths))
                 except IOError as _:
                     errors.append(stitch.abs())
 
@@ -440,12 +453,12 @@ class Scene(QObject):
 
             # not joining causes "unexpected $undefined" errors during shader compilation,
             # no idea why it injects invalid bytes
-            if not vertCode:
+            if not vertCode_:
                 vertCode = Scene.STATIC_VERT
             else:
-                vertCode = '\n'.join(vertCode)
+                vertCode = '\n'.join(vertCode_)
 
-            fragCode = '\n'.join(fragCode)
+            fragCode = '\n'.join(fragCode_)
 
             try:
                 program = gShaderPool.compileProgram(vertCode, fragCode)
@@ -490,21 +503,25 @@ class Scene(QObject):
                 for j, buffer in enumerate(self.colorBuffers[i]):
                     # And if one of them is a 3D texture, we swap the texture with the 2D version
                     if isinstance(buffer, Texture3D):
+                        assert isinstance(buffer.original, Texture)
                         self.colorBuffers[i][j] = buffer.original
                         self.__passDirtyState[i] = True
 
         self.__passDirtyState = [True] * len(self.passes)
         self.__errorDialog.close()
 
+    def cameraData(self) -> CameraTransform:
+        assert self.__cameraData is not None
+        return self.__cameraData
+
     def setCameraData(self, data: CameraTransform) -> None:
         self.__cameraData = data
 
-    def cameraData(self) -> CameraTransform:
-        return self.__cameraData
-
     def readCameraData(self) -> CameraTransform:
         if self.__cameraData is None:
-            userFile = FilePath(currentProjectFilePath() + '.user')
+            projectPath = currentProjectFilePath()
+            assert projectPath is not None
+            userFile = FilePath(f'{projectPath}.user')
             xCamera = None
             if userFile.exists():
                 xRoot = parseXMLWithIncludes(userFile)
@@ -573,12 +590,13 @@ class Scene(QObject):
             self.frameBuffers[-1].initDepth(Texture(Texture.FLOAT_DEPTH, w, h))
             self.colorBuffers.append([])
             for j in range(value[0]):
-                self.colorBuffers[-1].append(Texture(Texture.RGBA32F, w, h, tile=value[3]))
-                self.frameBuffers[-1].addTexture(self.colorBuffers[-1][-1])
+                lastCbo = Texture(Texture.RGBA32F, w, h, tile=value[3])
+                self.colorBuffers[-1].append(lastCbo)
+                self.frameBuffers[-1].addTexture(lastCbo)
 
         self.__passDirtyState = [True] * len(self.passes)
 
-    def _bindInputs(self, passId: int, additionalTextureUniforms: Optional[dict[str, str]] = None):
+    def _bindInputs(self, passId: int, additionalTextureUniforms: Optional[dict[str, FilePath]] = None) -> int:
         j2d = 0
         j3d = 0
 
@@ -632,7 +650,7 @@ class Scene(QObject):
             glActiveTexture(GL_TEXTURE0 + j)
             glBindTexture(GL_TEXTURE_2D, 0)
 
-    def drawToScreen(self, seconds: float, beats: float, uniforms: dict[str, Any], viewport: tuple[int, int, int, int], additionalTextureUniforms: Optional[dict[str, str]] = None) -> None:
+    def drawToScreen(self, seconds: float, beats: float, uniforms: dict[str, Any], viewport: tuple[int, int, int, int], additionalTextureUniforms: Optional[dict[str, FilePath]] = None) -> None:
         if not self.shaders:
             # compiler errors
             return
@@ -655,11 +673,11 @@ class Scene(QObject):
         if self._debugPassId is None:
             Scene.drawColorBufferToScreen(self.colorBuffers[self.passes[-1].targetBufferId][0], viewport)
         else:
-            a = self.colorBuffers[self.passes[self._debugPassId[0]].targetBufferId]
-            Scene.drawColorBufferToScreen(a[max(0, min(self._debugPassId[1], len(a) - 1))], viewport)
+            colorBuffers = self.colorBuffers[self.passes[self._debugPassId[0]].targetBufferId]
+            Scene.drawColorBufferToScreen(colorBuffers[max(0, min(self._debugPassId[1], len(colorBuffers) - 1))], viewport)
         glEnable(GL_DEPTH_TEST)
 
-    def draw(self, seconds: float, beats: float, uniforms: dict[str, Any], additionalTextureUniforms: Optional[dict[str, str]] = None) -> int:
+    def draw(self, seconds: float, beats: float, uniforms: dict[str, Any], additionalTextureUniforms: Optional[dict[str, FilePath]] = None) -> int:
         global tick
         tick += 1
 
@@ -746,8 +764,9 @@ class Scene(QObject):
 
             maxActiveInputs = max(maxActiveInputs, activeInputs)
 
-            if self.passes[i].drawCommand is not None:
-                exec(self.passes[i].drawCommand)
+            drawCommand = self.passes[i].drawCommand
+            if drawCommand is not None:
+                exec(drawCommand)
             else:
                 FullScreenRectSingleton.instance().draw()
 
@@ -755,11 +774,13 @@ class Scene(QObject):
             if self.passes[i].is3d:
                 buffers = self.colorBuffers[passData.targetBufferId]
                 for j, buffer in enumerate(buffers):
+                    assert isinstance(buffer, Texture)
                     buffer.use()
                     data = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT)
                     FrameBuffer.clear()
-                    buffers[j] = Texture3D(Texture.RGBA32F, buffer.height(), True, data)
-                    buffers[j].original = buffer
+                    buffer3D = Texture3D(Texture.RGBA32F, buffer.height(), True, data)
+                    buffer3D.original = buffer
+                    buffers[j] = buffer3D
 
             # enable mip mapping on static textures
             if not self.passes[i].realtime:

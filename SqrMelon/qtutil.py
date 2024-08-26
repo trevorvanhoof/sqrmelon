@@ -24,15 +24,15 @@ class QMainWindowState(QMainWindow):
     def _restore(self) -> None:
         r = self.settings.value('%s/geometry' % self.__class__.__name__, None)
         if r is not None:
-            self.restoreGeometry(cast(bytes, r))
+            self.restoreGeometry(r)  # type: ignore
         s = self.settings.value('%s/state' % self.__class__.__name__, None)
         if s is not None:
-            self.restoreState(cast(bytes, s))
+            self.restoreState(s)  # type: ignore
 
     def showEvent(self, event: QShowEvent) -> None:
         self._restore()
 
-    def hideEvent(self, event: QShowEvent) -> None:
+    def hideEvent(self, event: QHideEvent) -> None:
         self._store()
 
     def _addDockWidget(self,
@@ -61,14 +61,14 @@ class QSplitterState(QSplitter):
     def _store(self) -> None:
         window = self.window()
         while window.parent():
-            window = window.parent().window()
+            window = window.parent().window()  # type: ignore
         if hasattr(window, 'settings'):
             window.settings.setValue('%s/state' % self.objectName(), self.saveState())
 
     def _restore(self) -> None:
         window = self.window()
         while window.parent():
-            window = window.parent().window()
+            window = window.parent().window()  # type: ignore
         if hasattr(window, 'settings'):
             state = window.settings.value('%s/state' % self.objectName())
             if state:
@@ -77,7 +77,7 @@ class QSplitterState(QSplitter):
     def showEvent(self, event: QShowEvent) -> None:
         self._restore()
 
-    def hideEvent(self, event: QShowEvent) -> None:
+    def hideEvent(self, event: QHideEvent) -> None:
         self._store()
 
 
@@ -159,7 +159,6 @@ class DoubleSpinBox(QDoubleSpinBox):
         self.blockSignals(False)
 
 
-# TODO: Should this use bools instead of checkstates?
 class CheckBox(QCheckBox):
     valueChanged = Signal(int)
 
@@ -167,17 +166,17 @@ class CheckBox(QCheckBox):
         super(CheckBox, self).__init__(*args)
         self.stateChanged.connect(self.valueChanged.emit)
 
-    def value(self) -> Qt.CheckState:
-        return self.checkState()
+    def value(self) -> bool:
+        return self.checkState() == Qt.CheckState.Checked
 
-    def setValue(self, state: Qt.CheckState) -> None:
-        self.setCheckState(state)
+    def setValue(self, state: bool) -> None:
+        self.setCheckState(Qt.CheckState.Checked if state else Qt.CheckState.Unchecked)
 
 
 class LineEdit(QLineEdit):
     valueChanged = Signal(str)
 
-    def __init__(self, *args) -> None:
+    def __init__(self, *args: Any) -> None:
         super(LineEdit, self).__init__(*args)
         self.textChanged.connect(self.valueChanged.emit)
 
@@ -205,7 +204,7 @@ class LineEditSelected(LineEdit):
             self.__state = False
 
 
-def clearLayout(layout: QBoxLayout) -> None:
+def clearLayout(layout: QLayout) -> None:
     """
     Utility to remove and take ownership of all items in a QLayout,
     xto then have the python GC collector delete it all.
@@ -247,14 +246,14 @@ class ColorBox(QWidget):
     """
     valueChanged = Signal(QColor)
 
-    def __init__(self, color=QColor()) -> None:
+    def __init__(self, color: QColor = QColor()) -> None:
         super(ColorBox, self).__init__()
         self.setMinimumSize(QSize(32, 20))
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Preferred))
         self.__color = color
         self.focus = False
 
-    def paintEvent(self, _) -> None:
+    def paintEvent(self, _: Any) -> None:
         painter = QPainter(self)
         painter.setBrush(self.__color)
         painter.drawRect(0, 0, self.width(), self.height())

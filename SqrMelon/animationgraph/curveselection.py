@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from animationgraph.curveactions import RemappedEvent
 from qt import *
@@ -46,6 +46,7 @@ class Selection:
             return []
         result = []
         for selectedKey in self.__keys:
+            assert self.__model is not None
             result.append(self.__model.item(selectedKey.row()).data()[selectedKey.index()])
         return result
 
@@ -86,17 +87,17 @@ class MarqueeSelectAction:
     ctrl + shift: add
     """
 
-    def __init__(self, event: RemappedEvent, parent: CurveView):
+    def __init__(self, event: RemappedEvent, parent: CurveView) -> None:
         self.__start = event.pos()
         self.__cursor = event.pos()
         self.__parent = parent
         self.__shift = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
         self.__ctrl = event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier
 
-    def update(self, event: QMouseEvent) -> None:
+    def update(self, event: RemappedEvent) -> None:
         self.__cursor = event.pos()
 
-    def finalize(self, _) -> None:
+    def finalize(self, _: Any) -> None:
         x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
         bounds = min(x, x2), min(y, y2), max(x, x2), max(y, y2)
         first = True

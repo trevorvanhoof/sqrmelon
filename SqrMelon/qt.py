@@ -1,10 +1,5 @@
-# noinspection PyUnresolvedReferences
-from PySide6.QtCore import *
-# noinspection PyUnresolvedReferences
-from PySide6.QtGui import *
-# noinspection PyUnresolvedReferences
-from PySide6.QtOpenGL import *
-# noinspection PyUnresolvedReferences
-from PySide6.QtOpenGLWidgets import *
-# noinspection PyUnresolvedReferences
-from PySide6.QtWidgets import *
+from PySide6.QtCore import *  # type: ignore
+from PySide6.QtGui import *  # type: ignore
+from PySide6.QtOpenGL import *  # type: ignore
+from PySide6.QtOpenGLWidgets import *  # type: ignore
+from PySide6.QtWidgets import *  # type: ignore
