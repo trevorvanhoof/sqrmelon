@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{4652003c-fbf6-4e9b-9a66-2b2dace4e44f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="asmmath">
+      <UniqueIdentifier>{082dff15-595c-460e-b04e-511bb59469ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="content">
+      <UniqueIdentifier>{0bd5bac9-19ca-46bc-9d46-63f7e8d657e7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synths">
+      <UniqueIdentifier>{6271fd58-9f4c-4f54-8bed-603c12e5a9c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synths\64klang2">
+      <UniqueIdentifier>{5763333d-af12-45e4-9b6a-905004a0e2b2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="core\wglext.inl">
+      <Filter>core</Filter>
+    </None>
+    <None Include="content\config.h">
+      <Filter>content</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="core\main.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2\sample_t.cpp">
+      <Filter>synths\64klang2</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2\Synth.cpp">
+      <Filter>synths\64klang2</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2\SynthAllocator.cpp">
+      <Filter>synths\64klang2</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2\SynthNode.cpp">
+      <Filter>synths\64klang2</Filter>
+    </ClCompile>
+    <ClCompile Include="synths\64klang2\SynthPlayer.cpp">
+      <Filter>synths\64klang2</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="core\wglext.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="content\animationprocessor_eidolon.inl">
+      <Filter>content</Filter>
+    </ClInclude>
+    <ClInclude Include="content\animationprocessor.inl">
+      <Filter>content</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\noaudio.hpp">
+      <Filter>synths</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\64k2Patch.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\64k2Song.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\sample_t.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\Synth.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\SynthAllocator.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\SynthNode.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2\SynthPlayer.h">
+      <Filter>synths\64klang2</Filter>
+    </ClInclude>
+    <ClInclude Include="synths\64klang2.hpp">
+      <Filter>synths</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="asmmath\atan2f.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\sinf.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\sqrtf.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\acosf.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\acosf_x64.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\atan2f_x64.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\sinf_x64.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+    <MASM Include="asmmath\sqrtf_x64.asm">
+      <Filter>asmmath</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>

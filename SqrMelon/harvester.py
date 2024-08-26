@@ -294,12 +294,12 @@ def main() -> None:
     # List all programs to compile
     # TODO: Will there ever be more than 65536 programs in a demo?
     programIds = [stitchesAddr for _, stitchesAddr in programs.values()]
-    programsIndex = pool.ensureExists(multiPack('H', len(programIds), f'{len(programIds)}I', programIds))
+    programsIndex = pool.ensureExists(multiPack(f'{len(programIds)}I', programIds))
 
     beatsPerSecond = cElementTree.fromstring(currentProjectFilePath().content()).attrib.get('TimerBPS', 2.0)
 
     # Globals to use in the framework
-    outputPath = FilePath(__file__).abs().parent().parent().join('MelonPan', 'generated.hpp')
+    outputPath = FilePath(__file__).abs().parent().parent().join('MelonPan', 'content', 'generated_eidolon.hpp')
     with outputPath.edit() as fh:
         fh.write('constexpr const unsigned char data[] = {')
         fh.write(', '.join(str(int(number)) for number in pool.data()))
@@ -315,6 +315,7 @@ def main() -> None:
         fh.write(f'constexpr const unsigned char cboCount = {cboCount};\n')
         fh.write(f'constexpr const unsigned char shotCount = {shotCount};\n')
         fh.write(f'constexpr const float beatsPerSecond = {beatsPerSecond}f;\n')
+        fh.write(f'constexpr const unsigned short programCount = {len(programIds)};\n')
 
     print(f'Wrote: {currentProjectFilePath()}\nto: {outputPath}')
 

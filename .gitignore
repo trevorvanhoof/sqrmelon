@@ -22,3 +22,8 @@ SqrMelon.ini
 .vim*
 *.egg-info
 build/
+MelonPan/Release
+MelonPan/Debug
+MelonPan/x64
+MelonPan/CTestAdapter.config
+MelonPan/program_*.glsl
