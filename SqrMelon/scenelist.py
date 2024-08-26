@@ -94,13 +94,13 @@ class SceneList(QWidget):
         if self.__contextMenuItem is None:
             return
         data = self.__contextMenuItem.data()
-        assert data is None or isinstance(data, FilePath)
-        if not data or not data.exists():
+        assert data is None or isinstance(data, str)
+        if not data or not FilePath(data).exists():
             # try navigation by file name
             data = currentScenesDirectory().join(self.__contextMenuItem.text())
-        if not data or not data.exists():
+        if not data or not FilePath(data).exists():
             return
-        selectInFileBrowser(data)
+        selectInFileBrowser(FilePath(data))
 
     def __createShot(self) -> None:
         for idx in self.view.selectionModel().selectedIndexes():
