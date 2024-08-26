@@ -13,7 +13,7 @@ While I am interested in bug reports and willing to help out, I urge you not to 
 Beware that bugs & feature requests can be "beyond scope".
 
 ## Third party
-SqrMelon is written with Python2.7 (64 bit) and PyQt4, it also depends on some third party python packages.
+SqrMelon is written with Python3.11+ (64 bit) and PySide2, it also depends on some third party python packages.
 It comes with an install.txt with the right download links to help you get started.
 The C++ Player project has some other dependencies, listed below:
 
