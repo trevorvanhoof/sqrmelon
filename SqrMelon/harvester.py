@@ -2,33 +2,70 @@
 # TODO: Every time I struct.pack some array of data I should actually define a (data)class that can serialize itself instead
 #  so it is easier to see when our C++-side structs are mismatching.
 import struct
-from difflib import SequenceMatcher
-from typing import BinaryIO, cast, Iterable, Mapping, TypeVar
+from typing import Iterable, Mapping, TypeVar
+
+from PySide6.QtWidgets import QApplication
 
 from animationgraph.curvedata import Key
 from fileutil import FilePath
-from projutil import currentScenesDirectory, iterSceneNames, SCENE_EXT, templatePathFromScenePath
+from projutil import currentProjectFilePath, currentScenesDirectory, iterSceneNames, SCENE_EXT, templatePathFromScenePath
 from scene import deserializePasses, PassData
 from shots import deserializeSceneShots, Shot
 
 T = TypeVar("T")
 
 
+def multiPack(*args):
+    assert len(args) % 2 == 0
+    blobs = []
+    for key, value in zip(args[::2], args[1::2]):
+        if hasattr(value, '__iter__'):
+            if not value:
+                assert key[0] == '0'
+                continue
+            blob = struct.pack(key, *value)
+            cmp = struct.unpack(key, blob)
+            if isinstance(value[0], float):
+                # TODO: compare almost equal
+                ...
+            else:
+                assert tuple(value) == cmp
+        else:
+            blob = struct.pack(key, value)
+            cmp = struct.unpack(key, blob)[0]
+            if isinstance(value, float):
+                assert abs(cmp - value) < 1e-5
+            else:
+                assert value == cmp
+        blobs.append(blob)
+    return b''.join(blobs)
+
+
 class BinaryPool:
     def __init__(self) -> None:
         self._sequence: bytes = b''
 
+    def data(self) -> bytes:
+        return self._sequence
+
     def ensureExists(self, value: bytes) -> int:
-        blocks = SequenceMatcher(None, value, self._sequence).get_matching_blocks()
-        for block in blocks:
-            if block.size == len(value):
-                return block.b
-            if block.b + block.size == len(self._sequence):
-                self._sequence += value[block.size:]
-                return block.b
-        b = len(self._sequence)
+        try:
+            index = self._sequence.index(value)
+            assert self._sequence[index:index + len(value)] == value
+            return index
+        except ValueError:
+            n = 1
+            while n < len(value):
+                if self._sequence.endswith(value[:-n]):
+                    self._sequence += value[-n:]
+                    index = len(self._sequence) - len(value)
+                    assert self._sequence[index:index + len(value)] == value
+                    return index
+                n += 1
         self._sequence += value
-        return b
+        index = len(self._sequence) - len(value)
+        assert self._sequence[index:index + len(value)] == value
+        return index
 
 
 def gatherEnabledShots(sceneNameIndexMap: Mapping[str, int]) -> list[Shot]:
@@ -43,12 +80,14 @@ def gatherEnabledShots(sceneNameIndexMap: Mapping[str, int]) -> list[Shot]:
     return enabledShots
 
 
-def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, list[str], int]:
+def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, list[str], int, int]:
     # Serialize shot times and validate the timeline
     timeCursor = 0.0
-    shotStartTimes = []  # omits the first time as it is always 0.0
+    shotEndTimes = []
     shotSceneNames = []
-    shotInfo = []  # first value is nr of curves, next values are 3 ints of name index, keys index, num keys
+    maxAnimations = 0
+    # For each shot we have: number of uniforms, that many uniform name indices, that many uniform sizes, and then all the curve indices in order
+    shotInfo = []
     for shot in enabledShots:
         assert not shot.textures, f'Shot {shot.name} uses texture uniforms, this is an editor-only feature and not supported in the 64k runtime.'
 
@@ -58,45 +97,79 @@ def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, lis
         timeCursor = shot.end
 
         # Serialize the start time for all but the first shot
-        if shot != enabledShots[0]:
-            shotStartTimes.append(shot.start)
-            if shot.start != 0.0:
-                print(f'Warning: first shot {shot.name} is assumed to start at 0.0, even though this is not the case.')
+        shotEndTimes.append(shot.end)
+        if shot == enabledShots[0] and shot.start != 0.0:
+            print(f'Warning: first shot {shot.name} is assumed to start at 0.0, even though this is not the case.')
 
         # Bake preroll and speed before looking at the curves
         shot.bake()
 
         # Serialize shot curves
-        animations = []
-        for name, curve in shot.curves.items():
-            # store the name
-            nameIndex = pool.ensureExists(name.encode('utf8') + b'\0')
-            keys = []
-            for key in curve:
-                oty = float('inf') if key.tangentMode == Key.TANGENT_STEPPED else key.outTangent.y
-                keys += [key.inTangent.y, key.point().x, key.point().y, oty]
-            # get num keys
-            keysSize = len(keys) // 4
-            # strip first in tangent and last out tangent as they are unused
-            # TODO: is handling the edge case not larger?
-            keys.pop(0)
-            keys.pop(-1)
-            # store the keys
-            # TODO: Will there ever be 65536 keys in a curve?
-            keysIndex = pool.ensureExists(struct.pack(f'H{len(keys)}f', keysSize, *keys))
-            animations.append(struct.pack('II', nameIndex, keysIndex))
+        # Track unique uniform names and what type they are (vec1,2,3,4)
+        uniformNames: list[str] = []
+        maxIndices: dict[str, int] = {}
+        for name in shot.curves:
+            if '.' in name:
+                uniformName, element = name.rsplit('.', 1)
+                index = 'xyzw'.index(element)
+                maxIndices[uniformName] = max(maxIndices.get(uniformName, 0), index)
+            else:
+                uniformName = name
+            if uniformName not in uniformNames:
+                uniformNames.append(uniformName)
 
-        # Serialize the shot animation data as a single stream
+        # Register each unique uniform name and track the uniform names and curve per uniform
+        uniformSizes = []
+        uniformNameOffsets = []
+        for uniformName in uniformNames:
+            uniformSizes.append(maxIndices.get(uniformName, 0) + 1)
+            nameIndex = pool.ensureExists(uniformName.encode('utf8') + b'\0')
+            uniformNameOffsets.append(nameIndex)
+
+        # stride, num uniforms, uniform name indices, uniform dimensions, uniform curve indices
+        sizeOf = 2 + 1 + len(uniformNames) * 5 + sum(uniformSizes) * 4
         # TODO: Will there ever be 256 uniforms in a shot?
-        shotInfo.append(struct.pack('B', len(animations)))
-        shotInfo += animations
+        blob = multiPack('HB', (sizeOf, len(uniformNames)), f'{len(uniformNameOffsets)}I', uniformNameOffsets, f'{len(uniformSizes)}B', uniformSizes)
 
-        # Serialize the scene to use for this shot
+        # store each curve and save its index into the blob for this shot
+        for uniformName, elementCount in zip(uniformNames, uniformSizes):
+            for element in range(elementCount):
+                if elementCount == 1:
+                    curveName = uniformName
+                else:
+                    curveName = uniformName + '.' + 'xyzw'[element]
+                curve = shot.curves[curveName]
+
+                keys = []
+                for key in curve:
+                    oty = float('inf') if key.tangentMode == Key.TANGENT_STEPPED else key.outTangent().y
+                    keys += [key.inTangent().y, key.point().x, key.point().y, oty]
+
+                # get num keys
+                keysSize = len(keys) // 4
+                # strip first in tangent and last out tangent as they are unused
+                # TODO: is handling the edge case not larger?
+                keys.pop(0)
+                keys.pop(-1)
+
+                # store the keys
+                # TODO: Will there ever be 65536 keys in a curve?
+                keysIndex = pool.ensureExists(multiPack('H', keysSize, f'{len(keys)}f', keys))
+                blob += struct.pack('I', keysIndex)
+
+        # Serialize all shot animation data as a single stream
+        assert sizeOf == len(blob)
+        shotInfo.append(blob)
+
+        maxAnimations = max(maxAnimations, len(uniformNames))
+
+        # Track the scene to use for this shot
         shotSceneNames.append(shot.sceneName)
 
-    shotStartTimesIndex = pool.ensureExists(struct.pack(f'{len(shotStartTimes)}f', *shotStartTimes))
+    # TODO: Will there ever be 65536 shots in a demo?
+    shotEndTimesIndex = pool.ensureExists(multiPack(f'{len(shotEndTimes)}f', shotEndTimes))
     shotAnimationInfoIndex = pool.ensureExists(b''.join(shotInfo))
-    return shotStartTimesIndex, shotSceneNames, shotAnimationInfoIndex
+    return shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations
 
 
 def iterUsedTemplatePasses(enabledShots: list[Shot]) -> Iterable[list[PassData]]:
@@ -122,13 +195,13 @@ def readPassFBOInfo(passData: PassData) -> tuple[int, int, int, int]:
     assert 0 < f < 256, f'{passData.name} factor value out of uint8 bounds. Not supported by current runtime.'
 
     assert passData.numOutputBuffers > 0, f'{passData.name} has 0 outputs to render into.'
-    assert passData.numOutputBuffers < 64, f'{passData.name} outputs value out of uint6 (yes six) bounds. Not supported by current runtime.'
+    assert passData.numOutputBuffers < 32, f'{passData.name} outputs value out of uint5 (yes five) bounds. Not supported by current runtime.'
 
-    packed = passData.numOutputBuffers | (passData.realtime << 7) | (passData.is3d << 6)
+    packed = passData.numOutputBuffers | (passData.realtime << 7) | (passData.is3d << 6) | (passData.tile << 5)
     return w, h, f, packed
 
 
-def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, int, dict[int, int], list[int]]:
+def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, int, dict[int, int], list[int], int]:
     # For each used template, generate the framebuffer/colorbuffer construction info
     # and get a map of indices for: template frame buffer index -> real fbo index
     # and template color buffer index -> real cbo index
@@ -143,33 +216,36 @@ def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, i
                 # TODO: Ignore numOutputBuffers difference and just use max?
                 assert fboInfo == fboConstructionInfo[fboKeyToIndex[passData.targetBufferId]], f'A pass {passData.name} defines different framebuffer info from another pass targeting the same buffer. Note that this counts ACROSS TEMPLATES. Pass buffer indices do not have to start at 0 or be consecutive so you can transpose them if this is not intentional. It is recommended to reuse passes as much as possible, even if one has more outputs than the other it is OK to ignore the extra output targets.'
                 continue
+            if passData.targetBufferId == -1:
+                continue
             fboKeyToIndex[passData.targetBufferId] = len(fboConstructionInfo)
             fboConstructionInfo.append(fboInfo)
             fboFirstCboIndex.append(fboFirstCboIndex[-1] + passData.numOutputBuffers)
-    fboFirstCboIndex.pop(-1)  # Value for "next" (non existant) pass is not necessary.
+    cboCount = fboFirstCboIndex.pop(-1)  # Value for "next" (non existant) pass is not necessary.
 
     # Dump the construction table, it'll fill arrays of GL fbo & cbo handles
     # that we can then index into using the values in these generated maps.
-    fboBlockAddr = pool.ensureExists(b''.join(struct.pack('HHBB', chunk) for chunk in fboConstructionInfo))
+    fboBlockAddr = pool.ensureExists(b''.join(multiPack('HHBB', chunk) for chunk in fboConstructionInfo))
     fboCount = len(fboConstructionInfo)
-    return fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex
+    return fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex, cboCount
 
 
 def main() -> None:
     # We store all demo data as 1 big binary blob
     pool = BinaryPool()
+    programs: dict[str, tuple[int, int]] = {}
 
     # Find all enabled shots and sort them by start time
     sceneNameIndexMap: Mapping[str, int] = {name: index for (index, name) in enumerate(iterSceneNames())}
     enabledShots = gatherEnabledShots(sceneNameIndexMap)
 
     # Add all shots to the demo
-    shotStartTimesIndex, shotSceneNames, shotAnimationInfoIndex = serializeShots(pool, enabledShots)
+    shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations = serializeShots(pool, enabledShots)
 
-    # Add all required render buffers to the demo
-    fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex = serializeBuffers(pool, enabledShots)
+    # Add all required render buffers
+    fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex, cboCount = serializeBuffers(pool, enabledShots)
 
-    # Finally add the shaders and uniforms for each scene
+    # Add the shaders and uniforms for each scene
     sceneIds = []
     for sceneName in sceneNameIndexMap:
         # Every scene is just a list of passes to consume.
@@ -178,17 +254,25 @@ def main() -> None:
             if passData.uniforms:
                 raise DeprecationWarning(f'Shader pass {passData.name} uses uniform XML elements inside the template. This used to be supported but was omitted in favor of using small shader stitches that simply declare constants with the right values instead.')
             stitchIds = []
-            for shaderFilePath in passData.vertStitches:
-                with shaderFilePath.readBinary() as fh:
-                    txt = fh.read() + b'\0'
-                stitchIds.append(pool.ensureExists(txt))
+            assert not passData.vertStitches, 'Vertex shaders are an experimental editor-only feature.'
             for shaderFilePath in passData.fragStitches:
                 with shaderFilePath.readBinary() as fh:
-                    txt = fh.read() + b'\0'
+                    # glShaderSource and glCreateShaderProgramv can take a list of strings
+                    # and infer the lengths if the strings are null terminated (cheaper than storing the lengths).
+                    # It will concatenate these strings without these nulls, so we also add a line break
+                    # in case the strings can not be concatenated without whitespace (e.g. the second string starts with a #define).
+                    txt = fh.read() + b'\n\0'
                 stitchIds.append(pool.ensureExists(txt))
             # TODO: Will there ever be more than 256 stitches in a program?
-            programId = pool.ensureExists(struct.pack(f'B{len(stitchIds)}I', len(stitchIds), *stitchIds))
-            fboId = fboKeyToIndex[passData.targetBufferId]
+            programKey = ','.join(str(stitchId) for stitchId in stitchIds)
+            if programKey not in programs:
+                stitchesAddr = pool.ensureExists(multiPack('B', len(stitchIds), f'{len(stitchIds)}I', stitchIds))
+                programs[programKey] = len(programs), stitchesAddr
+            programId = programs[programKey][0]
+            if passData.targetBufferId == -1:
+                fboId = 0b11111111
+            else:
+                fboId = fboKeyToIndex[passData.targetBufferId]
             cboIds = []
             for inputBufferId in passData.inputBufferIds:
                 assert not isinstance(inputBufferId, FilePath), f'Shader pass {passData.name} specifies input texture by file path. This is an editor-only feature and not supported in the runtime.'
@@ -197,31 +281,39 @@ def main() -> None:
             # Every scene is a list of passes, not all of them have sections, to avoid duplicating global passes
             # we add passes individually and then track the ids for the scene to render.
             # TODO: Will there ever be more than 256 inputs in a pass?
-            scenePassIds.append(pool.ensureExists(struct.pack(f'IIB{len(cboIds)}I', programId, fboId, len(cboIds), *cboIds)))
+            scenePassIds.append(pool.ensureExists(multiPack('IBB', (programId, fboId, len(cboIds)), f'{len(cboIds)}B', cboIds)))
         # TODO: Will there ever be more than 256 passes?
-        sceneIds.append(pool.ensureExists(struct.pack(f'B{len(scenePassIds)}I', len(scenePassIds), *scenePassIds)))
+        sceneIds.append(pool.ensureExists(multiPack('B', len(scenePassIds), f'{len(scenePassIds)}I', scenePassIds)))
 
-    # Finally list all the scene addresses for each shot to consume
+    # List all the scene addresses for each shot to consume
+    shotCount = len(shotSceneNames)
     shotSceneIds = [sceneIds[sceneNameIndexMap[sceneName]] for sceneName in shotSceneNames]
-    shotSceneIdsIndex = pool.ensureExists(struct.pack(f'{len(shotSceneIds)}I', *shotSceneIds))
+    shotSceneIdsIndex = pool.ensureExists(multiPack(f'{len(shotSceneIds)}I', shotSceneIds))
+
+    # List all programs to compile
+    # TODO: Will there ever be more than 65536 programs in a demo?
+    programIds = [stitchesAddr for _, stitchesAddr in programs.values()]
+    programsIndex = pool.ensureExists(multiPack('H', len(programIds), f'{len(programIds)}I', programIds))
 
     # Globals to use in the framework
-    raise RuntimeError
-    shotStartTimesIndex, shotSceneIdsIndex, shotAnimationInfoIndex, fboBlockAddr, fboCount
+    outputPath = FilePath(__file__).abs().parent().parent().join('MelonPan', 'generated.hpp')
+    with outputPath.edit() as fh:
+        fh.write('constexpr const unsigned char data[] = {')
+        fh.write(', '.join(str(int(number)) for number in pool.data()))
+        fh.write('};\n')
+        assert 0 <= fboCount < 256
+        fh.write(f'constexpr const unsigned int framebuffersInfoIndex = {fboBlockAddr};\n')
+        fh.write(f'constexpr const unsigned char framebuffersCount = {fboCount};\n')
+        fh.write(f'constexpr const unsigned int shotEndTimesIndex = {shotEndTimesIndex};\n')
+        fh.write(f'constexpr const unsigned int shotSceneIdsIndex = {shotSceneIdsIndex};\n')
+        fh.write(f'constexpr const unsigned int shotAnimationInfoIndex = {shotAnimationInfoIndex};\n')
+        fh.write(f'constexpr const unsigned int programsIndex = {programsIndex};\n')
+        fh.write(f'constexpr const unsigned char maxAnimations = {maxAnimations};\n')
+        fh.write(f'constexpr const unsigned char cboCount = {cboCount};\n')
+        fh.write(f'constexpr const unsigned char shotCount = {shotCount};\n')
+    # TODO: Output BPM
+    print(f'Wrote: {currentProjectFilePath()}\nto: {outputPath}')
 
 
-"""
-vertStitches: list[FilePath]
-fragStitches: list[FilePath]
-uniforms: dict[str, list[float]]
-inputBufferIds: list[Union[FilePath, tuple[int, int]]] = None
-targetBufferId: int = -1
-realtime: bool = True
-resolution: Optional[tuple[int, int]] = None
-tile: bool = False
-downSampleFactor: Optional[int] = None
-numOutputBuffers: int = 1
-drawCommand: Optional[str] = None
-is3d: bool = False
-label: Optional[str] = None
-"""
+QApplication([])
+main()
