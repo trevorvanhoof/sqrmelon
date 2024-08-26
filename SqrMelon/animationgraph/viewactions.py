@@ -36,13 +36,13 @@ class CameraZoomAction(CameraUndoCommand):
         self.__restoreRegion = camera.region()
         self.__singleAxis = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
         self.__cursorOverride = False
-        self.__ignoredAxis = None
-        self.__zoomFactor: list[int] = [0, 0]
+        self.__ignoredAxis: Optional[int] = None
+        self.__zoomFactor: list[float] = [0.0, 0.0]
         self.__zoomStrength = 128.0
         self.__range = event.x() / float(widgetSize.width()), event.y() / float(widgetSize.height())
         self.__sceneAnchor = self.__range[0] * self.__restoreRegion[2] + self.__restoreRegion[0], self.__range[1] * self.__restoreRegion[3] + self.__restoreRegion[1]
 
-    def _computeDelta(self, event: QMouseEvent) -> None:
+    def _computeDelta(self, event: RemappedEvent) -> None:
         delta = [event.x() - self.__start[0], event.y() - self.__start[1]]
         self.__zoomFactor = [delta[0] / float(self.__restoreRegion[2]), delta[1] / float(self.__restoreRegion[3])]
         ax = abs(delta[0])
@@ -57,7 +57,7 @@ class CameraZoomAction(CameraUndoCommand):
                     self.__ignoredAxis = 0
                     self.__cursorOverride = True
                     QApplication.setOverrideCursor(Qt.CursorShape.SizeVerCursor)
-            self.__zoomFactor[self.__ignoredAxis] = 0
+            self.__zoomFactor[self.__ignoredAxis] = 0.0
         else:
             # Uniform scaling!
             if abs(self.__zoomFactor[0]) > abs(self.__zoomFactor[1]):
@@ -93,11 +93,11 @@ class CameraZoomAction(CameraUndoCommand):
     def _restore(self) -> None:
         self.__camera.setRegion(*self.__restoreRegion)
 
-    def update(self, event: QMouseEvent) -> None:
+    def update(self, event: RemappedEvent) -> None:
         self._computeDelta(event)
         self._apply()
 
-    def finalize(self, event: QMouseEvent) -> bool:
+    def finalize(self, event: RemappedEvent) -> bool:
         if self.__cursorOverride:
             QApplication.restoreOverrideCursor()
         self._computeDelta(event)
@@ -120,9 +120,9 @@ class CameraPanAction(CameraUndoCommand):
         self.__singleAxis = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
         self.__cursorOverride = False
         self.__ignoredAxis: Optional[int] = None
-        self.__delta = 0, 0
+        self.__delta = [0.0, 0.0]
 
-    def _computeDelta(self, event: QMouseEvent) -> None:
+    def _computeDelta(self, event: RemappedEvent) -> None:
         self.__delta = [event.x() - self.__start[0], event.y() - self.__start[1]]
         ax = abs(self.__delta[0])
         ay = abs(self.__delta[1])
@@ -147,11 +147,11 @@ class CameraPanAction(CameraUndoCommand):
     def _restore(self) -> None:
         self.__camera.setPosition(self.__restore[0], self.__restore[1])
 
-    def update(self, event: QMouseEvent) -> None:
+    def update(self, event: RemappedEvent) -> None:
         self._computeDelta(event)
         self._apply()
 
-    def finalize(self, event: QMouseEvent) -> bool:
+    def finalize(self, event: RemappedEvent) -> bool:
         if self.__cursorOverride:
             QApplication.restoreOverrideCursor()
         self._computeDelta(event)

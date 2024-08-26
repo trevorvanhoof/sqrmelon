@@ -34,7 +34,7 @@ def getImage(iconName: str) -> Union[QPixmap, QIcon]:
     if iconName not in __iconCache:
         iconPath = _getPath(iconName)
         if iconPath.hasExt('ico'):
-            image = QIcon(iconPath)
+            image: Union[QIcon, QPixmap] = QIcon(iconPath)
         else:
             image = QPixmap(iconPath)
         if image is None or image.isNull():

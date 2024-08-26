@@ -3,7 +3,7 @@ Widget that manages & displays the list of scenes and editable shader sections i
 """
 from __future__ import annotations
 import os
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Any, Optional, Sequence, TYPE_CHECKING
 
 from send2trash import send2trash
 
@@ -31,14 +31,20 @@ class MimeDataItemModel(QStandardItemModel):
         return mimeData
 
 
+class _TreeView(QTreeView):
+    """This is here to make the static type checker work better."""
+    def model(self) -> MimeDataItemModel:
+        return super().model()  # type: ignore
+
+
 class SceneList(QWidget):
     currentChanged = Signal(QStandardItem)
     requestCreateShot = Signal(str)
 
-    def __init__(self) -> None:
+    def __init__(self, shotsManager: ShotManager) -> None:
         super(SceneList, self).__init__()
 
-        self.__shotsManager: Optional[ShotManager] = None
+        self.__shotsManager = shotsManager
 
         main = vlayout()
         self.setLayout(main)
@@ -61,7 +67,7 @@ class SceneList(QWidget):
         belt.addStretch(1)
         main.addLayout(belt)
         self.__model = MimeDataItemModel()
-        self.view = QTreeView()
+        self.view = _TreeView()
         self.view.setModel(self.__model)
         self.view.activated.connect(self.__onOpenFile)
         self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -76,7 +82,7 @@ class SceneList(QWidget):
         action.triggered.connect(self.__showInExplorer)
         action = self.contextMenu.addAction('Create shot')
         action.triggered.connect(self.__createShot)
-        self.__contextMenuItem = None
+        self.__contextMenuItem: Optional[QStandardItem] = None
 
     def selectSceneWithName(self, name: str) -> None:
         items = self.__model.findItems(name)
@@ -88,13 +94,13 @@ class SceneList(QWidget):
         if self.__contextMenuItem is None:
             return
         data = self.__contextMenuItem.data()
-        assert data is None or isinstance(data, FilePath)
-        if not data or not data.exists():
+        assert data is None or isinstance(data, str)
+        if not data or not FilePath(data).exists():
             # try navigation by file name
             data = currentScenesDirectory().join(self.__contextMenuItem.text())
-        if not data or not data.exists():
+        if not data or not FilePath(data).exists():
             return
-        selectInFileBrowser(data)
+        selectInFileBrowser(FilePath(data))
 
     def __createShot(self) -> None:
         for idx in self.view.selectionModel().selectedIndexes():
@@ -119,7 +125,7 @@ class SceneList(QWidget):
         path = FilePath(self.view.model().itemFromIndex(current).data())
         openFileWithDefaultApplication(path)
 
-    def __onCurrentChanged(self, current: QModelIndex, __) -> None:
+    def __onCurrentChanged(self, current: QModelIndex, __: Any) -> None:
         if not current.parent().isValid():
             self.currentChanged.emit(self.view.model().itemFromIndex(current))
 
@@ -210,10 +216,10 @@ class SceneList(QWidget):
             item = QStandardItem(':' + templateName)
 
             # grab unique shared items
-            sharedPaths = set(sharedPathsFromTemplate(templateName))
+            sharedPaths = list(set(sharedPathsFromTemplate(templateName)))
 
             # order alphabetically (case insensitive)
-            sharedPaths = sorted(sharedPaths, key=lambda pth: pth.name().lower())
+            sharedPaths.sort(key=lambda pth: pth.name().lower())
 
             # add to model
             for path in sharedPaths:
@@ -229,10 +235,10 @@ class SceneList(QWidget):
         self.view.model().appendRow(item)
 
         # grab unique items
-        sectionPaths = set(sectionPathsFromScene(sceneName))
+        sectionPaths = list(set(sectionPathsFromScene(sceneName)))
 
         # order alphabetically (case insensitive)
-        sectionPaths = sorted(sectionPaths, key=lambda pth: pth.name().lower())
+        sectionPaths.sort(key=lambda pth: pth.name().lower())
 
         # add to model
         for path in sectionPaths:

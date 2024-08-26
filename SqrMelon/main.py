@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 import traceback
-from typing import cast, Optional
+from typing import Any, cast, Optional, TextIO
 
 import icons
 from animationgraph.curveview import CurveEditor
@@ -29,11 +29,11 @@ FFMPEG_PATH = 'ffmpeg.exe'
 class PyDebugLog:
     """Small utility to reroute the python print output to a QTextEdit."""
 
-    def __init__(self, edit: QTextEdit, fwd):
+    def __init__(self, edit: QTextEdit, fwd: TextIO) -> None:
         self.__edit = edit
         self.__fwd = fwd
 
-    def write(self, text: str):
+    def write(self, text: str) -> None:
         self.__edit.moveCursor(QTextCursor.MoveOperation.End)
         self.__edit.insertPlainText(text)
         self.__fwd.write(text)
@@ -41,8 +41,8 @@ class PyDebugLog:
     @staticmethod
     def create() -> QTextEdit:
         edit = QTextEdit()
-        sys.stdout = PyDebugLog(edit, sys.stdout)
-        sys.stderr = PyDebugLog(edit, sys.stderr)
+        sys.stdout = PyDebugLog(edit, sys.stdout)  # type: ignore
+        sys.stderr = PyDebugLog(edit, sys.stderr)  # type: ignore
         return edit
 
 
@@ -91,11 +91,10 @@ class App(QMainWindowState):
         save.setShortcut(QKeySequence.StandardKey.Save)
         save.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         save.triggered.connect(self.__onCtrlS)
-        self.__sceneList = SceneList()
+        self.__sceneList = SceneList(self.__shotsManager)
         self.__shotsManager.findSceneRequest.connect(self.__sceneList.selectSceneWithName)
         self.__sceneList.requestCreateShot.connect(self.__shotsManager.createShot)
         self.__sceneList.setEnabled(False)
-        self.__sceneList.setShotsManager(self.__shotsManager)
 
         self.__profiler = Profiler()
 
@@ -111,10 +110,10 @@ class App(QMainWindowState):
         # a ton of features that I think started interfering with our rendering code.
         window = self.createWindowContainer(self.__sceneView, self)
         window.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        viewDock = self._addDockWidget(cast(QWidget, window), '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
+        viewDock = self._addDockWidget(window, '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
         self.__viewDock = viewDock  # Need this for F11 feature
-        self.__restoreFullScreenInfo = None
-        logDock = self._addDockWidget(cast(QWidget, PyDebugLog.create()), 'Python log', where=Qt.DockWidgetArea.TopDockWidgetArea)
+        self.__restoreFullScreenInfo: Optional[tuple[QSize, bool]] = None
+        logDock = self._addDockWidget(PyDebugLog.create(), 'Python log', where=Qt.DockWidgetArea.TopDockWidgetArea)
         self.tabifyDockWidget(logDock, viewDock)
 
         self._addDockWidget(self.timeSlider, where=Qt.DockWidgetArea.LeftDockWidgetArea)
@@ -221,7 +220,8 @@ class App(QMainWindowState):
 
         option = viewport
         if gSettings.contains('GLViewScale'):
-            option = {1.0: viewport, 0.5: half, 0.25: quart, 0.125: eight}[float(gSettings.value('GLViewScale'))]
+            viewScale = float(gSettings.value('GLViewScale'))  # type: ignore
+            option = {1.0: viewport, 0.5: half, 0.25: quart, 0.125: eight}[viewScale]
         option.setChecked(True)
 
         self.__menuBar.addMenu(self.__dockWidgetMenu)
@@ -235,8 +235,8 @@ class App(QMainWindowState):
 
     def __record(self) -> None:
         diag = QDialog()
-        fId = int(gSettings.value('RecordFPS', 2))
-        rId = int(gSettings.value('RecordResolution', 3))
+        fId = int(gSettings.value('RecordFPS', 2))  # type: ignore
+        rId = int(gSettings.value('RecordResolution', 3))  # type: ignore
         layout = QGridLayout()
         diag.setLayout(layout)
         layout.addWidget(QLabel('FPS: '), 0, 0)
@@ -297,7 +297,11 @@ class App(QMainWindowState):
 
             uniforms = self.__shotsManager.evaluate(beats)
             textureUniforms = self.__shotsManager.additionalTextures(beats)
-            self.__sceneView.cameraInput().setData(*(uniforms['uOrigin'] + uniforms['uAngles']))  # feed animation into camera so animationprocessor can read it again
+            uOrigin = uniforms['uOrigin']
+            uAngles = uniforms['uAngles']
+            assert isinstance(uOrigin, list)
+            assert isinstance(uAngles, list)
+            self.__sceneView.cameraInput().setData(*(uOrigin + uAngles))  # feed animation into camera so animationprocessor can read it again
             cameraData = self.__sceneView.cameraInput().data()
 
             modifier = currentProjectDirectory().join('animationprocessor.py')
@@ -329,8 +333,8 @@ class App(QMainWindowState):
                 start = '-start_number {} '.format(int(self._timer.beatsToSeconds(self._timer.start) * FPS))
                 start2 = '-vframes {} '.format(int(self._timer.beatsToSeconds(self._timer.end - self._timer.start) * FPS))
 
-            fh.write('cd "../capture"\n"{}" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FFMPEG_PATH, FPS, start, FPS, FMT,
-                                                                                                                                                             start2, FPS))
+            fh.write('cd "../capture"\n"{}" -framerate {} {}-i dump_{}_%%05d.{} {}-c:v libx264 -r {} -pix_fmt yuv420p "../convertcapture/output.mp4"'.format(FFMPEG_PATH, FPS, start, FPS, FMT, start2, FPS))
+
         with convertCaptureDir.join('convertGif.bat').edit() as fh:
             start = ''
             start2 = ''
@@ -349,7 +353,7 @@ class App(QMainWindowState):
 
         with convertCaptureDir.join('merge.bat').edit() as fh:
             startSeconds = self._timer.beatsToSeconds(self._timer.start)
-            fh.write('{} -i output.mp4 -itsoffset {} -i "{}" -vcodec copy -shortest merged.mp4'.format(FFMPEG_PATH, -startSeconds, sound))
+            cast(TextIO, fh).write('{} -i output.mp4 -itsoffset {} -i "{}" -vcodec copy -shortest merged.mp4'.format(FFMPEG_PATH, -startSeconds, sound))
 
     def __restoreUiLock(self, action: QAction) -> None:
         state = True if gSettings.value('lockui', '0') == '1' else False
@@ -358,7 +362,7 @@ class App(QMainWindowState):
         for dockWidget in self.findChildren(QDockWidget):
             dockWidget.setFeatures(features)
 
-    def __fullScreenViewport(self, *_) -> None:
+    def __fullScreenViewport(self, *_: Any) -> None:
         # force floating
         dockWidget = self.__viewDock
 
@@ -369,12 +373,13 @@ class App(QMainWindowState):
                 dockWidget.setFloating(True)
             dockWidget.showFullScreen()
         else:
+            assert self.__restoreFullScreenInfo is not None
             dockWidget.showNormal()
             if dockWidget.isFloating() != self.__restoreFullScreenInfo[1]:
                 dockWidget.setFloating(self.__restoreFullScreenInfo[1])
             if dockWidget.isFloating():
-                dockWidget.resize(self.__restoreFullScreenInfo)
-    
+                dockWidget.resize(self.__restoreFullScreenInfo[0])
+
     def __toggleUILock(self, state: bool) -> None:
         gSettings.setValue('lockui', '1' if state else '0')
         features = QDockWidget.DockWidgetFeature(0 if state else 0b1111)
@@ -399,9 +404,9 @@ class App(QMainWindowState):
     @staticmethod
     def __colorPicker() -> None:
         color = QColorDialog.getColor()
-        color = "vec3(" + str(round(color.red() / 255.0, 2)) + ", " + str(round(color.green() / 255.0, 2)) + ", " + str(round(color.blue() / 255.0, 2)) + ")"
+        colorStr = f"vec3({str(round(color.red() / 255.0, 2))}, {str(round(color.green() / 255.0, 2))}, {str(round(color.blue() / 255.0, 2))})"
         cb = QApplication.clipboard()
-        cb.setText(color, mode=QClipboard.Mode.Clipboard)
+        cb.setText(colorStr, mode=QClipboard.Mode.Clipboard)
 
     def __onCtrlS(self) -> None:
         if QApplication.focusWidget() != self.__sceneView:
@@ -424,7 +429,7 @@ class App(QMainWindowState):
             self.saveProject()
         self._store()
 
-    def __setCurrentShot(self, *_) -> None:
+    def __setCurrentShot(self, *_: Any) -> None:
         shot = self.__shotsManager.shotAtTime(self._timer.time)
         if shot is None:
             self.__sceneView.setScene(None)
@@ -450,9 +455,9 @@ class App(QMainWindowState):
             if project.exists():
                 self.__openProject(project)
                 return
-        project = [projFile for projFile in list(os.listdir(os.getcwd())) if projFile.endswith(PROJ_EXT)]
-        if project:
-            self.__openProject(os.path.join(os.getcwd(), project[0]))
+        projectFiles = [projFile for projFile in list(os.listdir(os.getcwd())) if projFile and projFile.endswith(PROJ_EXT)]
+        if projectFiles:
+            self.__openProject(os.path.join(os.getcwd(), projectFiles[0]))
             return
 
     def __changeProjectHelper(self, title: str) -> Optional[FilePath]:
@@ -471,7 +476,7 @@ class App(QMainWindowState):
 
             # check if unsaved changes
             if QMessageBox.StandardButton.No == QMessageBox.warning(self, title, 'Any unsaved changes will be lost. Continue?', QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No):
-                return
+                return None
 
         return currentPath
 

@@ -13,7 +13,7 @@ SCENE_EXT = '.xml'
 def currentProjectFilePath() -> Optional[FilePath]:
     if not gSettings.contains('currentproject'):
         return None
-    return FilePath(gSettings.value('currentproject'))
+    return FilePath(gSettings.value('currentproject')) # type: ignore
 
 
 def setCurrentProjectFilePath(value: str) -> None:
@@ -22,7 +22,9 @@ def setCurrentProjectFilePath(value: str) -> None:
 
 def currentProjectDirectory() -> FilePath:
     # AttributeError if no current project
-    return currentProjectFilePath().parent()
+    projectPath = currentProjectFilePath()
+    assert projectPath is not None
+    return projectPath.parent()
 
 
 def currentScenesDirectory() -> FilePath:
@@ -69,7 +71,7 @@ def templateFileFromName(name: str) -> FilePath:
     return currentTemplatesDirectory().join(name + TEMPLATE_EXT)
 
 
-def _pathsFromTemplate(templatePath: FilePath, tag: str, sceneDir: Optional[str] = None) -> Iterable[FilePath]:
+def _pathsFromTemplate(templatePath: FilePath, tag: str, sceneDir: Optional[FilePath] = None) -> Iterable[FilePath]:
     xTemplate = parseXMLWithIncludes(templatePath)
     if tag == 'section':
         assert sceneDir

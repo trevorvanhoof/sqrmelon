@@ -5,7 +5,7 @@ import functools
 import re
 import time
 from math import log10, floor
-from typing import cast, Iterable, Optional, TYPE_CHECKING, Union
+from typing import Any, cast, Iterable, Optional, TYPE_CHECKING, Union
 
 import icons
 from animationgraph.curveactions import DeleteAction, DragAction, EditKeyAction, InsertKeyAction, RemappedEvent, SetKeyAction
@@ -68,13 +68,14 @@ class CurveView(QWidget):
         self.__models: Optional[tuple[QStandardItemModel, QItemSelectionModel]] = None
         self.__selection = Selection()
         self.__drag: Optional[Union[CameraZoomAction, CameraPanAction, DragAction, MarqueeSelectAction]] = None
-        self.__camera: Optional[CurveViewCamera] = None
+        self.__camera = CurveViewCamera(0.0, 0.0, 1.0, 1.0)
+        self.__camera.regionChanged.connect(self.update)
         self.__cache: Optional[Float4] = None
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         # TODO: use QPoint instead of list[int]
         self.__snap = [0, 0]
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
-        self.paintTime = 0
+        self.paintTime = 0.0
 
     def setSnapX(self, x: int) -> None:
         self.__snap[0] = max(0, x)
@@ -88,8 +89,8 @@ class CurveView(QWidget):
     def undoStacks(self) -> tuple[QUndoStack, QUndoStack]:
         return self.__undoStack, self.__cameraUndoStack
 
-    def __doRepaint(self, _) -> None:
-        if self.__camera and self.__timer and self.__timer.isPlaying():
+    def __doRepaint(self, _: Any) -> None:
+        if self.__timer and self.__timer.isPlaying():
             rect = self.__camera.region()
             scaleX = self.width() / float(rect[2])
             x = (self.__localTime() - rect[0]) * scaleX
@@ -112,7 +113,7 @@ class CurveView(QWidget):
             boundsMin.y = min(boundsMin.y, point.y)
             boundsMax.x = max(boundsMax.x, point.x)
             boundsMax.y = max(boundsMax.y, point.y)
-        if boundsMin is None:
+        if boundsMin is None or boundsMax is None:
             return
 
         # Determine padding on both sides (32 pixels please)
@@ -190,6 +191,7 @@ class CurveView(QWidget):
 
     def insertKey(self) -> None:
         """Insert new key at current time, evaluates current animation to derive value."""
+        assert self.__models is not None
         curve = [self.__models[0].item(row).data() for row in self.visibleRows()]
 
         t = self.__localTime()
@@ -199,7 +201,8 @@ class CurveView(QWidget):
 
         self.update()
 
-    def setKey(self, channels: Iterable[str], values: tuple[float]) -> None:
+    def setKey(self, channels: Iterable[str], values: tuple[float, ...]) -> None:
+        assert self.__models is not None
         curves = []
         for channel in channels:
             curves.append(self.__models[0].findItems(channel)[0].data())
@@ -278,11 +281,6 @@ class CurveView(QWidget):
         py = point.y() / self.height()
         return QPointF(x + px * w, y + py * h)
 
-    def showEvent(self, event: QShowEvent) -> None:
-        if self.__camera is None:
-            self.__camera = CurveViewCamera(0.0, 0.0, 1.0, 1.0)
-            self.__camera.regionChanged.connect(self.update)
-
     def createUndoView(self) -> QUndoView:
         view = QUndoView()
         view.setStack(self.__undoStack)
@@ -294,13 +292,14 @@ class CurveView(QWidget):
         return view
 
     def visibleRows(self) -> Iterable[int]:
-        assert self.__models
+        assert self.__models is not None
         # 'cast' because there is a typing bug with tuple indexing here
         selectionModel = cast(QItemSelectionModel, self.__models[1])
         for idx in selectionModel.selectedRows():
             yield idx.row()
 
     def iterVisibleKeys(self) -> Iterable[tuple[int, int, Key]]:
+        assert self.__models is not None
         rows = self.visibleRows()
         for row in reversed(tuple(rows)):
             curve = self.__models[0].item(row).data()
@@ -373,6 +372,7 @@ class CurveView(QWidget):
         y = event.y()
 
         # find point
+        assert self.__models is not None
         select = None
         for row in reversed(rows):
             curve = self.__models[0].item(row).data()
@@ -398,8 +398,8 @@ class CurveView(QWidget):
         selection = list(self.__selection.keys())
         self.__drag = DragAction(event, selection, selectAction, scale, cast(tuple[int, int], tuple(self.__snap)))
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        event = RemappedEvent(self.pixelToScene(event.pos(), self.__cache), event)
+    def mouseReleaseEvent(self, event_: QMouseEvent) -> None:
+        event = RemappedEvent(self.pixelToScene(event_.pos(), self.__cache), event_)
         self.__cache = None
 
         # return if no drag action
@@ -415,8 +415,8 @@ class CurveView(QWidget):
         self.__drag = None
         self.update()
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        event = RemappedEvent(self.pixelToScene(event.pos(), self.__cache), event)
+    def mouseMoveEvent(self, event_: QMouseEvent) -> None:
+        event = RemappedEvent(self.pixelToScene(event_.pos(), self.__cache), event_)
 
         # return if no drag action
         if not self.__drag:
@@ -434,7 +434,7 @@ class CurveView(QWidget):
         self.__models = model, selectionModel
         self.__selection.setModel(model)
 
-    def _drawBg(self, painter: QPainter, scaleX: float, scaleY: float, rect: Float4):
+    def _drawBg(self, painter: QPainter, scaleX: float, scaleY: float, rect: Float4) -> None:
         backColor = QColor.fromRgb(96, 96, 96)
         linesColor = QColor.fromRgb(83, 83, 83)
         axisColor = QColor.fromRgb(122, 122, 122)
@@ -455,7 +455,7 @@ class CurveView(QWidget):
             px = self.sceneToPixel(QPointF(x, 0.0)).x()
 
             painter.setPen(Qt.GlobalColor.black)
-            painter.drawText(px + 3.0, self.height() - 5.0, str(round(x, 4)))
+            painter.drawText(px + 3, self.height() - 5, str(round(x, 4)))
 
             painter.setPen(axisColor if x == 0 else linesColor)
             painter.drawLine(px, 0, px, self.height())
@@ -469,22 +469,22 @@ class CurveView(QWidget):
             py = self.sceneToPixel(QPointF(0.0, y)).y()
 
             painter.setPen(Qt.GlobalColor.black)
-            painter.drawText(0 + 3.0, py - 1.0, str(round(y, 4)))
+            painter.drawText(3, py - 1, str(round(y, 4)))
 
             painter.setPen(axisColor if y == 0 else linesColor)
             painter.drawLine(0, py, self.width(), py)
 
         painter.restore()
 
-    def _drawCursor(self, painter: QPainter):
+    def _drawCursor(self, painter: QPainter) -> None:
         # draw time cursor
         x = self.sceneToPixel(QPointF(self.__localTime(), 0.0)).x()
         painter.setPen(Qt.GlobalColor.red)
         painter.drawLine(QPoint(x, 2), QPoint(x, self.height()))
-        markerTop = icons.getImage('TimeMarkerTop-24')
+        markerTop = cast(QPixmap, icons.getImage('TimeMarkerTop-24'))
         painter.drawPixmap(QPoint(x - 4, 2), markerTop)
 
-    def _drawFocus(self, painter: QPainter):
+    def _drawFocus(self, painter: QPainter) -> None:
         if not self.hasFocus():
             return
         # outer border
@@ -494,8 +494,9 @@ class CurveView(QWidget):
 
     __COLORS = {'x': Qt.GlobalColor.red, 'y': Qt.GlobalColor.green, 'z': Qt.GlobalColor.blue, 'w': Qt.GlobalColor.white}
 
-    def _drawCurves(self, painter: QPainter, rows: Iterable[int], start: float, end: float, precision: float):
+    def _drawCurves(self, painter: QPainter, rows: Iterable[int], start: float, end: float, precision: float) -> None:
         # draw lines
+        assert self.__models is not None
         for row in rows:
             item = self.__models[0].item(row)
             curve = item.data()
@@ -516,7 +517,7 @@ class CurveView(QWidget):
                 prevPx = px
                 x += precision
 
-    def _drawTangent(self, painter: QPainter, keyPoint: QPoint, tangent: Vec2):
+    def _drawTangent(self, painter: QPainter, keyPoint: QPoint, tangent: Vec2) -> None:
         tangentScale = Vec2(self.width() / self.__camera.region()[2], self.height() / self.__camera.region()[3])
 
         # We want to draw a line of 50 px in the tangent direction
@@ -533,17 +534,18 @@ class CurveView(QWidget):
 
     def _drawKeys(self, painter: QPainter, rows: Iterable[int]) -> None:
         # draw points
+        assert self.__models is not None
         for row in rows:
             curve = self.__models[0].item(row).data()
             for i, key in enumerate(curve):
                 point = self.sceneToPixel(QPointF(key.time(), key.value()))
                 if self.__selection.isKeySelected(row, i):
                     # We're currently selected! Draw our tangent points
-                    inTangent = (Vec2(-1.0, 0.0) if key.inTangent.sqrLen() == 0 else -key.inTangent)
+                    inTangent = (Vec2(-1.0, 0.0) if key.inTangent().sqrLen() == 0 else -key.inTangent())
                     self._drawTangent(painter, point, inTangent)
-                    isStep = key.outTangent.y == float('inf')
+                    isStep = key.outTangent().y == float('inf')
                     if not isStep:  # don't draw stapped tangents
-                        outTangent = (Vec2(1.0, 0.0) if key.outTangent.sqrLen() == 0 else key.outTangent)
+                        outTangent = (Vec2(1.0, 0.0) if key.outTangent().sqrLen() == 0 else key.outTangent())
                         outTangent.normalize()
                         self._drawTangent(painter, point, outTangent)
                     color = Qt.GlobalColor.yellow
@@ -558,7 +560,6 @@ class CurveView(QWidget):
             return
 
         painter = QPainter(self)
-
         rect = self.__camera.region()
         if not rect[2] or not rect[3]:
             return
@@ -586,7 +587,7 @@ class CurveView(QWidget):
 
         self.paintTime = time.time()
 
-    def onChannelsChanged(self, *_) -> None:
+    def onChannelsChanged(self, *_: Any) -> None:
         self.deselectAll()
         self.update()
 
@@ -649,7 +650,7 @@ class CurveEditor(QWidget):
     Creates and connects all components related to selecting and editing channel animation curves and keys.
     """
 
-    def __init__(self, timer: Optional[Timer] = None, parent: Optional[QWidget] = None):
+    def __init__(self, timer: Timer, parent: Optional[QWidget] = None):
         super(CurveEditor, self).__init__(parent)
         self.setWindowTitle('CurveEditor')
         self.setObjectName('CurveEditor')
@@ -678,8 +679,8 @@ class CurveEditor(QWidget):
         self.__relative = CheckBox()
         tools.addWidget(QLabel('Relative:'))
         tools.addWidget(self.__relative)
-        self.__relative.setValue((Qt.CheckState.Unchecked, Qt.CheckState.Checked, Qt.CheckState.Checked)[int(gSettings.value('RelativeKeyInput', 0))])
-        self.__relative.valueChanged.connect(functools.partial(gSettings.setValue, 'RelativeKeyInput'))
+        self.__relative.setValue(bool(int(gSettings.value('RelativeKeyInput', 0))))  # type: ignore
+        self.__relative.valueChanged.connect(lambda state: gSettings.setValue('RelativeKeyInput', int(state)))
 
         self.__time = DoubleSpinBox()
         self.__time.setDecimals(4)
@@ -703,7 +704,7 @@ class CurveEditor(QWidget):
         self.__snapping = EnumBox(['1/1', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64'])
         tools.addWidget(QLabel('Beat snap:'))
         tools.addWidget(self.__snapping)
-        self.__snapping.setValue(int(gSettings.value('KeySnapSetting', 3)))
+        self.__snapping.setValue(int(gSettings.value('KeySnapSetting', 3)))  # type: ignore
         self.__snapping.valueChanged.connect(functools.partial(gSettings.setValue, 'KeySnapSetting'))
         self.__snapping.valueChanged.connect(self.__updateSnapping)
 
@@ -715,14 +716,14 @@ class CurveEditor(QWidget):
         positionKey = QPushButton(icons.get('Move-48'), '', self)
         positionKey.setToolTip('Key camera position into selection')
         positionKey.setStatusTip('Key camera position into selection')
-        positionKey.setShortcut(QKeySequence(Qt.Modifier.SHIFT | Qt.Key.Key_I))
+        positionKey.setShortcut(QKeySequence(Qt.Key.Key_Shift | Qt.Key.Key_I))
         tools.addWidget(positionKey)
         self.requestPositionKey = positionKey.clicked
 
         rotationKey = QPushButton(icons.get('3D Rotate-48'), '', self)
         rotationKey.setToolTip('Key camera rotation into selection')
         rotationKey.setStatusTip('Key camera rotation into selection')
-        rotationKey.setShortcut(QKeySequence(Qt.Modifier.SHIFT | Qt.Key.Key_O))
+        rotationKey.setShortcut(QKeySequence(Qt.Key.Key_Shift | Qt.Key.Key_O))
         tools.addWidget(rotationKey)
         self.requestRotationKey = rotationKey.clicked
 
@@ -741,6 +742,7 @@ class CurveEditor(QWidget):
         # can't rename channels
         self.__channels.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
+        assert timer is not None
         self.__view = CurveView(timer, self)
         self.__view.setModel(self.__model, self.__channels.selectionModel())
 
@@ -748,10 +750,10 @@ class CurveEditor(QWidget):
         self.__value.editingFinished.connect(self.__view.update)
         self.__updateSnapping(self.__snapping.value())
 
-        def forwardFocus(_) -> None:
+        def forwardFocus(_: QFocusEvent) -> None:
             self.__view.setFocus(Qt.FocusReason.MouseFocusReason)
 
-        self.__channels.focusInEvent = forwardFocus
+        self.__channels.focusInEvent = forwardFocus  # type: ignore
         self.__channels.selectionModel().selectionChanged.connect(self.__view.onChannelsChanged)
         self.__view.selectionChanged.connect(self.__onUpdateKeyEditor)
 
@@ -781,7 +783,7 @@ class CurveEditor(QWidget):
         self.__pasteAction.triggered.connect(self.__pasteChannels)
         self.__pasteOverAction = self.__channelMenu.addAction('Paste into selected channel')
         self.__pasteOverAction.triggered.connect(self.__pasteSelectedChannel)
-        self.__clipboard = []
+        self.__clipboard: list[tuple[str, Any]] = []
 
     def __copySelectedChannels(self) -> None:
         self.__clipboard = []
@@ -795,6 +797,7 @@ class CurveEditor(QWidget):
         if QMessageBox.warning(self, 'Warning', 'This action is not undoable. Continue?',
                                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Ok:
             return
+        assert self.__shot is not None
         for name, curve in self.__clipboard:
             self.__shot.curves[name] = curve.clone()
         self.__view.undoStacks()[0].clear()
@@ -807,6 +810,7 @@ class CurveEditor(QWidget):
         indexes = self.__channels.selectedIndexes()
         assert len(self.__clipboard) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple sources'
         assert len(indexes) == 1, 'Something went wrong when pasting from one channel to another, as it found multiple targets'
+        assert self.__shot is not None
         self.__shot.curves[self.__model.itemFromIndex(indexes[0]).text()] = self.__clipboard[0][1].clone()
         self.__view.undoStacks()[0].clear()
         self.setShot(self.__shot)
@@ -880,11 +884,10 @@ class CurveEditor(QWidget):
     def setKey(self, channels: Iterable[str], values: tuple[float]) -> None:
         self.__view.setKey(channels, values)
 
-    def setTransformKey(self, values: tuple[float]) -> None:
-        model = self.__channels.model()
+    def setTransformKey(self, values: tuple[float, float, float]) -> None:
         names = []
         for idx in self.__channels.selectedIndexes():
-            names.append(model.item(idx.row(), 0).text())
+            names.append(self.__model.item(idx.row(), 0).text())
         if len(names) == 1:
             if '.' not in names[0] or names[0].rsplit('.', 1)[1] not in 'xyz':
                 print('Could not key position into channel %s. Channel should end with .x, .y or .z' % names[0])
@@ -932,6 +935,7 @@ class CurveEditor(QWidget):
         self.__view.frameAll()
 
     def _onDeleteChannel(self) -> None:
+        assert self.__shot is not None
         rows = list(self.__view.visibleRows())
         rows.sort(key=lambda x: -x)  # sort reversed so we remove last first
         for row in rows:
@@ -940,6 +944,7 @@ class CurveEditor(QWidget):
             del self.__shot.curves[name]
 
     def _onAddChannel(self) -> None:
+        assert self.__shot is not None
         msg = 'Name with optional [xy], [xyz], [xyzw] suffix\ne.g. "uPosition[xyz]", "uSize[xy]".'
         res = QInputDialog.getText(self, 'Create channel', msg)
         if not res[1] or not res[0]:

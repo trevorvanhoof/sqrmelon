@@ -51,20 +51,20 @@ class Overlays(QWidget):
     def colorBuffer(self) -> Optional[Texture]:
         idx = self.overlayIndex()
         if idx <= 0:
-            return
+            return None
         img = Overlays._overlayCache.get(idx, None)
         if img:
             return img
         fpath = Overlays._overlayDir.join(Overlays._overlayNames[idx] + '.png')
         if not fpath.exists():
-            return
+            return None
         img = loadImage(fpath)
         Overlays._overlayCache[idx] = img
         return img
 
     @staticmethod
     def overlayIndex() -> int:
-        return int(gSettings.value('overlayIndex', 0))
+        return int(gSettings.value('overlayIndex', 0))  # type: ignore
 
     def setOverlayIndex(self, index: int) -> None:
         gSettings.setValue('overlayIndex', index)

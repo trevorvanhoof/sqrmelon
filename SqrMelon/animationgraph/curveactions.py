@@ -41,7 +41,7 @@ class DragAction(QUndoCommand):
         self.__singleAxis = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
         self.__ignoredAxis: Optional[int] = None
         self.__selection = selection
-        self.__delta = 0.0, 0.0
+        self.__delta = [0.0, 0.0]
         self.__snap = snap
         self.__restoreData = []
         self.__scale = scale
@@ -134,7 +134,7 @@ class DragAction(QUndoCommand):
 class DeleteAction(QUndoCommand):
     """Cache given set of keys in the undo stack and remove them upon pushing the command in the stack."""
 
-    def __init__(self, selectionPerChannel) -> None:
+    def __init__(self, selectionPerChannel: list[Key]) -> None:
         super(DeleteAction, self).__init__('DeleteKey')
         self.__selectionPerChannel = selectionPerChannel
 
@@ -157,7 +157,7 @@ class InsertKeyAction(QUndoCommand):
                 continue
             value = curve.evaluate(time)
             k = Key(time, value, curve)
-            k._Key__tangentMode = Key.TANGENT_AUTO
+            k.setTangentModeSilent(Key.TANGENT_AUTO)
             self.__keys.append(k)
 
     def redo(self) -> None:
@@ -188,7 +188,7 @@ class KeyChange:
 
 
 class SetKeyAction(QUndoCommand):
-    def __init__(self, time, curves: Iterable[Curve], values: tuple[float]) -> None:
+    def __init__(self, time: float, curves: Iterable[Curve], values: tuple[float, ...]) -> None:
         super(SetKeyAction, self).__init__('SetKey')
         self.__keys: list[Union[KeyChange, Key]] = []
         for i, curve in enumerate(curves):
@@ -259,12 +259,16 @@ class EditKeyAction(QUndoCommand):
 
     def __set(self, key: Key, value: Union[int, float, bool]) -> None:
         if self.__mode == self.MODE_TANGENT_TYPE:
+            assert isinstance(value, int)
             key.tangentMode = value
         elif self.__mode == self.MODE_TANGENT_BROKEN:
+            assert isinstance(value, bool)
             key.tangentBroken = value
         elif self.__mode == self.MODE_TIME:
+            assert isinstance(value, float)
             key.setTime(value)
         elif self.__mode == self.MODE_VALUE:
+            assert isinstance(value, float)
             key.setValue(value)
 
     def redo(self) -> None:
