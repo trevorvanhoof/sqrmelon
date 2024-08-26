@@ -149,7 +149,7 @@ struct ShotUniforms {
 };
 
 struct ScenePass {
-    unsigned int programId; // index into the program handles array
+    unsigned short programId; // index into the program handles array
     unsigned char fboId; // index into the frame buffer handles array
     unsigned char cboCount;
 
@@ -176,6 +176,52 @@ struct ScenePasses {
 #else
 #include "../content/animationprocessor.inl"
 #endif
+
+HDC device;
+float loaderStep = 0;
+float loaderSteps = 0;
+GLint loaderUniform;
+GLuint loaderProgram;
+
+const char* loaderCode = "#version 410\nuniform vec2 r;uniform float t;out vec3 c;void main(){"
+#if 0
+"c=vec3(step(gl_FragCoord.x/r.x,t));"
+#else
+"vec2 a=(gl_FragCoord.xy*2-r)/r.y,"
+"b=abs(a)-vec2(r.x/r.y-.25,.15),"
+"d=a;"
+"a*=4;"
+"float e=max(b.x,b.y),"
+"f=floor(a.x),"
+"g=sin(f*10)*10;"
+"a.x=fract(a.x)-.5;"
+"a.y+=floor(g)*.04;"
+"d.x*=22;"
+"d.x+=1.5;"
+"c=vec3(1,.25,.2)*step(e,0)*step(gl_FragCoord.x/r.x,t)*step(.1*fract(g)+.05,length(a))"
+"+mix(vec3(.25,.4,.15),vec3(.4,.6,.2),step(sin(d.x+sin(d.y*100+d.x*.5)*.15),.5))*step(abs(e-.08)-.03,0);"
+#endif
+"}";
+
+void initLoader(int steps, int screenWidth, int screenHeight) {
+    loaderSteps = steps;
+    loaderProgram = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, &loaderCode);
+    glUseProgram(loaderProgram);
+    float r[2];
+    r[0] = (float)screenWidth;
+    r[1] = (float)screenHeight;
+    glUniform2fv(glGetUniformLocation(loaderProgram, "r"), 1, r);
+    loaderUniform = glGetUniformLocation(loaderProgram, "t");
+}
+
+void tickLoader() {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    loaderStep += 1.0f;
+    glUseProgram(loaderProgram);
+    glUniform1f(loaderUniform, loaderStep / loaderSteps);
+    glRecti(-1, -1, 1, 1);
+    SwapBuffers(device);
+}
 
 #ifdef _DEBUG
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow ) {
@@ -210,9 +256,12 @@ int main() {
     HWND window = CreateWindowExA(0, (LPCSTR)0xC018, 0, WS_POPUP | WS_VISIBLE, 0, 0, screenWidth, screenHeight, 0, 0, 0, 0);
     ShowCursor(0);
 
-    HDC device = GetDC(window);
+    device = GetDC(window);
     SetPixelFormat(device, ChoosePixelFormat(device, &pfd), &pfd);
     wglMakeCurrent(device, wglCreateContext(device));
+
+    initLoader( 1 /*initial tick*/ + programCount + framebuffersCount + 1 /*audio*/ + staticFramebuffersCount, screenWidth, screenHeight);
+    tickLoader();
 
     // Compile shaders
     GLuint programHandles[programCount];
@@ -235,6 +284,7 @@ int main() {
                 ofs << stitchBuffer[j];
             }
 #endif
+            tickLoader();
         }
     }
 
@@ -291,6 +341,8 @@ int main() {
                 *next3D = framebuffer.is3d();
                 ++next3D;
             }
+
+            tickLoader();
         }
     }
 
@@ -300,6 +352,7 @@ int main() {
     
     animationprocessor_init();
     audioInit();
+    tickLoader();
 
     do {
         float seconds = audioCursor();
@@ -328,10 +381,11 @@ int main() {
             GLsizei w = screenWidth;
             GLsizei h = screenHeight;
             if (pass.fboId == 0b11111111) {
+                if (first) continue;
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
             } else {
                 const FramebufferInfo& framebuffer = framebuffers[pass.fboId];
-                if (!first && !framebuffer.realtime()) continue;
+                if (first == framebuffer.realtime()) continue;
                 glBindFramebuffer(GL_FRAMEBUFFER, fboHandles[pass.fboId]);
                 glDrawBuffers(framebuffer.numOutputBuffers(), outputBuffers);
                 w = framebuffer.width ? framebuffer.width : w / framebuffer.factor;
@@ -481,12 +535,14 @@ int main() {
                 }
                 HeapFree(GetProcessHeap(), 0, buffer);
             }
+
+            if(first)
+                tickLoader();
         }
 
         SwapBuffers(device);
 
-        if (currentShotIndex < shotCount - 1
-            && beats >= shotEndTimes[currentShotIndex]) { 
+        if (currentShotIndex < shotCount && beats >= shotEndTimes[currentShotIndex]) { 
             ++currentShotIndex;
             currentShot = (const ShotUniforms*)(((unsigned char*)currentShot) + currentShot->sizeOf);
             currentScene = (const ScenePasses*)&data[shotSceneIds[currentShotIndex]];

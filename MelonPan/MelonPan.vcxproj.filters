@@ -46,9 +46,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="core\wglext.h">
-      <Filter>core</Filter>
-    </ClInclude>
     <ClInclude Include="content\animationprocessor_eidolon.inl">
       <Filter>content</Filter>
     </ClInclude>
@@ -80,6 +77,9 @@
       <Filter>synths\64klang2</Filter>
     </ClInclude>
     <ClInclude Include="synths\64klang2.hpp">
+      <Filter>synths</Filter>
+    </ClInclude>
+    <ClInclude Include="core\wglext.h">
       <Filter>synths</Filter>
     </ClInclude>
   </ItemGroup>

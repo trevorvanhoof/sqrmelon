@@ -2,6 +2,8 @@
 # TODO: Every time I struct.pack some array of data I should actually define a (data)class that can serialize itself instead
 #  so it is easier to see when our C++-side structs are mismatching.
 import struct
+import codeoptimize
+from math import ceil
 from typing import Iterable, Mapping, TypeVar
 from xml.etree import cElementTree
 
@@ -156,7 +158,7 @@ def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, lis
                 # store the keys
                 # TODO: Will there ever be 65536 keys in a curve?
                 keysIndex = pool.ensureExists(multiPack('H', keysSize, f'{len(keys)}f', keys))
-                blob += struct.pack('I', keysIndex)
+                blob += multiPack('I', keysIndex)
 
         # Serialize all shot animation data as a single stream
         assert sizeOf == len(blob)
@@ -202,13 +204,14 @@ def readPassFBOInfo(passData: PassData) -> tuple[int, int, int, int]:
     return w, h, f, packed
 
 
-def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, int, dict[int, int], list[int], int]:
+def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, int, int, dict[int, int], list[int], int]:
     # For each used template, generate the framebuffer/colorbuffer construction info
     # and get a map of indices for: template frame buffer index -> real fbo index
     # and template color buffer index -> real cbo index
     fboConstructionInfo: list[tuple[int, int, int, int]] = []
     fboKeyToIndex: dict[int, int] = {}
     fboFirstCboIndex = [0]
+    staticFboCount = 0
     for passes in iterUsedTemplatePasses(enabledShots):
         for passData in passes:
             fboInfo = readPassFBOInfo(passData)
@@ -221,6 +224,8 @@ def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, i
                 continue
             fboKeyToIndex[passData.targetBufferId] = len(fboConstructionInfo)
             fboConstructionInfo.append(fboInfo)
+            if not passData.realtime:
+                staticFboCount += 1
             fboFirstCboIndex.append(fboFirstCboIndex[-1] + passData.numOutputBuffers)
     cboCount = fboFirstCboIndex.pop(-1)  # Value for "next" (non existant) pass is not necessary.
 
@@ -228,7 +233,19 @@ def serializeBuffers(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, i
     # that we can then index into using the values in these generated maps.
     fboBlockAddr = pool.ensureExists(b''.join(multiPack('HHBB', chunk) for chunk in fboConstructionInfo))
     fboCount = len(fboConstructionInfo)
-    return fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex, cboCount
+    return fboBlockAddr, fboCount, staticFboCount, fboKeyToIndex, fboFirstCboIndex, cboCount
+
+
+_shaderCache = {}
+
+
+def _getShader(pool: BinaryPool, filePath: FilePath):
+    if filePath.abs() in _shaderCache:
+        return _shaderCache[filePath.abs()]
+    text = filePath.content()
+    index = pool.ensureExists(codeoptimize.optimizeText(text).encode('utf8') + b'\n\0')
+    _shaderCache[filePath.abs()] = index
+    return index
 
 
 def main() -> None:
@@ -244,7 +261,7 @@ def main() -> None:
     shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations = serializeShots(pool, enabledShots)
 
     # Add all required render buffers
-    fboBlockAddr, fboCount, fboKeyToIndex, fboFirstCboIndex, cboCount = serializeBuffers(pool, enabledShots)
+    fboBlockAddr, fboCount, staticFboCount, fboKeyToIndex, fboFirstCboIndex, cboCount = serializeBuffers(pool, enabledShots)
 
     # Add the shaders and uniforms for each scene
     sceneIds = []
@@ -257,13 +274,8 @@ def main() -> None:
             stitchIds = []
             assert not passData.vertStitches, 'Vertex shaders are an experimental editor-only feature.'
             for shaderFilePath in passData.fragStitches:
-                with shaderFilePath.readBinary() as fh:
-                    # glShaderSource and glCreateShaderProgramv can take a list of strings
-                    # and infer the lengths if the strings are null terminated (cheaper than storing the lengths).
-                    # It will concatenate these strings without these nulls, so we also add a line break
-                    # in case the strings can not be concatenated without whitespace (e.g. the second string starts with a #define).
-                    txt = fh.read() + b'\n\0'
-                stitchIds.append(pool.ensureExists(txt))
+                _getShader(pool, shaderFilePath)
+                stitchIds.append(_getShader(pool, shaderFilePath))
             # TODO: Will there ever be more than 256 stitches in a program?
             programKey = ','.join(str(stitchId) for stitchId in stitchIds)
             if programKey not in programs:
@@ -282,7 +294,8 @@ def main() -> None:
             # Every scene is a list of passes, not all of them have sections, to avoid duplicating global passes
             # we add passes individually and then track the ids for the scene to render.
             # TODO: Will there ever be more than 256 inputs in a pass?
-            scenePassIds.append(pool.ensureExists(multiPack('IBB', (programId, fboId, len(cboIds)), f'{len(cboIds)}B', cboIds)))
+            # TODO: Will there ever be more than 65536 programs in a demo?
+            scenePassIds.append(pool.ensureExists(multiPack('HBB', (programId, fboId, len(cboIds)), f'{len(cboIds)}B', cboIds)))
         # TODO: Will there ever be more than 256 passes?
         sceneIds.append(pool.ensureExists(multiPack('B', len(scenePassIds), f'{len(scenePassIds)}I', scenePassIds)))
 
@@ -292,7 +305,6 @@ def main() -> None:
     shotSceneIdsIndex = pool.ensureExists(multiPack(f'{len(shotSceneIds)}I', shotSceneIds))
 
     # List all programs to compile
-    # TODO: Will there ever be more than 65536 programs in a demo?
     programIds = [stitchesAddr for _, stitchesAddr in programs.values()]
     programsIndex = pool.ensureExists(multiPack(f'{len(programIds)}I', programIds))
 
@@ -307,6 +319,7 @@ def main() -> None:
         assert 0 <= fboCount < 256
         fh.write(f'constexpr const unsigned int framebuffersInfoIndex = {fboBlockAddr};\n')
         fh.write(f'constexpr const unsigned char framebuffersCount = {fboCount};\n')
+        fh.write(f'constexpr const unsigned char staticFramebuffersCount = {staticFboCount};\n')
         fh.write(f'constexpr const unsigned int shotEndTimesIndex = {shotEndTimesIndex};\n')
         fh.write(f'constexpr const unsigned int shotSceneIdsIndex = {shotSceneIdsIndex};\n')
         fh.write(f'constexpr const unsigned int shotAnimationInfoIndex = {shotAnimationInfoIndex};\n')
