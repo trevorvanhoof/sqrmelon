@@ -417,8 +417,7 @@ class RangeSlider(QWidget):
         EPSILON = 0.01  # avoid division by 0
         if self.__drag is None:
             return
-        delta = event.x() - self.__drag[2]
-        delta = int(round(delta / float(self.width())) * (self.__timer.maxTime - self.__timer.minTime))
+        delta = round(((event.x() - self.__drag[2]) / self.width()) * (self.__timer.maxTime - self.__timer.minTime))
         # make sure ranges are in min/max range
         if self.__drag[0] and self.__drag[1]:
             self.__timer.start = min(max(self.__drag[3] + delta, self.__timer.minTime), self.__timer.maxTime - EPSILON)
