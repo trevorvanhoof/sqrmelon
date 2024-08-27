@@ -10,8 +10,8 @@
 #include "mmreg.h"
 #include "Synth.h"
 #define INCLUDE_NODES
-#include "64k2Patch.h"
-#include "64k2Song.h"
+#include "../../content/Eidolon/64k2Patch.h"
+#include "../../content/Eidolon/64k2Song.h"
 #include "SynthAllocator.h"
 
 //OPTIONAL: define this to add a cpu check for SSE4.1

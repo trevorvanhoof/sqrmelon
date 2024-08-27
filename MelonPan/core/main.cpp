@@ -1,13 +1,12 @@
-# TODO: resolution selector dialog, png support, recording support, window title
+// # TODO: png support, recording support, bros before foes, mp3 test
 
 #include "../content/config.h"
 
 #ifdef EIDOLON
-#include "../content/generated_eidolon.hpp"
+#include "../content/Eidolon/generated.hpp"
 #undef NO_AUDIO
 #define AUDIO_64KLANG2
-#undef AUDIO_BASS
-#undef AUDIO_WAVESABRE
+#undef 
 #else
 #include "../content/generated.hpp"
 #endif
@@ -27,25 +26,15 @@
 #include <string>
 #else
 extern "C" {
+    int _purecall() { return 0; };
     int _fltused; 
     extern float sinf(float);
     extern float sqrtf(float);
     extern float atan2f(float,float);
     extern float acosf(float);
 }
-#ifndef AUDIO_WAVESABRE
 inline float cosf(float v) { return sinf(v + 3.14159265359f * 0.5f); }
 inline float tanf(float v) { return sinf(v) / cosf(v); }
-#else
-extern "C" int _purecall() { return 0; };
-int atexit() { return 0; }; // TODO: This was not needed in the other player, is it because we are not using static libs?
-void* __cdecl operator new(size_t x) { return HeapAlloc(GetProcessHeap(), 0, x); }
-void* __cdecl operator new[](size_t x) { return HeapAlloc(GetProcessHeap(), 0, x); }
-void __cdecl operator delete(void* p, size_t x) { HeapFree(GetProcessHeap(), 0, p); }
-void __cdecl operator delete(void* p) { HeapFree(GetProcessHeap(), 0, p); }
-void __cdecl operator delete[](void* p) { HeapFree(GetProcessHeap(), 0, p); }
-void __cdecl operator delete[](void* p, size_t x) { HeapFree(GetProcessHeap(), 0, p); }
-#endif
 #endif
 
 #include "wglext.h"
@@ -60,14 +49,55 @@ void __cdecl operator delete[](void* p, size_t x) { HeapFree(GetProcessHeap(), 0
 #ifdef AUDIO_BASS
 #include "../synths/bass.hpp"
 #endif
-#ifdef AUDIO_WAVESABRE
-#include <mmiscapi.h>
-#include "../synths/wavesabre.hpp"
+
+#ifdef RESOLUTION_SELECTOR
+#include "../extensions/Dialog.h"
+
+int resolutionIndex;
+bool isWindowed;
+
+INT_PTR CALLBACK ConfigDialogProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_INITDIALOG:
+    {
+        HWND hwndRes = GetDlgItem(hwndDlg, IDC_COMBORESO);
+
+        SendMessage(hwndRes, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)"native");
+        SendMessage(hwndRes, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)"1280 x 720");
+        SendMessage(hwndRes, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)"1920 x 1080");
+
+#ifdef _DEBUG
+        SendMessage(hwndRes, CB_SETCURSEL, 1, 0);
+        SendMessage(GetDlgItem(hwndDlg, IDC_CHECKWIN), BM_SETCHECK, BST_CHECKED, 0);
+#else
+        SendMessage(hwndRes, CB_SETCURSEL, 0, 0);
 #endif
+    }
 
+    return true;
 
-constexpr const int screenWidth = 1920;
-constexpr const int screenHeight = 1080;
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+
+        case IDOK:
+            resolutionIndex = SendMessage(GetDlgItem(hwndDlg, IDC_COMBORESO), CB_GETCURSEL, 0, 0);
+            isWindowed = IsDlgButtonChecked(hwndDlg, IDC_CHECKWIN) == BST_CHECKED;
+
+            EndDialog(hwndDlg, IDOK);
+            break;
+
+        case IDCANCEL:
+            EndDialog(hwndDlg, IDCANCEL);
+            break;
+        }
+    }
+
+    return false;
+}
+#endif
 
 // http://sizecoding.blogspot.com/2007/10/tiny-opengl-windowing-code.html
 constexpr const PIXELFORMATDESCRIPTOR pfd = {
@@ -195,7 +225,7 @@ struct ScenePasses {
 };
 
 #ifdef EIDOLON
-#include "../content/animationprocessor_eidolon.inl"
+#include "../content/Eidolon/animationprocessor.inl"
 #else
 #include "../content/animationprocessor.inl"
 #endif
@@ -275,13 +305,63 @@ int main() {
     // This is an array of scenes, but they are not of a fixed size, so we can not index into the pointer.
     const ScenePasses* currentScene = (const ScenePasses*)(data + shotSceneIds[currentShotIndex]);
 
-    // https://www.pouet.net/topic.php?which=9894&page=1
-    HWND window = CreateWindowExA(0, (LPCSTR)0xC018, 0, WS_POPUP | WS_VISIBLE, 0, 0, screenWidth, screenHeight, 0, 0, 0, 0);
+    int screenWidth, screenHeight;
+    bool isWindowed;
+    HWND window;
+
+#ifdef RESOLUTION_SELECTOR
+    // resolution selector
+    INT_PTR result = DialogBoxA(GetModuleHandleA(NULL), MAKEINTRESOURCEA(IDD_DIALOGCONFIG), NULL, ConfigDialogProc);
+    if (result != IDOK)
+        return;
+    switch (resolutionIndex) {
+    case 1: // HD ready
+        screenWidth = 1280;
+        screenHeight = 720;
+        break;
+    case 2: // full HD
+        screenWidth = 1920;
+        screenHeight = 1080;
+        break;
+    default: // native
+        screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        screenHeight = GetSystemMetrics(SM_CYSCREEN);
+        isWindowed = true; // going to full screen only makes sense if we want to change the resolution of the screen
+        break;
+    }
+#else
+    screenWidth = DEMO_WIDTH;
+    screenHeight = DEMO_HEIGHT;
+
+    #if defined(IS_WINDOWED) || DEMO_WIDTH == 0 || DEMO_HEIGHT == 0
+    isWindowed = true;
+    #endif
+
+#endif
+    if (isWindowed) {
+        // https://www.pouet.net/topic.php?which=9894&page=1
+        window = CreateWindowExA(0, (LPCSTR)49177, WINDOW_TITLE, WS_POPUP | WS_VISIBLE, 0, 0, screenWidth, screenHeight, 0, 0, 0, 0);
+    } else {
+        DEVMODEA dmScreenSettings {
+            "", 0, 0, sizeof(dmScreenSettings), 0, DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFIXEDOUTPUT,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, 0, (DWORD)screenWidth, (DWORD)screenHeight, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        };
+        ChangeDisplaySettingsA(&dmScreenSettings, CDS_FULLSCREEN);
+        window = CreateWindowExA(0, (LPCSTR)49177, WINDOW_TITLE, WS_POPUP | WS_VISIBLE | WS_MAXIMIZE, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
     ShowCursor(0);
 
     device = GetDC(window);
     SetPixelFormat(device, ChoosePixelFormat(device, &pfd), &pfd);
     wglMakeCurrent(device, wglCreateContext(device));
+
+    #if DEMO_WIDTH == 0 || DEMO_HEIGHT == 0
+    RECT area;
+    GetClientRect(window, &area);
+    screenWidth = area.right - area.left;
+    screenHeight = area.bottom - area.top;
+    #endif
 
     initLoader( 1 /*initial tick*/ + programCount + framebuffersCount + 1 /*audio*/ + staticFramebuffersCount, screenWidth, screenHeight);
     tickLoader();

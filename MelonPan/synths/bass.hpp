@@ -6,7 +6,7 @@ inline void audioInit() {}
 
 inline void audioPlay() {
     BASS_Init(-1, 44100, 0, NULL, NULL);
-    chan = BASS_StreamCreateFile(false, "audio.mp3", 0, 0, 0);
+    chan = BASS_StreamCreateFile(false, BASS_FILE_PATH, 0, 0, 0);
     BASS_ChannelPlay(chan, true);
 }
 

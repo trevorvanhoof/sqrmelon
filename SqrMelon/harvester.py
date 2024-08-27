@@ -311,7 +311,7 @@ def main() -> None:
     beatsPerSecond = cElementTree.fromstring(currentProjectFilePath().content()).attrib.get('TimerBPS', 2.0)
 
     # Globals to use in the framework
-    outputPath = FilePath(__file__).abs().parent().parent().join('MelonPan', 'content', 'generated_eidolon.hpp')
+    outputPath = FilePath(__file__).abs().parent().parent().join('MelonPan', 'content', 'generated.hpp')
     with outputPath.edit() as fh:
         fh.write('constexpr const unsigned char data[] = {')
         fh.write(', '.join(str(int(number)) for number in pool.data()))

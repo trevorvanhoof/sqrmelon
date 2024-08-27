@@ -1,4 +1,4 @@
-#include "../../content/config.h"
+#include "../content/config.h"
 #ifdef EIDOLON
 #include "64klang2_eidolon/SynthPlayer.h"
 inline void audioInit() { return _64klang2_Init(); }
@@ -16,8 +16,8 @@ inline float audioCursor() { return _64klang2_GetPlaybackTime(); }
 
 #include "64klang/Player/Player/Synth.h"
 #define INCLUDE_NODES
-#include "64klang/Player/Player/64k2Patch.h"
-#include "64klang/Player/Player/64k2Song.h"
+#include "../content/Eidolon/64k2Patch.h"
+#include "../content/Eidolon/64k2Song.h"
 #include "64klang/Player/Player/SynthAllocator.h"
 
 //OPTIONAL: define this to add a cpu check for SSE4.1

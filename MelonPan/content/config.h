@@ -1,15 +1,16 @@
 #pragma once
 
 // Select which demo to build
-// If none specified, default file names used are:
-// 64k2Patch.h
-// 64k2Song.h
-// generated.hpp
-// animationprocessor.hpp
+// If none specified, default files used are content/...:
+// - 64k2Patch.h (for 64klang2)
+// - 64k2Song.h (for 64klang2)
+// - soundtrack.mp3 (for bass)
+// - generated.hpp (sqrmelon export)
+// - animationprocessor.hpp (must emulate animationprocessor.py of the project)
 // #define EIDOLON
 
 // Select which audio runtime to use
-// #define NO_AUDIO
+#define NO_AUDIO
 
 // #define AUDIO_64KLANG2
 // Requires winmm.lib
@@ -17,12 +18,25 @@
 // Requires msacm32.lib
 
 // #define AUDIO_BASS
-// Requires bass.lib
+// #define BASS_FILE_PATH "content/soundtrack.mp3"
+// Requires synths/bass/bass_x86.lib
 
-#define AUDIO_WAVESABRE
-// Requires winmm.lib
-// Requires msacm32.lib
-// Requires dsound.lib
-// TODO: WaveSabre on x86 pulls in acosf, atan2f, sinf, sqrtf; which clashes with our asm versions - can we use that mechanism across the board and get rid of the asm files?
-// TODO: WaveSabre on x64 requires these math functions too but somehow they can't be found by the linker - it only finds our x64 asm versions and misses a bunch more.
-// TODO: WaveSabre should officially be used by building static(?) libraries which may simplify a lot of this. Currently wavesabre_obj0.cpp just includes all the cpp files that would normally be built into those libs.
+// Select loader type
+// #define NO_LOADER
+// #define SMALLER_LOADER
+
+// Make the player more integrated with windows
+// #define ENABLE_WINDOWS_EVENTS
+
+// Pop-up to select fullscreen or windowed & resolution
+// #define RESOLUTION_SELECTOR
+
+// Or hard-code fullscreen or windowed & resolution
+#ifndef RESOLUTION_SELECTOR
+#define IS_WINDOWED
+#define DEMO_WIDTH 1920
+#define DEMO_HEIGHT 1080
+#endif
+
+// Set the window title
+#define WINDOW_TITLE "Made with SqrMelon"

@@ -129,5 +129,5 @@ inline void animationprocessor_finalize(unsigned int program) {
 }
 
 // This allows the user to pass in different locals. Though the contextual code may change over time it should hopefully only introduce new locals that may or may not be used here.
-#define animationprocessor__doCallback() animationprocessor_curveEvaluated(currentShot->uniformName(i), element, value, screenWidth, screenHeight)
+#define animationprocessor__doCallback() animationprocessor_curveEvaluated(currentShot->uniformName(i), element, value, (float)screenWidth, (float)screenHeight)
 #define animationprocessor__doFinalize() animationprocessor_finalize(program)

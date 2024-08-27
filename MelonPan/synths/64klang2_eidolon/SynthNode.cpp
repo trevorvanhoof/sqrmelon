@@ -2,7 +2,7 @@
 #ifdef EIDOLON
 // get skip node definitions in exe mode
 #ifndef COMPILE_VSTI
-	#include "64k2Patch.h"
+#include "../../content/Eidolon/64k2Patch.h"
 #endif
 
 #include "SynthNode.h"
