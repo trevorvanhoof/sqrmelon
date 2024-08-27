@@ -571,10 +571,10 @@ class Scene(QObject):
         bufferData[numBuffers - 1] = 1, 1, None, False
 
         for fbo in self.frameBuffers:
-            glDeleteFramebuffers(1, fbo.id())
+            glDeleteFramebuffers(1, int(fbo.id()))
         for cbos in self.colorBuffers:
             for cbo in cbos:
-                glDeleteTextures(1, cbo.id())
+                glDeleteTextures(1, int(cbo.id()))
 
         self.frameBuffers.clear()
         self.colorBuffers.clear()
