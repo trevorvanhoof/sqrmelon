@@ -513,6 +513,8 @@ def run() -> None:
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
 
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+
     win = App()
     win.show()
     app.exec()
