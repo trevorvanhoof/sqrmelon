@@ -88,6 +88,9 @@
     <ClInclude Include="extensions\stb_image_write.h">
       <Filter>extensions</Filter>
     </ClInclude>
+    <ClInclude Include="synths\wavesabre.hpp">
+      <Filter>synths</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="asmmath\atan2f.asm">

@@ -6,7 +6,15 @@
 #include "../content/Eidolon/generated.hpp"
 #undef NO_AUDIO
 #define AUDIO_64KLANG2
+#undef AUDIO_WAVESABRE
+#undef AUDIO_BASS
 #undef 
+#elif defined(BROS_BEFORE_FOES)
+#include "../content/BrosBeforeFoes/generated.hpp"
+#undef NO_AUDIO
+#undef AUDIO_64KLANG2
+#define AUDIO_WAVESABRE
+#undef AUDIO_BASS
 #else
 #include "../content/generated.hpp"
 #endif
@@ -25,6 +33,23 @@
 #include <sstream>
 #include <string>
 #else
+#ifdef AUDIO_WAVESABRE
+#undef _CRT_FUNCTIONS_REQUIRED
+extern "C" const IID GUID_NULL = { 0, 0, 0, {0,0,0,0} };
+extern "C" {
+    int _purecall() { return 0; };
+    int _fltused; 
+    extern float sinf(float);
+    extern float sqrtf(float);
+    extern float atan2f(float,float);
+    extern float acosf(float);
+
+    _Check_return_ __inline float __CRTDECL cosf(_In_ float _X) { return sinf(_X + 3.14159265359f * 0.5f); }
+    _Check_return_ __inline float __CRTDECL tanf(_In_ float _X) { return sinf(_X) / cosf(_X); }
+}
+void* __cdecl operator new(size_t size) { return HeapAlloc(GetProcessHeap(), 0, size); }
+void __cdecl operator delete(void* ptr) { HeapFree(GetProcessHeap(), 0, ptr); }
+#else
 extern "C" {
     int _purecall() { return 0; };
     int _fltused; 
@@ -35,6 +60,7 @@ extern "C" {
 }
 inline float cosf(float v) { return sinf(v + 3.14159265359f * 0.5f); }
 inline float tanf(float v) { return sinf(v) / cosf(v); }
+#endif
 #endif
 
 #include "wglext.h"
@@ -48,6 +74,9 @@ inline float tanf(float v) { return sinf(v) / cosf(v); }
 #endif
 #ifdef AUDIO_BASS
 #include "../synths/bass.hpp"
+#endif
+#ifdef AUDIO_WAVESABRE
+#include "../synths/wavesabre.hpp"
 #endif
 
 #ifdef RESOLUTION_SELECTOR
