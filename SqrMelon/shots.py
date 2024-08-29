@@ -425,7 +425,7 @@ class ShotModel(QSortFilterProxyModel):
         super().setSourceModel(sourceModel)
 
     def sourceModel(self) -> ShotItemModel:
-        return super().sourceModel(sourceModel)  # type: ignore
+        return super().sourceModel()  # type: ignore
 
     def item(self, row: int, col: int = 0) -> QStandardItem:
         return self.sourceModel().itemFromIndex(self.mapToSource(self.index(row, col)))
