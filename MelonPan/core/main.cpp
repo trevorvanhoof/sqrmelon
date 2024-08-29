@@ -19,7 +19,30 @@
 #include "../content/generated.hpp"
 #endif
 
+#ifdef SUPPORT_PNG
+#define STB_IMAGE_IMPLEMENTATION
+#include "../extensions/stb_image.h"
+#endif
+
+#ifdef assert
+#undef assert
+#endif
+
+#ifdef _DEBUG
 #define assert(expr) if(!(expr)) __debugbreak();
+#else
+#define assert(expr) if(!(expr)) {}
+#endif
+
+#ifdef EXPORT_FRAMES_FPS
+#define __STDC_LIB_EXT1__
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../extensions/stb_image_write.h"
+#undef NO_AUDIO
+#undef AUDIO_64KLANG2
+#undef AUDIO_WAVESABRE
+#undef AUDIO_BASS
+#endif
 
 #define VC_EXTRALEAN
 #define WIN32_LEAN_AND_MEAN
@@ -260,13 +283,15 @@ struct ScenePasses {
 #endif
 
 HDC device;
+
+#ifndef NO_LOADER
 float loaderStep = 0;
 float loaderSteps = 0;
 GLint loaderUniform;
 GLuint loaderProgram;
 
 const char* loaderCode = "#version 410\nuniform vec2 r;uniform float t;out vec3 c;void main(){"
-#if 0
+#ifdef SMALLER_LOADER
 "c=vec3(step(gl_FragCoord.x/r.x,t));"
 #else
 "vec2 a=(gl_FragCoord.xy*2-r)/r.y,"
@@ -304,6 +329,41 @@ void tickLoader() {
     glRecti(-1, -1, 1, 1);
     SwapBuffers(device);
 }
+#else
+__forceinline void initLoader(int steps, int screenWidth, int screenHeight) {}
+__forceinline void tickLoader() {}
+#endif
+
+#ifdef SUPPORT_PNG
+GLuint imageTextures[textureCount];
+
+void loadTextures() {
+    glGenTextures(textureCount, imageTextures);
+    for(unsigned int i = 0; i < textureCount; ++i) {
+        glBindTexture(GL_TEXTURE_2D, imageTextures[i]);
+        int x, y, n;
+        unsigned char* data = stbi_load(texturePaths[i * 2 + 1], &x, &y, &n, 0);
+        assert(data != nullptr);
+        GLenum format[4] = { GL_RED, GL_RG, GL_RGB, GL_RGBA };
+        --n;
+        assert(n >= 0 && n < 4);
+        glTexImage2D(GL_TEXTURE_2D, 0, format[n], x, y, 0, format[n], GL_UNSIGNED_BYTE, data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        // sqrMelon leaves wrapping on default
+        stbi_image_free(data);
+        tickLoader();
+    }
+}
+
+void setTextureUniforms(GLuint program, GLenum nextActiveTexture) {
+    for(unsigned int i = 0; i < textureCount; ++i) {
+        glActiveTexture(GL_TEXTURE0 + nextActiveTexture + i);
+        glBindTexture(GL_TEXTURE_2D, imageTextures[i]);
+        glUniform1i(glGetUniformLocation(program, texturePaths[i * 2]), GL_TEXTURE0 + nextActiveTexture + i);
+    }
+}
+#endif
 
 #ifdef _DEBUG
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow ) {
@@ -392,8 +452,17 @@ int main() {
     screenHeight = area.bottom - area.top;
     #endif
 
-    initLoader( 1 /*initial tick*/ + programCount + framebuffersCount + 1 /*audio*/ + staticFramebuffersCount, screenWidth, screenHeight);
+    initLoader( 1 /*initial tick*/ + programCount + framebuffersCount + 1 /*audio*/ + staticFramebuffersCount
+#ifdef SUPPORT_PNG
+        + textureCount
+#endif
+        , screenWidth, screenHeight);
     tickLoader();
+
+#ifdef SUPPORT_PNG
+    // Import images
+    loadTextures();
+#endif
 
     // Compile shaders
     GLuint programHandles[programCount];
@@ -407,7 +476,7 @@ int main() {
             }
             programHandles[i] = glCreateShaderProgramv(GL_FRAGMENT_SHADER, program.stitchCount, stitchBuffer);
 
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
             // DEBUG: Output the shader files; named after the order in the handles array.
             std::stringstream name;
             name << "program_" << (int)i << ".glsl";
@@ -432,7 +501,7 @@ int main() {
         GLuint* nextCbo = cboHandles;
         bool* next3D = cboIs3D;
 
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
         {
             std::stringstream info;
             info << "current shot index: " << currentShotIndex << " | using scene: " << shotSceneIds[currentShotIndex] << std::endl;
@@ -446,7 +515,7 @@ int main() {
             glBindFramebuffer(GL_FRAMEBUFFER, fboHandles[i]);
             fboCboStartIndex[i] = (int)(nextCbo - cboHandles);
 
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
             // DEBUG: Output the framebuffer info to the debugger.
             std::stringstream info;
             info << "fbo index: " << (int)i << " | output count: " << (int)framebuffer.numOutputBuffers() << " | first cbo index: " << (size_t)(nextCbo - cboHandles) << std::endl;
@@ -483,13 +552,33 @@ int main() {
     float deltaSeconds = 0.0f;
     
     animationprocessor_init();
+#ifndef EXPORT_FRAMES_FPS
     audioInit();
+#endif
     tickLoader();
 
+#ifdef EXPORT_FRAMES_FPS 
+    void* exportFrameBuffer = HeapAlloc(GetProcessHeap(), 0, screenWidth * screenHeight * 3);
+    unsigned int exportFrame = 0;
+    constexpr const float deltaSeconds = (float)(1.0 / EXPORT_FRAMES_FPS);
+#endif
+
+#ifdef ENABLE_WINDOWS_EVENTS
+    MSG msg;
+#endif
+
+    float beats = 0.0f;
     do {
+#ifdef EXPORT_FRAMES_FPS
+        float seconds = (float)((double)exportFrame / (double)EXPORT_FRAMES_FPS);
+#else
         float seconds = audioCursor();
-        float beats = seconds * beatsPerSecond;
         deltaSeconds = seconds - prevSeconds;
+#endif
+        seconds = (seconds + DEBUG_START_SECONDS) * DEBUG_SPEED_FACTOR;
+        deltaSeconds *= DEBUG_SPEED_FACTOR;
+
+        beats = seconds * beatsPerSecond;
 
         // Evaluate the animation
         float localBeats = beats - ((currentShotIndex == 0) ? 0.0f : shotEndTimes[currentShotIndex - 1]);
@@ -528,7 +617,7 @@ int main() {
             GLuint program = programHandles[pass.programId];
             glUseProgram(program);
 
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
             // DEBUG: Output the pass info to the debugger.
             std::stringstream info;
             info << "pass index: " << (int)i << " | width: " << (int)w << " | height: " << (int)h << " | program index: " << (int)pass.programId << " | cbos: " << (int)pass.cboCount << std::endl;
@@ -549,7 +638,7 @@ int main() {
 #endif
 
                 bool is3d = cboIs3D[pass.cbo(j)];
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
                 info << "\t" << (int)pass.cbo(j) << ", is3d: " << is3d << std::endl;
 #endif
                 if(is3d) {
@@ -563,7 +652,7 @@ int main() {
                 }
             }
 
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
             {
                 std::string tmp = info.str();
                 OutputDebugStringA(tmp.c_str());
@@ -573,7 +662,7 @@ int main() {
             // Forward uniforms
             for(unsigned char i = 0; i < currentShot->uniformCount; ++i) {
 
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
                 std::stringstream uniformInfo;
                 uniformInfo << "Setting uniform: " << currentShot->uniformName(i) << " | vec" << (int)animationTypeBuffer[i] << ": ";
                 switch(animationTypeBuffer[i]) {
@@ -622,7 +711,7 @@ int main() {
             glUniform2f(glGetUniformLocation(program, "uResolution"), (float)w, (float)h);
             glUniform1f(glGetUniformLocation(program, "uSeconds"), seconds);
             glUniform1f(glGetUniformLocation(program, "uBeats"), beats);
-#ifdef _DEBUG
+#ifdef USE_OUTPUT_DEBUG_STRING
             {
                 std::stringstream uniformInfo;
                 uniformInfo << "Setting uniform: uResolution | vec2: " << (int)w << ", " << (int)h << std::endl;
@@ -631,6 +720,11 @@ int main() {
                 std::string tmp = uniformInfo.str();
                 OutputDebugStringA(tmp.c_str());
             }
+#endif
+
+#ifdef SUPPORT_PNG
+            // Global textures
+            setTextureUniforms(program, pass.cboCount);
 #endif
 
             // animationprocessor
@@ -682,12 +776,34 @@ int main() {
 
         if (first) {
             // Make sure all static textures are baked before we actually start the demo
+#ifndef EXPORT_FRAMES_FPS
             audioPlay();
+#endif
             first = false;
+            continue;
         } else {
             prevSeconds = seconds;
         }
-    } while (!GetAsyncKeyState(VK_ESCAPE) && currentShotIndex < shotCount);
+
+#ifdef EXPORT_FRAMES_FPS 
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadBuffer(GL_BACK_LEFT);
+        glReadPixels(0, 0, screenWidth, screenHeight, GL_RGB, GL_UNSIGNED_BYTE, exportFrameBuffer);
+        char buf[128];
+        ZeroMemory(buf, 128);
+        sprintf_s(buf, "frame%d.png", exportFrame++);
+        stbi_write_png(buf, screenWidth, screenHeight, 3, exportFrameBuffer, screenWidth * 3);
+#endif
+
+#ifdef ENABLE_WINDOWS_EVENTS
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT)
+                break;
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+#endif
+    } while (!GetAsyncKeyState(VK_ESCAPE) && beats < shotEndTimes[shotCount - 1]);
 
     ExitProcess(0);
 }

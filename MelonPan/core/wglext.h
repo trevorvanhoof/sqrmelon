@@ -19,6 +19,7 @@
 #define GL_TEXTURE1 0x84C1
 #define GL_TEXTURE_3D 0x806F
 #define GL_TEXTURE_WRAP_R 0x8072
+#define GL_RG 0x8227
 
 
 

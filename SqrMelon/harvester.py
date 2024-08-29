@@ -3,7 +3,6 @@
 #  so it is easier to see when our C++-side structs are mismatching.
 import struct
 import codeoptimize
-from math import ceil
 from typing import Iterable, Mapping, TypeVar
 from xml.etree import cElementTree
 
@@ -11,7 +10,7 @@ from PySide6.QtWidgets import QApplication
 
 from animationgraph.curvedata import Key
 from fileutil import FilePath
-from projutil import currentProjectFilePath, currentScenesDirectory, iterSceneNames, SCENE_EXT, templatePathFromScenePath
+from projutil import currentProjectDirectory, currentProjectFilePath, currentScenesDirectory, iterSceneNames, SCENE_EXT, templatePathFromScenePath
 from scene import deserializePasses, PassData
 from shots import deserializeSceneShots, Shot
 
@@ -83,16 +82,23 @@ def gatherEnabledShots(sceneNameIndexMap: Mapping[str, int]) -> list[Shot]:
     return enabledShots
 
 
-def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, list[str], int, int]:
+def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, list[str], int, int, dict[str, FilePath]]:
     # Serialize shot times and validate the timeline
     timeCursor = 0.0
     shotEndTimes = []
     shotSceneNames = []
     maxAnimations = 0
+    texturePaths: dict[str, FilePath] = {}
     # For each shot we have: number of uniforms, that many uniform name indices, that many uniform sizes, and then all the curve indices in order
     shotInfo = []
     for shot in enabledShots:
-        assert not shot.textures, f'Shot {shot.name} uses texture uniforms, this is an editor-only feature and not supported in the 64k runtime.'
+        if shot.textures:
+            print(f'Shot {shot.name} uses texture uniforms, this is not supported in the 64k runtime. stb_image will be enabled and the standard library will be required.')
+            for name, path in shot.textures.items():
+                if name in texturePaths:
+                    assert texturePaths[name] == path, f'Shot {shot.name} redeclares texture uniform {name} to a different file {path}, was previously defined as {texturePaths[name]}. This is not supported by the runtime.'
+                else:
+                    texturePaths[name] = path
 
         assert shot.start <= timeCursor, f'Gap in timeline found before: {shot.name}.'
         if shot.start != timeCursor:
@@ -172,7 +178,7 @@ def serializeShots(pool: BinaryPool, enabledShots: list[Shot]) -> tuple[int, lis
     # TODO: Will there ever be 65536 shots in a demo?
     shotEndTimesIndex = pool.ensureExists(multiPack(f'{len(shotEndTimes)}f', shotEndTimes))
     shotAnimationInfoIndex = pool.ensureExists(b''.join(shotInfo))
-    return shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations
+    return shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations, texturePaths
 
 
 def iterUsedTemplatePasses(enabledShots: list[Shot]) -> Iterable[list[PassData]]:
@@ -258,7 +264,7 @@ def main() -> None:
     enabledShots = gatherEnabledShots(sceneNameIndexMap)
 
     # Add all shots to the demo
-    shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations = serializeShots(pool, enabledShots)
+    shotEndTimesIndex, shotSceneNames, shotAnimationInfoIndex, maxAnimations, texturePaths = serializeShots(pool, enabledShots)
 
     # Add all required render buffers
     fboBlockAddr, fboCount, staticFboCount, fboKeyToIndex, fboFirstCboIndex, cboCount = serializeBuffers(pool, enabledShots)
@@ -329,6 +335,15 @@ def main() -> None:
         fh.write(f'constexpr const unsigned char shotCount = {shotCount};\n')
         fh.write(f'constexpr const float beatsPerSecond = {beatsPerSecond}f;\n')
         fh.write(f'constexpr const unsigned short programCount = {len(programIds)};\n')
+
+        if texturePaths:
+            fh.write('#define SUPPORT_PNG\n')
+            fh.write(f'constexpr const unsigned int textureCount = {len(texturePaths)};\n')
+            fh.write('constexpr const char* texturePaths[textureCount * 2] = {\n')
+            for name, path in texturePaths.items():
+                relPath = path.abs().relativeTo(currentProjectDirectory())
+                fh.write(f'\t"{name}", "{relPath}",\n')
+            fh.write('};\n')
 
     print(f'Wrote: {currentProjectFilePath()}\nto: {outputPath}')
 
