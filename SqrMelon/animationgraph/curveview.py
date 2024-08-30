@@ -560,6 +560,7 @@ class CurveView(QWidget):
             return
 
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.__camera.region()
         if not rect[2] or not rect[3]:
             return
