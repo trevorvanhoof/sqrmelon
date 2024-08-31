@@ -883,6 +883,9 @@ class CurveEditor(QWidget):
             self.undoStacks()[0].push(edit)
 
     def __onShiftSelectedKeyTimeOrValue(self, widget: DoubleSpinBox, isTime: bool = True) -> None:
+        if not widget.isDirty():
+            return
+        
         keys = self.__view.selectedKeys()
         if self.__relative.value():
             delta = widget.value()
