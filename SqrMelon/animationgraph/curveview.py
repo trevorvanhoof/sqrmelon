@@ -1,4 +1,3 @@
-# TODO: scroll wheel zoom, zoom X and Y equally
 from __future__ import annotations
 
 import functools
@@ -122,10 +121,11 @@ class CurveView(QWidget):
         paddingY = (32.0 / max(1.0, self.height())) * (
             (boundsMax.y - boundsMin.y) if (boundsMax.y != boundsMin.y) else 1.0)
 
+        height = boundsMax.y - boundsMin.y + 2 * paddingY 
         region = (boundsMin.x - paddingX,
-                  boundsMin.y - paddingY,
+                  boundsMin.y - paddingY + height, # QPainter Y axis tends to infinity downwards, hence that we negate y.
                   boundsMax.x - boundsMin.x + 2 * paddingX,
-                  boundsMax.y - boundsMin.y + 2 * paddingY)
+                  height)
         self.__cameraUndoStack.push(CameraFrameAction(self.__camera, region))
         self.update()
 
@@ -270,7 +270,9 @@ class CurveView(QWidget):
             x, y, w, h = self.__camera.region()
         else:
             x, y, w, h = overrideRegion
-        return QPoint(int((point.x() - x) * self.width() / w), int((point.y() - y) * self.height() / h))
+            
+         # QPainter Y axis tends to infinity downwards, hence that we negate y.
+        return QPoint(int((point.x() - x) * self.width() / w), -int((point.y() - y) * self.height() / h))
 
     def pixelToScene(self, point: QPoint, overrideRegion: Optional[Float4] = None) -> QPointF:
         if not overrideRegion:
@@ -279,7 +281,9 @@ class CurveView(QWidget):
             x, y, w, h = overrideRegion
         px = point.x() / self.width()
         py = point.y() / self.height()
-        return QPointF(x + px * w, y + py * h)
+
+         # QPainter Y axis tends to infinity downwards, hence that we negate y.
+        return QPointF(x + px * w, -y + py * h)
 
     def createUndoView(self) -> QUndoView:
         view = QUndoView()
@@ -395,6 +399,17 @@ class CurveView(QWidget):
         selectAction = functools.partial(self.select, select[0], select[1],
                                          event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier,
                                          event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier)
+
+        # TODO: this is a bit hacky and should be reimplemented properly!
+        # Allows dragging a key without pre-selecting it (that was not possible
+        # before given that selection is actually committed by 
+        # mouseReleaseEvent below).
+        # If SHIFT is pressed, multi-selection is assumed and selection is
+        # performed by mouseReleaseEvent below.
+        if not self.__selection.isKeySelected(select[0], select[1]) and event.modifiers() & Qt.KeyboardModifier.ShiftModifier != Qt.KeyboardModifier.ShiftModifier:
+            selectAction()
+            self.update()
+
         selection = list(self.__selection.keys())
         self.__drag = DragAction(event, selection, selectAction, scale, cast(tuple[int, int], tuple(self.__snap)))
 
@@ -417,7 +432,6 @@ class CurveView(QWidget):
 
     def mouseMoveEvent(self, event_: QMouseEvent) -> None:
         event = RemappedEvent(self.pixelToScene(event_.pos(), self.__cache), event_)
-
         # return if no drag action
         if not self.__drag:
             if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
@@ -430,14 +444,26 @@ class CurveView(QWidget):
         self.__drag.update(event)
         self.update()
 
+    def wheelEvent(self, inEvent: QWheelEvent):
+        eventVel = -(1 if inEvent.angleDelta().y() > 0 else -1) * 0.01
+        if inEvent.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
+            eventVel = eventVel * 0.5
+
+        eventPos = inEvent.position()
+        eventStep = QPointF(eventVel, eventVel)
+        cameraZoomAction = CameraZoomAction(RemappedEvent(eventPos, inEvent), self.size(), self.__camera)
+        cameraZoomAction.update(RemappedEvent(eventPos + eventStep, inEvent))        
+        cameraZoomAction.finalize(RemappedEvent(eventPos + eventStep + eventStep, inEvent))        
+
     def setModel(self, model: QStandardItemModel, selectionModel: QItemSelectionModel) -> None:
         self.__models = model, selectionModel
         self.__selection.setModel(model)
 
     def _drawBg(self, painter: QPainter, scaleX: float, scaleY: float, rect: Float4) -> None:
-        backColor = QColor.fromRgb(96, 96, 96)
-        linesColor = QColor.fromRgb(83, 83, 83)
+        backColor = QColor.fromRgb(41, 43, 43)
+        linesColor = QColor.fromRgb(56, 56, 56)
         axisColor = QColor.fromRgb(122, 122, 122)
+        textColor = QColor.fromRgb(143, 138, 135)
 
         # draw background
         painter.fillRect(0, 0, self.width(), self.height(), backColor)
@@ -454,7 +480,7 @@ class CurveView(QWidget):
             x += sx
             px = self.sceneToPixel(QPointF(x, 0.0)).x()
 
-            painter.setPen(Qt.GlobalColor.black)
+            painter.setPen(textColor)
             painter.drawText(px + 3, self.height() - 5, str(round(x, 4)))
 
             painter.setPen(axisColor if x == 0 else linesColor)
@@ -468,7 +494,7 @@ class CurveView(QWidget):
             y += sy
             py = self.sceneToPixel(QPointF(0.0, y)).y()
 
-            painter.setPen(Qt.GlobalColor.black)
+            painter.setPen(textColor)
             painter.drawText(3, py - 1, str(round(y, 4)))
 
             painter.setPen(axisColor if y == 0 else linesColor)
@@ -492,7 +518,14 @@ class CurveView(QWidget):
         painter.drawRect(1, 1, self.width() - 2, self.height() - 2)
         painter.setClipRect(2, 2, self.width() - 4, self.height() - 4)
 
-    __COLORS = {'x': Qt.GlobalColor.red, 'y': Qt.GlobalColor.green, 'z': Qt.GlobalColor.blue, 'w': Qt.GlobalColor.white}
+    __PENS = { 
+            'x': QPen(QColor.fromRgb(138, 23, 23), 2, Qt.SolidLine), 
+            'y': QPen(QColor.fromRgb(18, 168, 18), 2, Qt.SolidLine),
+            'z': QPen(QColor.fromRgb(69, 122, 204), 2, Qt.SolidLine), 
+            'w': QPen(QColor.fromRgb(120, 122, 117), 2, Qt.SolidLine),
+            'single': QPen(QColor.fromRgb(122, 122, 23), 2, Qt.SolidLine),
+            'selected': QPen(Qt.GlobalColor.white, 2, Qt.SolidLine)
+    }
 
     def _drawCurves(self, painter: QPainter, rows: Iterable[int], start: float, end: float, precision: float) -> None:
         # draw lines
@@ -503,21 +536,25 @@ class CurveView(QWidget):
             if not len(curve):
                 continue
             identifier = item.text()[-1]
-            if identifier in self.__COLORS:
-                painter.setPen(self.__COLORS[identifier])
-            else:
-                painter.setPen(Qt.GlobalColor.red)
+            painter.setPen(self.__PENS[identifier] if identifier in self.__PENS else self.__PENS['w'])
             prevPx = None
             x = max(start, curve[0].time())
+
             while x < min(end, curve[-1].time()):
-                y = curve.evaluate(x)
+                evaluatedCurveData = curve.evaluateWithSnapAndKey(x, precision)
+                y = evaluatedCurveData[0]
+                if self.__selection.isKeySelected(row, evaluatedCurveData[1]) or self.__selection.isKeySelected(row, evaluatedCurveData[2]):
+                    painter.setPen(self.__PENS['selected'])
+                else:
+                    painter.setPen(self.__PENS[identifier] if identifier in self.__PENS else self.__PENS['single'])
+
                 px = self.sceneToPixel(QPointF(x, y))
                 if prevPx is not None:
                     painter.drawLine(prevPx, px)
                 prevPx = px
                 x += precision
 
-    def _drawTangent(self, painter: QPainter, keyPoint: QPoint, tangent: Vec2) -> None:
+    def _drawTangent(self, painter: QPainter, keyPoint: QPoint, tangent: Vec2, pen: QPen) -> None:
         tangentScale = Vec2(self.width() / self.__camera.region()[2], self.height() / self.__camera.region()[3])
 
         # We want to draw a line of 50 px in the tangent direction
@@ -528,13 +565,18 @@ class CurveView(QWidget):
         tangent.normalize()
 
         tangentPoint = QPoint(int(keyPoint.x() + tangent.x * 50), int(keyPoint.y() + tangent.y * 50))
-        painter.fillRect(QRect(tangentPoint.x() - 2, tangentPoint.y() - 2, 5, 5), Qt.GlobalColor.magenta)
-        painter.setPen(Qt.GlobalColor.magenta)
+        painter.fillRect(QRect(tangentPoint.x() - 2, tangentPoint.y() - 2, 5, 5), pen.color())
+        painter.setPen(pen)
         painter.drawLine(keyPoint, tangentPoint)
 
     def _drawKeys(self, painter: QPainter, rows: Iterable[int]) -> None:
         # draw points
         assert self.__models is not None
+
+        keyColorPen = QPen(QColor.fromRgb(218, 110, 64), 2, Qt.SolidLine)
+        selectedKeyColorPen = QPen(Qt.GlobalColor.white, 2, Qt.SolidLine)
+        tangentColorPen = QPen(QColor.fromRgb(98, 99, 100), 2, Qt.SolidLine)
+                           
         for row in rows:
             curve = self.__models[0].item(row).data()
             for i, key in enumerate(curve):
@@ -542,16 +584,19 @@ class CurveView(QWidget):
                 if self.__selection.isKeySelected(row, i):
                     # We're currently selected! Draw our tangent points
                     inTangent = (Vec2(-1.0, 0.0) if key.inTangent().sqrLen() == 0 else -key.inTangent())
-                    self._drawTangent(painter, point, inTangent)
+                    self._drawTangent(painter, point, inTangent, tangentColorPen)
                     isStep = key.outTangent().y == float('inf')
                     if not isStep:  # don't draw stapped tangents
                         outTangent = (Vec2(1.0, 0.0) if key.outTangent().sqrLen() == 0 else key.outTangent())
                         outTangent.normalize()
-                        self._drawTangent(painter, point, outTangent)
-                    color = Qt.GlobalColor.yellow
-                else:
-                    color = Qt.GlobalColor.black
-                painter.fillRect(QRectF(point.x() - 2, point.y() - 2, 5, 5), color)
+                        self._drawTangent(painter, point, outTangent, tangentColorPen)
+
+                painter.save()
+                painter.translate(point)
+                painter.rotate(45)
+                painter.setPen(selectedKeyColorPen if self.__selection.isKeySelected(row, i) else keyColorPen)
+                painter.drawRect(-4, -4, 8, 8)
+                painter.restore()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         if self.paintTime == time.time():
@@ -560,9 +605,13 @@ class CurveView(QWidget):
             return
 
         painter = QPainter(self)
+        painter.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.TextAntialiasing)
         rect = self.__camera.region()
         if not rect[2] or not rect[3]:
             return
+        
+        # QPainter Y axis tends to infinity downwards, hence that we readjust z.
+        rect = [ rect[0], rect[1] - rect[3], rect[2], rect[3] ]
 
         # scaling from view space to screen space
         scaleX = self.width() / rect[2]

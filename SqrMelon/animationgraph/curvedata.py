@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Iterator, Optional
+from typing import Iterator, Optional, List, Union
 
 from mathutil import Vec2
 
@@ -321,21 +321,30 @@ class Curve:
         t = (time - lhs_time) / dx
         return t * (t * (t * c0 + c1) + c2) + c3
 
-    def evaluate(self, time: float) -> float:
+    def evaluateWithSnapAndKey(self, time: float, precision: float) -> List[Union[float, int]]:
         """
         Hermite spline interpolation at the given time.
         Times outside the bounds are just clamped to the endpoints.
         """
         if not self.__keys:
-            return 0.0
+            return [ 0.0, -1, -1 ]
 
         if time <= self.__keys[0].time():
-            return self.__keys[0].value()
+            return [ self.__keys[0].value(), 0, 0 ]
 
         for i in range(1, len(self.__keys)):
             if self.__keys[i].time() > time:
                 p0 = self.__keys[i - 1].point()
                 p3 = self.__keys[i].point()
-                return self._evaluate(p0.x, p0.y, self.__keys[i - 1].outTangent().y, self.__keys[i].inTangent().y, p3.x, p3.y, time)
 
-        return self.__keys[-1].value()
+                # Make sure to emit a keyframe value when a key within the 
+                # given precision is found.
+                if precision > 0 and (self.__keys[i].time() >= time - precision) and (self.__keys[i].time() <= time + precision):
+                    return [ self.__keys[i].value(), i, i ]
+
+                return [ self._evaluate(p0.x, p0.y, self.__keys[i - 1].outTangent().y, self.__keys[i].inTangent().y, p3.x, p3.y, time), i - 1, i ]
+
+        return [ self.__keys[-1].value(), -1, -1 ]
+
+    def evaluate(self, time: float) -> float:
+        return self.evaluateWithSnapAndKey(time, -1)[0]
