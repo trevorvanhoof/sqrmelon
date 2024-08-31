@@ -55,7 +55,7 @@ class App(QMainWindowState):
             self.setWindowIcon(icons.get('Candy Cane-48'))
         else:
             self.setWindowIcon(icons.get('SqrMelon'))
-        self.setWindowTitle('SqrMelon')
+        self.setWindowTitle('SqrMelon (Architect Edition)')
         self.setDockNestingEnabled(True)
 
         self.__menuBar = QMenuBar()
