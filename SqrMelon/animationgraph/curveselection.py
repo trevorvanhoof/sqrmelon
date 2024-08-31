@@ -90,12 +90,15 @@ class MarqueeSelectAction:
     def __init__(self, event: RemappedEvent, parent: CurveView) -> None:
         self.__start = event.pos()
         self.__cursor = event.pos()
+        self.__screenSpaceStart = event.sourceEvent().pos()
+        self.__screenSpaceCursor = event.sourceEvent().pos()
         self.__parent = parent
         self.__shift = event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier
         self.__ctrl = event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier
 
     def update(self, event: RemappedEvent) -> None:
         self.__cursor = event.pos()
+        self.__screenSpaceCursor = event.sourceEvent().pos()
 
     def finalize(self, _: Any) -> None:
         x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
@@ -119,12 +122,7 @@ class MarqueeSelectAction:
                     first = False
 
     def paint(self, painter: QPainter) -> None:
-        x, y, x2, y2 = self.__start.x(), self.__start.y(), self.__cursor.x(), self.__cursor.y()
+        x, y, x2, y2 = self.__screenSpaceStart.x(), self.__screenSpaceStart.y(), self.__screenSpaceCursor.x(), self.__screenSpaceCursor.y()
         rect = min(x, x2), min(y, y2), abs(x2 - x), abs(y2 - y)
-        pen = QPen(Qt.GlobalColor.white)
-        pen.setStyle(Qt.PenStyle.DotLine)
-
-        painter.setPen(Qt.GlobalColor.black)
-        painter.drawRect(QRectF(*rect))
-        painter.setPen(pen)
-        painter.drawRect(QRectF(*rect))
+        painter.setPen(QPen(QColor.fromRgb(120, 122, 117), 1, Qt.DashLine))
+        painter.drawRect(QRectF(*rect))        
