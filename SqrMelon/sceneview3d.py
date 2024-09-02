@@ -58,6 +58,7 @@ class SceneView(QOpenGLWindow):
         #  actually more in line with this feature.
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
+        self._dpiScale = 1.0
 
     def cameraInput(self) -> Camera:
         assert self._cameraInput is not None
@@ -183,9 +184,10 @@ class SceneView(QOpenGLWindow):
 
         self._prevTime = newTime
 
-        width, height = self.calculateAspect(self.width(), self.height())
-        viewport = (int((self.width() - width) * 0.5),
-                    int((self.height() - height) * 0.5),
+        scaledSize = int(ceil(self.width() * self._dpiScale)), int(ceil(self.height() * self._dpiScale))
+        width, height = self.calculateAspect(scaledSize[0], scaledSize[1])
+        viewport = (int((scaledSize[0] - width) * 0.5),
+                    int((scaledSize[1] - height) * 0.5),
                     width,
                     height)
 
@@ -234,14 +236,14 @@ class SceneView(QOpenGLWindow):
                 glEnable(GL_DEPTH_TEST)
 
     def __onResize(self) -> None:
-        w = self.width()
-        h = self.height()
-        if self._previewRes[0]:
-            w = self._previewRes[0]
-        if self._previewRes[1]:
-            h = self._previewRes[1]
-        w = int(w * self._previewRes[2])
-        h = int(h * self._previewRes[2])
+        # According to Qt6 doc (https://doc.qt.io/qt-6/highdpi.html) low-level 
+        # graphics such as OpenGL needs to be DPI-aware.
+        self._dpiScale = QApplication.screenAt(self.geometry().center()).devicePixelRatio() if self.isVisible() else 1.0
+
+        # Apply DPI scale to scene for relative sizes (e.g., "Viewport 1/2").
+        w = int((self._previewRes[0] if (self._previewRes[0]) else int(ceil(self.width() * self._dpiScale))) * self._previewRes[2]);
+        h = int((self._previewRes[1] if (self._previewRes[1]) else int(ceil(self.height() * self._dpiScale))) * self._previewRes[2]);
+
         self._size = self.calculateAspect(w, h)[0:2]
         if min(self._size) < 64:
             f = 64 / min(self._size)
