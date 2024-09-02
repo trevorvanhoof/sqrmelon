@@ -58,7 +58,7 @@ class App(QMainWindowState):
             self.setWindowIcon(icons.get('Candy Cane-48'))
         else:
             self.setWindowIcon(icons.get('SqrMelon'))
-        self.setWindowTitle('SqrMelon')
+        self.setWindowTitle('SqrMelon (Architect Edition)')
         self.setDockNestingEnabled(True)
 
         self.__menuBar = QMenuBar()
@@ -509,7 +509,7 @@ class App(QMainWindowState):
 def run() -> None:
     # We found that not setting a version in Ubuntu didn't work
     glFormat = QSurfaceFormat()
-    glFormat.setVersion(4, 1)
+    glFormat.setVersion(4, 6)
     glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
     glFormat.setDefaultFormat(glFormat)
 
@@ -531,6 +531,8 @@ def run() -> None:
 
     win = App()
     win.show()
+
+    print("Qt version: ", qVersion(), ".")
     app.exec()
 
 if __name__ == '__main__':

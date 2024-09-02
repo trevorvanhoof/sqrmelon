@@ -597,18 +597,12 @@ class CurveView(QWidget):
                         outTangent = (Vec2(1.0, 0.0) if key.outTangent().sqrLen() == 0 else key.outTangent())
                         outTangent.normalize()
                         self._drawTangent(painter, point, outTangent, tangentColorPen)
-                    pen = selectedKeyColorPen
-                else:
-                    pen = keyColorPen
-                if not self.__newStyle:
-                    painter.fillRect(QRectF(point.x() - 2, point.y() - 2, 5, 5), pen.color())
-                else:
-                    painter.save()
-                    painter.translate(point)
-                    painter.rotate(45)
-                    painter.setPen(pen)
-                    painter.drawRect(-4, -4, 8, 8)
-                    painter.restore()
+                painter.save()
+                painter.translate(point)
+                painter.rotate(45)
+                painter.setPen(selectedKeyColorPen if self.__selection.isKeySelected(row, i) else keyColorPen)
+                painter.drawRect(-4, -4, 8, 8)
+                painter.restore()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         if self.paintTime == time.time():
