@@ -80,6 +80,8 @@ class Camera(QWidget):
             self.__keyStates[key] = False
         self.__data = CameraTransform()
         self.__inputs = []
+
+        cameraTransformViewData = [ [ "Translate", 1 ], [ "Rotate", 5 ] ]
         for i, value in enumerate(self.__data):
             cameraTransformViewDataBaseIdx = 0 if (i < 3) else 1
             self.layout().addWidget(QLabel(cameraTransformViewData[cameraTransformViewDataBaseIdx][0]), cameraTransformViewDataBaseIdx + 1, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignCenter)
