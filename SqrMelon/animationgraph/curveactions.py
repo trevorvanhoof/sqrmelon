@@ -8,7 +8,7 @@ from qt import *
 class RemappedEvent:
     """Utility to store event data in camera-space instead of pixel-space"""
 
-    def __init__(self, pos: QPointF, event: QMouseEvent) -> None:
+    def __init__(self, pos: QPointF, event: QSinglePointEvent) -> None:
         self.__pos = pos
         self.__event = event
 

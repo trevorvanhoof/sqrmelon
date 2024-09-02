@@ -70,7 +70,6 @@ class Camera(QWidget):
             self.__keyStates[key] = False
         self.__data = CameraTransform()
         self.__inputs = []
-        # Casting because the type checker can't deal with __iter__ for some reason.
         for i, value in enumerate(self.__data):
             s = DoubleSpinBox(value)
             s.setMinimumWidth(50)
