@@ -21,9 +21,6 @@ class RemappedEvent:
     def y(self) -> float:
         return self.__pos.y()
 
-    def sourceEvent(self) -> QMouseEvent:
-        return self.__event
-
     # TODO: This looks shoddy
     def __getattr__(self, attr: str) -> Any:
         return getattr(self.__event, attr)

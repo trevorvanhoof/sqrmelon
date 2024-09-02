@@ -83,7 +83,7 @@ class CameraZoomAction(CameraUndoCommand):
             h = self.__restoreRegion[3] * (self.__zoomStrength ** -self.__zoomFactor[1])
             h = max(0.01, h)
             # Zoom from the center
-            y = self.__restoreRegion[1] - 0.5 * self.__restoreRegion[3] + h * 0.5
+            y = self.__restoreRegion[1] + 0.5 * self.__restoreRegion[3] - h * 0.5
         else:
             h = self.__restoreRegion[3]
             y = self.__restoreRegion[1]
