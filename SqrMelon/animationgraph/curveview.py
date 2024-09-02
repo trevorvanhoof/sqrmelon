@@ -1,4 +1,3 @@
-# TODO: scroll wheel zoom, zoom X and Y equally
 from __future__ import annotations
 
 import functools
@@ -122,10 +121,11 @@ class CurveView(QWidget):
         paddingX = (32.0 / max(1.0, self.width())) * ((boundsMax.x - boundsMin.x) if (boundsMax.x != boundsMin.x) else 1.0)
         paddingY = (32.0 / max(1.0, self.height())) * ((boundsMax.y - boundsMin.y) if (boundsMax.y != boundsMin.y) else 1.0)
 
+        height = boundsMax.y - boundsMin.y + 2 * paddingY 
         region = (boundsMin.x - paddingX,
-                  boundsMin.y - paddingY,
+                  boundsMin.y - paddingY + height, # QPainter Y axis tends to infinity downwards, hence that we negate y.
                   boundsMax.x - boundsMin.x + 2 * paddingX,
-                  boundsMax.y - boundsMin.y + 2 * paddingY)
+                  height)
         self.__cameraUndoStack.push(CameraFrameAction(self.__camera, region))
         self.update()
 
@@ -421,7 +421,6 @@ class CurveView(QWidget):
 
     def mouseMoveEvent(self, event_: QMouseEvent) -> None:
         event = RemappedEvent(self.pixelToScene(event_.pos(), self.__cache), event_)
-
         # return if no drag action
         if not self.__drag:
             if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
@@ -539,6 +538,7 @@ class CurveView(QWidget):
                 painter.setPen(self.__COLORS.get(identifier, Qt.GlobalColor.red))
             prevPx = None
             x = max(start, curve[0].time())
+
             while x < min(end, curve[-1].time()):
                 for key in curve:
                     if abs(key.time() - x) < precision * 0.5:
@@ -579,6 +579,11 @@ class CurveView(QWidget):
 
         # draw points
         assert self.__models is not None
+
+        keyColorPen = QPen(QColor.fromRgb(218, 110, 64), 2, Qt.SolidLine)
+        selectedKeyColorPen = QPen(Qt.GlobalColor.white, 2, Qt.SolidLine)
+        tangentColorPen = QPen(QColor.fromRgb(98, 99, 100), 2, Qt.SolidLine)
+                           
         for row in rows:
             curve = self.__models[0].item(row).data()
             for i, key in enumerate(curve):
@@ -592,18 +597,12 @@ class CurveView(QWidget):
                         outTangent = (Vec2(1.0, 0.0) if key.outTangent().sqrLen() == 0 else key.outTangent())
                         outTangent.normalize()
                         self._drawTangent(painter, point, outTangent, tangentColorPen)
-                    pen = selectedKeyColorPen
-                else:
-                    pen = keyColorPen
-                if not self.__newStyle:
-                    painter.fillRect(QRectF(point.x() - 2, point.y() - 2, 5, 5), pen.color())
-                else:
-                    painter.save()
-                    painter.translate(point)
-                    painter.rotate(45)
-                    painter.setPen(pen)
-                    painter.drawRect(-4, -4, 8, 8)
-                    painter.restore()
+                painter.save()
+                painter.translate(point)
+                painter.rotate(45)
+                painter.setPen(selectedKeyColorPen if self.__selection.isKeySelected(row, i) else keyColorPen)
+                painter.drawRect(-4, -4, 8, 8)
+                painter.restore()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         if self.paintTime == time.time():
@@ -614,6 +613,9 @@ class CurveView(QWidget):
         rect = self.__camera.region()
         if not rect[2] or not rect[3]:
             return
+        
+        # QPainter Y axis tends to infinity downwards, hence that we readjust z.
+        rect = [ rect[0], rect[1] - rect[3], rect[2], rect[3] ]
 
         painter = QPainter(self)
         if self.__newStyle:

@@ -11,6 +11,7 @@ from qtutil import DoubleSpinBox, hlayout
 from scene import CameraTransform
 from shots import ShotManager
 from timeslider import Timer
+import json
 
 Float6 = tuple[float, float, float, float, float, float]
 
@@ -42,26 +43,35 @@ class Camera(QWidget):
 
     def __init__(self, animator: ShotManager, animationEditor: CurveEditor, timer: Timer):
         super(Camera, self).__init__()
-        self.setLayout(hlayout())
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        for i, value in enumerate([ 4, 8, 8, 8, 1, 1, 1 ]):
+            layout.setColumnStretch(i, value)
+        for i, value in enumerate([ 1, 1, 1, 1, 9999 ]):
+            layout.setRowStretch(i, value)
+        layout.addItem(QSpacerItem(1, 1, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding), 4, 0)
 
         self.__enabled = QPushButton('')
         self.__enabled.clicked.connect(self.toggle)
         self.__enabled.setFlat(True)
-        self.layout().addWidget(self.__enabled)
+        self.__enabled.setStyleSheet("QPushButton { border-style: none; border-width: 0px; padding: 0px; }")
+        layout.addWidget(QLabel("Animate"), 0, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.__enabled, 0, 1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignCenter)
+
         self.__cameraControlActive = True  # the toggle call will make this the opposite
         self.toggle()
-        self.__enabled.setIconSize(QSize(24, 24))
+        self.__enabled.setIconSize(QSize(20, 20))
 
         timer.timeChanged.connect(self.__copyAnim)
         copyAnim = QPushButton(QIcon(icons.get('Film-Refresh-48')), '')
-        copyAnim.setToolTip('Copy anim')
-        copyAnim.setStatusTip('Copy anim')
+        copyAnim.setToolTip('Copy animation to camera.')
         self.__animator = animator
         self.__animationEditor = animationEditor
         self._timer = timer
         copyAnim.clicked.connect(self.copyAnim)
-        self.layout().addWidget(copyAnim)
-        copyAnim.setIconSize(QSize(24, 24))
+        layout.addWidget(copyAnim, 0, 6, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignCenter)
+        copyAnim.setIconSize(QSize(20, 20))
 
         self.__keyStates: dict[Qt.Key, bool] = {Qt.Key.Key_Shift: False, Qt.Key.Key_Control: False}
         for key in Camera.MOVE_LUT:
@@ -71,13 +81,35 @@ class Camera(QWidget):
         self.__data = CameraTransform()
         self.__inputs = []
         for i, value in enumerate(self.__data):
+            cameraTransformViewDataBaseIdx = 0 if (i < 3) else 1
+            self.layout().addWidget(QLabel(cameraTransformViewData[cameraTransformViewDataBaseIdx][0]), cameraTransformViewDataBaseIdx + 1, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignCenter)
+
             s = DoubleSpinBox(value)
-            s.setMinimumWidth(50)
-            self.__inputs.append(s)
-            if i in (3, 4, 5):
-                s.setSingleStep(5)
-            self.layout().addWidget(s)
+            s.setMinimumWidth(75)
+            s.setDecimals(3)
+            s.setSingleStep(cameraTransformViewData[cameraTransformViewDataBaseIdx][1])
             s.valueChanged.connect(functools.partial(self.__setData, i))
+            layout.addWidget(s, cameraTransformViewDataBaseIdx + 1, 1 + (i % 3))
+            self.__inputs.append(s)
+
+        iconizedPushButtonsData = [
+            [ 1, 4, 'Copy-48', 'Copy camera translation to clipboard.', self.__onCopyCameraPos ],
+            [ 1, 5, 'Paste-48', 'Paste camera translation from clipboard.', self.__onPasteCameraPos ],
+            [ 1, 6, 'Reset-48', 'Reset camera translation.', self.__onResetCameraPos ],
+            [ 2, 4, 'Copy-48', 'Copy camera rotation to clipboard.', self.__onCopyCameraRot ],
+            [ 2, 5, 'Paste-48', 'Paste camera rotation from clipboard.', self.__onPasteCameraRot ],
+            [ 2, 6, 'Reset-48', 'Reset camera rotation.', self.__onResetCameraRot ],
+            [ 3, 4, 'Copy-48', 'Copy camera transform to clipboard.', self.__onCopyCameraTxx ],
+            [ 3, 5, 'Paste-48', 'Paste camera transform from clipboard.', self.__onPasteCameraTxx ],
+            [ 3, 6, 'Reset-48', 'Reset camera transform.', self.__onResetCameraTxx ],
+        ]
+        for value in iconizedPushButtonsData:
+            s = QPushButton(QIcon(icons.get(value[2])), '')
+            s.setToolTip(value[3])
+            s.setIconSize(QSize(20, 20))
+            s.clicked.connect(value[4])
+            layout.addWidget(s, value[0], value[1], Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignCenter)
+
         self.__prevTime: Optional[float] = None
         self.__appLoop = QTimer()
         self.__appLoop.timeout.connect(self.flyUpdate)
@@ -123,12 +155,10 @@ class Camera(QWidget):
         self.__cameraControlActive = not self.__cameraControlActive
         if self.__cameraControlActive:
             self.__enabled.setIcon(icons.get('Toggle Off-48'))
-            self.__enabled.setToolTip('Enable camera animation')
-            self.__enabled.setStatusTip('Enable camera animation')
+            self.__enabled.setToolTip('Enable camera animation.')
         else:
             self.__enabled.setIcon(icons.get('Toggle On-48'))
-            self.__enabled.setToolTip('Disable camera animation')
-            self.__enabled.setStatusTip('Disable camera animation')
+            self.__enabled.setToolTip('Disable camera animation.')
 
     def __setData(self, index: int, value: float) -> None:
         """Called from the UI, performing unit conversion on angles."""
@@ -220,3 +250,71 @@ class Camera(QWidget):
                 value = degrees(value)
             self.__inputs[i].setValueSilent(value)
         self.cameraChanged.emit()
+
+    def __onCopyCameraPos(self):
+        QApplication.clipboard().setText(json.dumps(self.__data.data[:3]))
+
+    def __onPasteCameraPos(self):
+        try:
+            cpText = json.loads(QApplication.clipboard().text())
+            self.__data.translate = cpText
+            if len(cpText) == 3:
+                for i, value in enumerate(cpText):
+                    self.__inputs[i].setValueSilent(value)
+                self.cameraChanged.emit()
+
+        except:
+            return
+
+    def __onResetCameraPos(self):
+        for i in range(0, 3):
+            self.__inputs[i].setValueSilent(0)
+        self.__data.translate = [ 0, 0, 0 ]
+        self.cameraChanged.emit()
+
+    def __onCopyCameraRot(self):
+        rot = self.__data.data[3:6]
+        for i, value in enumerate(rot):
+            rot[i] = degrees(value)
+        QApplication.clipboard().setText(json.dumps(rot))
+
+    def __onPasteCameraRot(self):
+        try:
+            cpText = json.loads(QApplication.clipboard().text())
+            if len(cpText) == 3:
+                for i in range(len(cpText)):
+                    self.__inputs[i + 3].setValueSilent(cpText[i])
+                self.__data.rotate = [ radians(cpText[0]), radians(cpText[1]), radians(cpText[2]) ]
+                self.cameraChanged.emit()
+
+        except:
+            return
+
+    def __onResetCameraRot(self):
+        for i in (3, 4, 5):
+            self.__inputs[i].setValueSilent(0)
+            self.__data.rotate = [ 0, 0, 0 ]
+        self.cameraChanged.emit()
+
+    def __onCopyCameraTxx(self):
+        txx = self.__data.data
+        for i in range(3, 6):
+            txx[i] = degrees(txx[i])
+        QApplication.clipboard().setText(json.dumps(txx))
+
+    def __onPasteCameraTxx(self):
+        try:
+            cpText = json.loads(QApplication.clipboard().text())
+            if len(cpText) == 6:
+                for i in range(len(cpText)):
+                    self.__inputs[i].setValueSilent(cpText[i])
+                self.__data.translate = cpText[:3]
+                self.__data.rotate = [ radians(cpText[3]), radians(cpText[4]), radians(cpText[5]) ]
+                self.cameraChanged.emit()
+
+        except:
+            return
+
+    def __onResetCameraTxx(self):
+        self.__onResetCameraPos()
+        self.__onResetCameraRot()
