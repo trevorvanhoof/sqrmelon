@@ -1,0 +1,6 @@
+[submodule "MelonPan/synths/64klang"]
+	path = MelonPan/synths/64klang
+	url = https://github.com/gopher-atz/64klang.git
+[submodule "MelonPan/synths/WaveSabre"]
+	path = MelonPan/synths/WaveSabre
+	url = https://github.com/logicomacorp/WaveSabre.git

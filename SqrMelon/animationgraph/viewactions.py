@@ -142,7 +142,7 @@ class CameraPanAction(CameraUndoCommand):
             QApplication.setOverrideCursor(Qt.CursorShape.SizeAllCursor)
 
     def _apply(self) -> None:
-        self.__camera.setPosition(self.__restore[0] - self.__delta[0], self.__restore[1] - self.__delta[1])
+        self.__camera.setPosition(self.__restore[0] - self.__delta[0], self.__restore[1] + self.__delta[1])
 
     def _restore(self) -> None:
         self.__camera.setPosition(self.__restore[0], self.__restore[1])

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, Callable
 
 from animationgraph.curveactions import RemappedEvent
 from qt import *
@@ -121,8 +121,10 @@ class MarqueeSelectAction:
                         self.__ctrl = True
                     first = False
 
-    def paint(self, painter: QPainter) -> None:
-        x, y, x2, y2 = self.__screenSpaceStart.x(), self.__screenSpaceStart.y(), self.__screenSpaceCursor.x(), self.__screenSpaceCursor.y()
+    def paint(self, painter: QPainter, inverseMap: Callable[[QPointF], QPoint]) -> None:
+        start = inverseMap(self.__start)
+        cursor = inverseMap(self.__cursor)
+        x, y, x2, y2 = start.x(), start.y(), cursor.x(), cursor.y()
         rect = min(x, x2), min(y, y2), abs(x2 - x), abs(y2 - y)
         painter.setPen(QPen(QColor.fromRgb(120, 122, 117), 1, Qt.DashLine))
         painter.drawRect(QRectF(*rect))        
