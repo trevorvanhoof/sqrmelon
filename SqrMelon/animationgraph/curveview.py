@@ -106,21 +106,19 @@ class CurveView(QWidget):
         for key in keys:
             point = key.point()
             if boundsMin is None:
-                boundsMin = Vec2(point)
+                boundsMin = Vec2(point.x, -point.y)
                 boundsMax = Vec2(boundsMin)
                 continue
             boundsMin.x = min(boundsMin.x, point.x)
-            boundsMin.y = min(boundsMin.y, point.y)
+            boundsMin.y = min(boundsMin.y, -point.y)
             boundsMax.x = max(boundsMax.x, point.x)
-            boundsMax.y = max(boundsMax.y, point.y)
+            boundsMax.y = max(boundsMax.y, -point.y)
         if boundsMin is None or boundsMax is None:
             return
 
         # Determine padding on both sides (32 pixels please)
-        paddingX = (32.0 / max(1.0, self.width())) * (
-            (boundsMax.x - boundsMin.x) if (boundsMax.x != boundsMin.x) else 1.0)
-        paddingY = (32.0 / max(1.0, self.height())) * (
-            (boundsMax.y - boundsMin.y) if (boundsMax.y != boundsMin.y) else 1.0)
+        paddingX = (32.0 / max(1.0, self.width())) * ((boundsMax.x - boundsMin.x) if (boundsMax.x != boundsMin.x) else 1.0)
+        paddingY = (32.0 / max(1.0, self.height())) * ((boundsMax.y - boundsMin.y) if (boundsMax.y != boundsMin.y) else 1.0)
 
         region = (boundsMin.x - paddingX,
                   boundsMin.y - paddingY,
@@ -254,7 +252,7 @@ class CurveView(QWidget):
             w, h = self.__camera.region()[2:]
         else:
             w, h = overrideRegion[2:]
-        return QPoint(int(point.x() * self.width() / w), int(point.y() * self.height() / h))
+        return QPoint(int(point.x() * self.width() / w), int(-point.y() * self.height() / h))
 
     def pixelToSceneDistance(self, point: QPoint, overrideRegion: Optional[Float4] = None) -> QPointF:
         if not overrideRegion:
@@ -263,14 +261,14 @@ class CurveView(QWidget):
             w, h = overrideRegion[2:]
         px = point.x() / self.width()
         py = point.y() / self.height()
-        return QPointF(px * w, py * h)
+        return QPointF(px * w, -py * h)
 
     def sceneToPixel(self, point: QPointF, overrideRegion: Optional[Float4] = None) -> QPoint:
         if not overrideRegion:
             x, y, w, h = self.__camera.region()
         else:
             x, y, w, h = overrideRegion
-        return QPoint(int((point.x() - x) * self.width() / w), int((point.y() - y) * self.height() / h))
+        return QPoint(int((point.x() - x) * self.width() / w), int((-point.y() - y) * self.height() / h))
 
     def pixelToScene(self, point: QPoint, overrideRegion: Optional[Float4] = None) -> QPointF:
         if not overrideRegion:
@@ -279,7 +277,7 @@ class CurveView(QWidget):
             x, y, w, h = overrideRegion
         px = point.x() / self.width()
         py = point.y() / self.height()
-        return QPointF(x + px * w, y + py * h)
+        return QPointF(x + px * w, -(y + py * h))
 
     def createUndoView(self) -> QUndoView:
         view = QUndoView()
@@ -560,6 +558,7 @@ class CurveView(QWidget):
             return
 
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.__camera.region()
         if not rect[2] or not rect[3]:
             return
@@ -583,7 +582,7 @@ class CurveView(QWidget):
 
         # draw marquee selection area
         if self.__drag and hasattr(self.__drag, 'paint'):
-            self.__drag.paint(painter)
+            self.__drag.paint(painter, self.sceneToPixel)
 
         self.paintTime = time.time()
 
