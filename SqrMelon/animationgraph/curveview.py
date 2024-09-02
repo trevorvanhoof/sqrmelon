@@ -4,7 +4,7 @@ from __future__ import annotations
 import functools
 import re
 import time
-from math import log10, floor
+from math import copysign, log10, floor
 from typing import Any, cast, Iterable, Optional, TYPE_CHECKING, Union
 
 import icons
@@ -385,16 +385,20 @@ class CurveView(QWidget):
                     select = row, i
                     break
 
-        # return if no point under mouse
-        # TODO: we should do a marquee select if the target is not selected yet
+        # marquee select if no point under mouse
         if not select:
             self.__drag = MarqueeSelectAction(event, self)
             return
 
-        # begin drag action
+        # drag selected points
         selectAction = functools.partial(self.select, select[0], select[1],
                                          event.modifiers() & Qt.KeyboardModifier.ShiftModifier == Qt.KeyboardModifier.ShiftModifier,
                                          event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier)
+
+        if not self.__selection.isKeySelected(select[0], select[1]) and not event.modifiers():
+            selectAction()
+            self.update()
+
         selection = list(self.__selection.keys())
         self.__drag = DragAction(event, selection, selectAction, scale, cast(tuple[int, int], tuple(self.__snap)))
 
@@ -429,6 +433,17 @@ class CurveView(QWidget):
         # drag should be implicit, so we can just validate and redraw the new state (moved or undone)
         self.__drag.update(event)
         self.update()
+
+    def wheelEvent(self, event: QWheelEvent):
+        velocity = -copysign(0.01, event.angleDelta().y())
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier == Qt.KeyboardModifier.ControlModifier:
+            velocity *= 0.5
+
+        eventPos = event.position()
+        eventStep = QPointF(velocity, velocity)
+        cameraZoomAction = CameraZoomAction(RemappedEvent(eventPos, event), self.size(), self.__camera)
+        cameraZoomAction.update(RemappedEvent(eventPos + eventStep, event))
+        cameraZoomAction.finalize(RemappedEvent(eventPos + eventStep + eventStep, event))
 
     def setModel(self, model: QStandardItemModel, selectionModel: QItemSelectionModel) -> None:
         self.__models = model, selectionModel
@@ -525,8 +540,13 @@ class CurveView(QWidget):
             prevPx = None
             x = max(start, curve[0].time())
             while x < min(end, curve[-1].time()):
-                y = curve.evaluate(x)
-                px = self.sceneToPixel(QPointF(x, y))
+                for key in curve:
+                    if abs(key.time() - x) < precision * 0.5:
+                        p = QPointF(key.time(), key.value())
+                        break
+                else:
+                    p = QPointF(x, curve.evaluate(x))
+                px = self.sceneToPixel(p)
                 if prevPx is not None:
                     painter.drawLine(prevPx, px)
                 prevPx = px
