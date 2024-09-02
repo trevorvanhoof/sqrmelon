@@ -6,7 +6,6 @@ from typing import Any, cast, Optional
 
 from qt import *
 
-
 # TODO: floating dockwidget splitter state does not seem to be saved correctly
 
 class QMainWindowState(QMainWindow):
@@ -152,12 +151,19 @@ class DoubleSpinBox(QDoubleSpinBox):
         self.setValue(value)
         self.setSingleStep(0.01)
         self.setLineEdit(LineEditSelected())
+        self.__initialValue = value
 
     def setValueSilent(self, value: float) -> None:
         self.blockSignals(True)
         self.setValue(value)
         self.blockSignals(False)
 
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self.__prevValue = self.value()
+        super().focusInEvent(event)
+
+    def isDirty(self) -> bool:
+        return self.value() != self.__initialValue
 
 class CheckBox(QCheckBox):
     valueChanged = Signal(int)
