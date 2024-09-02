@@ -53,6 +53,9 @@ class SceneView(QOpenGLWindow):
         if gSettings.contains('GLViewScale'):
             self._previewRes = None, None, float(gSettings.value('GLViewScale'))  # type: ignore
         self._cameraInput: Optional[Camera] = None
+        # TODO: Remove support for this in favor of the per-shot textures? Or vice versa?
+        #  It is not used by harvester.py but the way C++ handles the per-shot textures is
+        #  actually more in line with this feature.
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
         self._dpiScale = 1.0

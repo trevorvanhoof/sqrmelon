@@ -8,9 +8,8 @@ from qt import *
 class RemappedEvent:
     """Utility to store event data in camera-space instead of pixel-space"""
 
-    def __init__(self, pos: QPointF, event: QMouseEvent) -> None:
-        self.__pos = QPointF(pos.x(), -pos.y()) # QPainter Y axis tends to infinity downwards, hence that we negate y.
-
+    def __init__(self, pos: QPointF, event: QSinglePointEvent) -> None:
+        self.__pos = pos
         self.__event = event
 
     def pos(self) -> QPointF:

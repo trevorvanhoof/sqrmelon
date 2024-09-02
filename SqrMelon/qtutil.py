@@ -151,7 +151,7 @@ class DoubleSpinBox(QDoubleSpinBox):
         self.setValue(value)
         self.setSingleStep(0.01)
         self.setLineEdit(LineEditSelected())
-        self.__prevValue = value
+        self.__initialValue = value
 
     def setValueSilent(self, value: float) -> None:
         self.blockSignals(True)
@@ -163,7 +163,7 @@ class DoubleSpinBox(QDoubleSpinBox):
         super().focusInEvent(event)
 
     def isDirty(self) -> bool:
-        return self.value() != self.__prevValue
+        return self.value() != self.__initialValue
 
 class CheckBox(QCheckBox):
     valueChanged = Signal(int)

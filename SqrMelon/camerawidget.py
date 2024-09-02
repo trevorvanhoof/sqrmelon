@@ -80,10 +80,6 @@ class Camera(QWidget):
             self.__keyStates[key] = False
         self.__data = CameraTransform()
         self.__inputs = []
-
-        cameraTransformViewData = [ [ "Translate", 1 ], [ "Rotate", 5 ] ]
-
-        # Casting because the type checker can't deal with __iter__ for some reason.
         for i, value in enumerate(self.__data):
             cameraTransformViewDataBaseIdx = 0 if (i < 3) else 1
             self.layout().addWidget(QLabel(cameraTransformViewData[cameraTransformViewDataBaseIdx][0]), cameraTransformViewDataBaseIdx + 1, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignCenter)
