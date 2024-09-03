@@ -68,6 +68,7 @@ class SceneList(QWidget):
         main.addLayout(belt)
         self.__model = MimeDataItemModel()
         self.view = _TreeView()
+        self.view.setHeaderHidden(True)
         self.view.setModel(self.__model)
         self.view.activated.connect(self.__onOpenFile)
         self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
