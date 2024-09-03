@@ -59,6 +59,7 @@ class SceneView(QOpenGLWindow):
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
         self._dpiScale = 1.0
+        self._dockWidget: Optional[QDockWidget] = None
 
     def cameraInput(self) -> Camera:
         assert self._cameraInput is not None
@@ -135,6 +136,14 @@ class SceneView(QOpenGLWindow):
             self._scene.setSize(*self._size)
 
         self.update()
+
+    def setDockWidget(self, dockWidget: QDockWidget) -> None:
+        self._dockWidget = dockWidget
+        
+    def isFloating(self) -> bool:
+        if not self._dockWidget:
+            return False
+        return self._dockWidget.isFloating()
 
     def initializeGL(self) -> None:
         print(glGetString(GL_VERSION))
