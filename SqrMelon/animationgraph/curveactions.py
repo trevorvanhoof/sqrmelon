@@ -155,7 +155,7 @@ class InsertKeyAction(QUndoCommand):
             key = curve.keyAt(time)
             if key:
                 continue
-            value = curve.evaluate(time)
+            value = curve.evaluate(time).y
             k = Key(time, value, curve)
             k.setTangentModeSilent(Key.TANGENT_AUTO)
             self.__keys.append(k)

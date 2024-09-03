@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Iterator, Optional
+from typing import Iterator, NamedTuple, Optional
 
 from mathutil import Vec2
 
@@ -321,21 +321,36 @@ class Curve:
         t = (time - lhs_time) / dx
         return t * (t * (t * c0 + c1) + c2) + c3
 
-    def evaluate(self, time: float) -> float:
+    # Define a type that encapsulates the curve evaluation result
+    class Evaluation(NamedTuple):
+        y: float
+        prevKeyIndex: int
+        keyIndex: int
+
+    def evaluate(self, time: float, precision: float = 0.0) -> Evaluation:
         """
         Hermite spline interpolation at the given time.
         Times outside the bounds are just clamped to the endpoints.
         """
         if not self.__keys:
-            return 0.0
+            return Curve.Evaluation(0.0, -1, -1)
 
         if time <= self.__keys[0].time():
-            return self.__keys[0].value()
+            return Curve.Evaluation(self.__keys[0].value(), 0, 0)
 
         for i in range(1, len(self.__keys)):
-            if self.__keys[i].time() > time:
-                p0 = self.__keys[i - 1].point()
-                p3 = self.__keys[i].point()
-                return self._evaluate(p0.x, p0.y, self.__keys[i - 1].outTangent().y, self.__keys[i].inTangent().y, p3.x, p3.y, time)
+            key = self.__keys[i]
+            p3 = key.point()
+            # points are sorted so the first one that is > time is the one that defines the segment to evaluate
+            if p3.x <= time:
+                continue
+            # snap to key values if the time is close to it (for rendering)
+            if abs(p3.x - time) < precision:
+                return Curve.Evaluation(p3.y, i - 1 if time < p3.x else i, i)
+            prevKey = self.__keys[i - 1]
+            p0 = prevKey.point()
+            y = self._evaluate(p0.x, p0.y, prevKey.outTangent().y, key.inTangent().y, p3.x, p3.y, time)
+            return Curve.Evaluation(y, i - 1, i)
 
-        return self.__keys[-1].value()
+        last = len(self.__keys) - 1
+        return Curve.Evaluation(self.__keys[last].value(), last, last)

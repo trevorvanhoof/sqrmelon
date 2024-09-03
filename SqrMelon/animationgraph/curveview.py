@@ -540,12 +540,17 @@ class CurveView(QWidget):
             prevPx = None
             x = max(start, curve[0].time())
             while x < min(end, curve[-1].time()):
-                for key in curve:
-                    if abs(key.time() - x) < precision * 0.5:
-                        p = QPointF(key.time(), key.value())
-                        break
+                evaluatedCurveData = curve.evaluate(x, precision)
+                if self.__newStyle:
+                    if self.__selection.isKeySelected(row, evaluatedCurveData.prevKeyIndex) or self.__selection.isKeySelected(row, evaluatedCurveData.keyIndex):
+                        painter.setPen(self.__PENS['selected'])
+                    else:
+                        painter.setPen(self.__PENS[identifier] if identifier in self.__PENS else self.__PENS['single'])
+                # if they y was snapped, we must snap the x as well
+                if evaluatedCurveData.keyIndex == evaluatedCurveData.prevKeyIndex != -1:
+                    p = QPointF(curve[evaluatedCurveData.keyIndex].time(), evaluatedCurveData.y)
                 else:
-                    p = QPointF(x, curve.evaluate(x))
+                    p = QPointF(x, evaluatedCurveData.y)
                 px = self.sceneToPixel(p)
                 if prevPx is not None:
                     painter.drawLine(prevPx, px)

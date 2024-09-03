@@ -101,7 +101,7 @@ class Shot:
         data: dict[str, Union[float, dict[str, float], list[float]]] = {}
         # Gather values as either single channel floats or named multi channel dicts
         for name in self.curves:
-            value = self.curves[name].evaluate(time)
+            value = self.curves[name].evaluate(time).y
             if '.' in name:
                 name, channel = name.split('.', 1)
                 v = data.setdefault(name, {})
