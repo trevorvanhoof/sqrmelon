@@ -115,7 +115,7 @@ class App(QMainWindowState):
         window = self.createWindowContainer(self.__sceneView, self)
         window.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         viewDock = self._addDockWidget(window, '3D View', where=Qt.DockWidgetArea.TopDockWidgetArea)
-        self.__sceneView.isFloating = MethodType(lambda self: viewDock.isFloating(), self.__sceneView)
+        self.__sceneView.setDockWidget(viewDock)
         self.__viewDock = viewDock  # Need this for F11 feature
         self.__restoreFullScreenInfo: Optional[tuple[QSize, bool]] = None
         logDock = self._addDockWidget(PyDebugLog.create(), 'Python log', where=Qt.DockWidgetArea.TopDockWidgetArea)
