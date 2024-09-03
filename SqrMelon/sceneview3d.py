@@ -83,9 +83,10 @@ class SceneView(QOpenGLWindow):
     def setPreviewRes(self, widthOverride: Optional[int], heightOverride: Optional[int], scale: float) -> None:
         if widthOverride is not None:
             assert heightOverride is not None
-            x = self.parent().width() - self.width()
-            y = self.parent().height() - self.height()
-            self.parent().setGeometry(self.parent().x(), self.parent().y(), widthOverride + x, heightOverride + y)
+            if self.isFloating():
+                x = self.parent().width() - self.width()
+                y = self.parent().height() - self.height()
+                self.parent().setGeometry(self.parent().x(), self.parent().y(), widthOverride + x, heightOverride + y)
         self._previewRes = widthOverride, heightOverride, scale
         gSettings.setValue('GLViewScale', scale)
         self.__onResize()
