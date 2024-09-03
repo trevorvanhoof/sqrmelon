@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Iterator, Optional
+from typing import Iterator, Optional, List, Union
 
 from mathutil import Vec2
 
