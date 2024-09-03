@@ -646,7 +646,7 @@ int main() {
                 *dest++ = isTwoDigits ? '0' + j % 10 : ']';
                 *dest++ = isTwoDigits ? ']' : 0;
                 glBindTexture(is3d ? GL_TEXTURE_3D : GL_TEXTURE_2D, cbo);
-                glUniform1i(glGetUniformLocation(program, uImages2D), j);
+                glUniform1i(glGetUniformLocation(program, is3d ? uImages3D : uImages2D), j);
             }
 
 #ifdef USE_OUTPUT_DEBUG_STRING
