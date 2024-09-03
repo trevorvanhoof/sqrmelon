@@ -540,6 +540,13 @@ class CurveView(QWidget):
             prevPx = None
             x = max(start, curve[0].time())
             while x < min(end, curve[-1].time()):
+                evaluatedCurveData = curve.evaluateWithSnapAndKey(x, precision)
+                y = evaluatedCurveData[0]
+                if self.__newStyle == True:
+                    if self.__selection.isKeySelected(row, evaluatedCurveData[1]) or self.__selection.isKeySelected(row, evaluatedCurveData[2]):
+                        painter.setPen(self.__PENS['selected'])
+                    else:
+                        painter.setPen(self.__PENS[identifier] if identifier in self.__PENS else self.__PENS['single'])
                 for key in curve:
                     if abs(key.time() - x) < precision * 0.5:
                         p = QPointF(key.time(), key.value())

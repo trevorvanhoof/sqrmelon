@@ -1,5 +1,6 @@
 import datetime
 import functools
+import math
 import os
 import shutil
 import sys
@@ -8,6 +9,7 @@ from types import MethodType
 from typing import Any, cast, Optional, TextIO
 
 import icons
+import fonts
 from animationgraph.curveview import CurveEditor
 from camerawidget import Camera
 from fileutil import FileDialog, FilePath
@@ -42,10 +44,11 @@ class PyDebugLog:
     @staticmethod
     def create() -> QTextEdit:
         edit = QTextEdit()
+        edit.setFont(fonts.getMonospaceFont())
         sys.stdout = PyDebugLog(edit, sys.stdout)  # type: ignore
         sys.stderr = PyDebugLog(edit, sys.stderr)  # type: ignore
         return edit
-
+    
 
 class App(QMainWindowState):
     def __init__(self) -> None:
@@ -56,7 +59,7 @@ class App(QMainWindowState):
             self.setWindowIcon(icons.get('Candy Cane-48'))
         else:
             self.setWindowIcon(icons.get('SqrMelon'))
-        self.setWindowTitle('SqrMelon')
+        self.setWindowTitle('SqrMelon (Architect Edition)')
         self.setDockNestingEnabled(True)
 
         self.__menuBar = QMenuBar()
@@ -401,7 +404,8 @@ class App(QMainWindowState):
         QMessageBox.about(self, 'About SqrMelon',
                           r"""<p>SqrMelon is a tool to manage a versions (scenes) of a graph of fragment shaders (templates) & drive uniforms with animation curves (shots).</p>
                           <p>Download or find documentation on <a href="https://github.com/trevorvanhoof/sqrmelon/">GitHub/</a>!</p>
-                          <p>Icons from <a href="https://icons8.com/">icons8.com/</a></p>""")
+                          <p>Icons from <a href="https://icons8.com/">icons8.com/</a>.
+                          Fonts from <a href="https://fonts.google.com/">fonts.google.com</a>.</p>""")
 
     @staticmethod
     def __colorPicker() -> None:
@@ -507,7 +511,7 @@ class App(QMainWindowState):
 def run() -> None:
     # We found that not setting a version in Ubuntu didn't work
     glFormat = QSurfaceFormat()
-    glFormat.setVersion(4, 1)
+    glFormat.setVersion(4, 6)
     glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
     glFormat.setDefaultFormat(glFormat)
 
@@ -515,10 +519,23 @@ def run() -> None:
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
 
     app = QApplication(sys.argv)
+
+    # Style settings.
+    fonts.init()
+    app.setStyle("Fusion")
+    app.setFont(fonts.getTextFont())
+    app.setStyleSheet("""
+        QDockWidget { 
+            font-family: "Teko";
+            font-size: """ + str(int(math.ceil(fonts.getDefaultFontPointSize() * 1.5))) +  """pt; 
+        }
+        """)
+
     win = App()
     win.show()
-    app.exec()
 
+    print("Qt version: ", qVersion(), ".")
+    app.exec()
 
 if __name__ == '__main__':
     # import profileutil

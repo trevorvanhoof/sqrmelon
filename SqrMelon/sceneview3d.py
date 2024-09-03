@@ -146,8 +146,7 @@ class SceneView(QOpenGLWindow):
         return self._dockWidget.isFloating()
 
     def initializeGL(self) -> None:
-        print(glGetString(GL_VERSION))
-
+        print("OpenGL version: ", glGetString(GL_VERSION), ".")
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
         # glDepthMask(GL_TRUE)
