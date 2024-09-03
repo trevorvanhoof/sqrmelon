@@ -549,6 +549,7 @@ class CurveView(QWidget):
                 # if they y was snapped, we must snap the x as well
                 if evaluatedCurveData.keyIndex == evaluatedCurveData.prevKeyIndex != -1:
                     p = QPointF(curve[evaluatedCurveData.keyIndex].time(), evaluatedCurveData.y)
+
                 else:
                     p = QPointF(x, evaluatedCurveData.y)
                 px = self.sceneToPixel(p)

@@ -354,3 +354,4 @@ class Curve:
 
         last = len(self.__keys) - 1
         return Curve.Evaluation(self.__keys[last].value(), last, last)
+
