@@ -358,6 +358,7 @@ class ShotView(QTableView):
         self.__menu.addAction(icons.get('Picture-48'), 'Edit textures').triggered.connect(self.__onManageTextures)
         self.__menu.addAction(icons.get('Bake'), 'Bake preroll && speed').triggered.connect(self.__onBakeShot)
         self.__row = -1
+        self.verticalHeader().setVisible(False)
 
     def model(self) -> ShotModel:
         return super().model()  # type: ignore
