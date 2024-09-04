@@ -1,5 +1,3 @@
-// # TODO: png support, recording support, bros before foes, mp3 test
-
 #include "../content/config.h"
 
 #ifdef EIDOLON
@@ -384,8 +382,8 @@ int main() {
     // Each curve will write its evaluated values in a block of 4 floats, some may be unused.
     float animationBuffer[4 * maxAnimations];
     // Uniform names
-    char uImages2D[] = "uImages[0]";
-    char uImages3D[] = "uImages3D[0]";
+    char uImages2D[] = "uImages[   ";
+    char uImages3D[] = "uImages3D[   ";
 
     // State
     unsigned int currentShotIndex = 0;
@@ -624,7 +622,6 @@ int main() {
 #endif
 
             // Bind inputs
-            assert(pass.cboCount < 10); // uImages[] is indexed by writing 0-9 directy into a char array, don't support larger values (yet?)
             unsigned char j2d = 0;
             unsigned char j3d = 0;
             for(unsigned char j = 0; j < pass.cboCount; ++j) {
@@ -641,15 +638,13 @@ int main() {
 #ifdef USE_OUTPUT_DEBUG_STRING
                 info << "\t" << (int)pass.cbo(j) << ", is3d: " << is3d << std::endl;
 #endif
-                if(is3d) {
-                    uImages3D[10] = j3d++ + '0';
-                    glBindTexture(GL_TEXTURE_3D, cbo);
-                    glUniform1i(glGetUniformLocation(program, uImages3D), j);
-                } else {
-                    uImages2D[8] = j2d++ + '0';
-                    glBindTexture(GL_TEXTURE_2D, cbo);
-                    glUniform1i(glGetUniformLocation(program, uImages2D), j);
-                }
+                const bool isTwoDigits = j > 9;
+                char* dest = is3d ? uImages3D + 10 : uImages2D + 8;
+                *dest++ = isTwoDigits ? '0' + j / 10 : '0' + j % 10;
+                *dest++ = isTwoDigits ? '0' + j % 10 : ']';
+                *dest++ = isTwoDigits ? ']' : 0;
+                glBindTexture(is3d ? GL_TEXTURE_3D : GL_TEXTURE_2D, cbo);
+                glUniform1i(glGetUniformLocation(program, is3d ? uImages3D : uImages2D), j);
             }
 
 #ifdef USE_OUTPUT_DEBUG_STRING
