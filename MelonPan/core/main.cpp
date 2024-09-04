@@ -1,5 +1,3 @@
-// # TODO: png support, recording support, bros before foes, mp3 test
-
 #include "../content/config.h"
 
 #ifdef EIDOLON

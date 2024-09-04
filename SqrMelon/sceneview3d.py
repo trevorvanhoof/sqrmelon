@@ -59,6 +59,7 @@ class SceneView(QOpenGLWindow):
         self._textures: dict[str, Texture] = {}
         self._prevTime = time.time()
         self._dpiScale = 1.0
+        self._dockWidget: Optional[QDockWidget] = None
 
     def cameraInput(self) -> Camera:
         assert self._cameraInput is not None
@@ -83,9 +84,10 @@ class SceneView(QOpenGLWindow):
     def setPreviewRes(self, widthOverride: Optional[int], heightOverride: Optional[int], scale: float) -> None:
         if widthOverride is not None:
             assert heightOverride is not None
-            x = self.parent().width() - self.width()
-            y = self.parent().height() - self.height()
-            self.parent().setGeometry(self.parent().x(), self.parent().y(), widthOverride + x, heightOverride + y)
+            if self.isFloating():
+                x = self.parent().width() - self.width()
+                y = self.parent().height() - self.height()
+                self.parent().setGeometry(self.parent().x(), self.parent().y(), widthOverride + x, heightOverride + y)
         self._previewRes = widthOverride, heightOverride, scale
         gSettings.setValue('GLViewScale', scale)
         self.__onResize()
@@ -135,9 +137,16 @@ class SceneView(QOpenGLWindow):
 
         self.update()
 
-    def initializeGL(self) -> None:
-        print(glGetString(GL_VERSION))
+    def setDockWidget(self, dockWidget: QDockWidget) -> None:
+        self._dockWidget = dockWidget
+        
+    def isFloating(self) -> bool:
+        if not self._dockWidget:
+            return False
+        return self._dockWidget.isFloating()
 
+    def initializeGL(self) -> None:
+        print("OpenGL version: ", glGetString(GL_VERSION), ".")
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
         # glDepthMask(GL_TRUE)
