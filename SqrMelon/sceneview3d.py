@@ -247,7 +247,10 @@ class SceneView(QOpenGLWindow):
     def __onResize(self) -> None:
         # According to Qt6 doc (https://doc.qt.io/qt-6/highdpi.html) low-level 
         # graphics such as OpenGL needs to be DPI-aware.
-        self._dpiScale = QApplication.screenAt(self.geometry().center()).devicePixelRatio() if self.isVisible() else 1.0
+        try:
+            self._dpiScale = QApplication.screenAt(self.geometry().center()).devicePixelRatio() if self.isVisible() else 1.0
+        except:
+            pass
 
         # Apply DPI scale to scene for relative sizes (e.g., "Viewport 1/2").
         w = int((self._previewRes[0] if (self._previewRes[0]) else int(ceil(self.width() * self._dpiScale))) * self._previewRes[2]);
