@@ -1,5 +1,6 @@
 import datetime
 import functools
+import hashlib
 import os
 import shutil
 import sys
@@ -24,7 +25,6 @@ from timeslider import Timer, TimeSlider
 IGNORED_EXTENSIONS = (PROJ_EXT, '.user')
 DEFAULT_PROJECT = 'defaultproject'
 FFMPEG_PATH = 'ffmpeg.exe'
-
 
 class PyDebugLog:
     """Small utility to reroute the python print output to a QTextEdit."""
@@ -456,11 +456,14 @@ class App(QMainWindowState):
 
         if project is not None:
             if project.exists():
+                self.__copyPlayerFilesToProjectDir(project)
                 self.__openProject(project)
                 return
         projectFiles = [projFile for projFile in list(os.listdir(os.getcwd())) if projFile and projFile.endswith(PROJ_EXT)]
         if projectFiles:
-            self.__openProject(os.path.join(os.getcwd(), projectFiles[0]))
+            project = os.path.join(os.getcwd(), projectFiles[0])
+            self.__copyPlayerFilesToProjectDir(project)
+            self.__openProject(project)
             return
 
     def __changeProjectHelper(self, title: str) -> Optional[FilePath]:
@@ -483,6 +486,35 @@ class App(QMainWindowState):
 
         return currentPath
 
+    def __copyIfNotEqual(self, src: FilePath, dst: FilePath) -> None:
+        def md5FromFile(filepath: FilePath) -> str:
+            md5Stream = hashlib.md5()
+            with open(filepath, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    md5Stream.update(chunk)
+            return md5Stream.hexdigest()
+
+        if os.path.isdir(src):
+            if not os.path.exists(dst):
+                os.makedirs(dst)
+        else:
+            if not os.path.exists(dst):
+                os.makedirs(os.path.dirname(dst), exist_ok = True)
+                shutil.copy2(src, dst)
+            else:
+                if (os.path.getmtime(src) != os.path.getmtime(dst)) or (md5FromFile(src) != md5FromFile(dst)):
+                    shutil.copy2(src, dst)
+
+    def __copyPlayerFilesToProjectDir(self, projectFile: FilePath) -> None:
+        customPlayerFlagFilePath = projectFile.parent().join('__customplayer.txt')
+        if customPlayerFlagFilePath.exists():
+            return
+        
+        ignoreHiddenDirectories = lambda src, names: [name for name in names if os.path.isdir(os.path.join(src, name)) and name.startswith('.')]
+        src = FilePath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).join("MelonPan")
+        dst = FilePath(os.path.dirname(projectFile)).join("MelonPan")
+        shutil.copytree(src, dst, False, ignoreHiddenDirectories, self.__copyIfNotEqual, False, True)
+
     def __onNewProject(self) -> None:
         currentPath = self.__changeProjectHelper('Creating new project')
         if not currentPath:
@@ -493,6 +525,7 @@ class App(QMainWindowState):
         shutil.copytree(DEFAULT_PROJECT, res, ignore=lambda p, f: [] if os.path.basename(p).lower() == 'Scenes' else [n for n in f if os.path.splitext(n)[-1].lower() in IGNORED_EXTENSIONS])
         projectFile = FilePath(res).join(os.path.basename(res) + PROJ_EXT)
         projectFile.ensureExists()
+        self.__copyPlayerFilesToProjectDir(projectFile)
         self.__openProject(projectFile)
 
     def __onOpenProject(self) -> None:
@@ -502,8 +535,8 @@ class App(QMainWindowState):
         res = FileDialog.getOpenFileName(self, 'Open project', currentPath, f'Project files (*{PROJ_EXT})')
         if not res:
             return
+        self.__copyPlayerFilesToProjectDir(res)
         self.__openProject(res)
-
 
 def run() -> None:
     # We found that not setting a version in Ubuntu didn't work
