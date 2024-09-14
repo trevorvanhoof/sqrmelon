@@ -33,10 +33,6 @@
 // #define BASS_FILE_PATH "content/soundtrack.mp3"
 // Requires synths/bass/bass_x86.lib
 
-// Select loader type
-// #define NO_LOADER
-// #define SMALLER_LOADER
-
 // Make the player more integrated with windows
 #define ENABLE_WINDOWS_EVENTS
 

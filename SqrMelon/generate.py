@@ -32,6 +32,7 @@ ERR_MISSING_PROJECT_DIR = 1005
 ERR_UNKNOWN_ERROR = 9999
 PROJ_EXT = '.p64'
 CUSTOMPREGENERATESTEP_FILENAME = "__custompregeneratestep.py"
+LOADINGBARGLSL_FILENAME = "loadingbar.glsl"
 
 def __copyPlayerFileIfHonored(src: Path, dst: Path) -> None:
     """
@@ -137,7 +138,7 @@ def __generate(projectDir: str, lockFile: str) -> None:
 
     # Copy or upgrade project files to MelonPan/content.
     contentPaths = {}
-    for f in [ "Scenes", "Templates", projectFile ]:
+    for f in [ "Scenes", "Templates", projectFile, LOADINGBARGLSL_FILENAME ]:
         src = os.path.join(projectDir, f).replace("\\", "/")
         dst = os.path.join(melonPanDir, "content", f).replace("\\", "/")
         print("INF: Copying " + f + " to content directory...", end = '')
@@ -153,12 +154,36 @@ def __generate(projectDir: str, lockFile: str) -> None:
         print("OK")
 
     # Run the custom pregenerate step script, if exists.
+    if (os.path.exists(os.path.join(projectDir, CUSTOMPREGENERATESTEP_FILENAME))):
+        print("INF: Pregenerate step script " + CUSTOMPREGENERATESTEP_FILENAME + " ...", end = '')
     processResult = __tryRunPythonScript([ os.path.join(projectDir, CUSTOMPREGENERATESTEP_FILENAME), contentPaths["Templates"], contentPaths["Scenes"] ])
     match processResult[0]:
         case  0:
             __unlockAndExit(lockFile, "ERR: Custom pregenerate step script " + CUSTOMPREGENERATESTEP_FILENAME + " failed. Output:\n" + processResult[1], ERR_PREGENERATESTEP_TERMINATED_WITH_ERRORS)
         case  1:
-            print("INF: Pregenerate step script " + CUSTOMPREGENERATESTEP_FILENAME + " run.")
+            print("OK")
+
+    # Translate loadingbar.glsl into loadingbar.inl.
+    loadingBarGlslPath = os.path.join(melonPanDir, "content", LOADINGBARGLSL_FILENAME)
+    if not os.path.exists(os.path.join(projectDir, LOADINGBARGLSL_FILENAME)):
+        try:
+            os.remove(loadingBarGlslPath)
+        except:
+            pass
+    cppCode = ''
+    if os.path.exists(loadingBarGlslPath):
+        print("INF: Preparing loadingbar.glsl...", end = '')
+        with open(loadingBarGlslPath, 'r') as f:
+            loadingBarGlslLines = f.readlines()
+            for line in loadingBarGlslLines:
+                cppCode += f'"{line.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '').replace('\r', '')}\\n"\n'
+        print("OK")
+    else:
+        print("WRN: loadingbar.glsl not found, no loading bar will be shown!")
+        cppCode = f'""\n'
+
+    with open(os.path.splitext(loadingBarGlslPath)[0] + '.inl', 'w') as f:
+        f.write(cppCode)
 
     # Run the harvester.
     print("INF: Harvesting data...", end = '')
