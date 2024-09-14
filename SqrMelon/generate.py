@@ -9,8 +9,8 @@
 # * SqrMelon-InstallDir.txt is loaded to determine the SqrMelon installment.
 # * Project filename is resolved.
 # * MelonPan is either installed or upgraded to the project folder (only if
-#   "__customplayer.txt" file is not present). Content folder is copied but
-#   never updated.
+#   "__skipplayerupdate.txt" file is not present). Content folder is copied
+#   but never updated.
 # * Scenes and Templates are copied to (PROJECTDIR)/MelonPan/content.
 # * If exists, userland (PROJECTDIR)/__custompregeneratestep.py is run.
 # * The harvester is run on (PROJECTDIR)/MelonPan/content.
@@ -123,17 +123,17 @@ def __generate(projectDir: str, lockFile: str) -> None:
     print("INF: Building project " + projectFile + ".")
 
     # Install or upgrade MelonPan if required.
-    customPlayerFlagFilePath = Path(os.path.join(projectDir, '__customplayer.txt'))
+    skipPlayerUpdateFlagFilePath = Path(os.path.join(projectDir, '__skipplayerupdate.txt'))
     melonPanDir = None
     ignoreHiddenDirectories = lambda src, names: [name for name in names if os.path.isdir(os.path.join(src, name)) and name.startswith('.')]
-    if not customPlayerFlagFilePath.exists():
+    if not skipPlayerUpdateFlagFilePath.exists():
         src = os.path.abspath(os.path.join(sqrMelonDir, "../MelonPan")).replace("\\", "/")
         melonPanDir = dst = os.path.abspath(os.path.join(projectDir, "MelonPan")).replace("\\", "/")
         print("INF: Updating local MelonPan installment: " + src + " -> " + dst + "...", end = '')
         shutil.copytree(src, dst, False, ignoreHiddenDirectories, __copyPlayerFileIfHonored, False, True)
         print("OK")
     else:
-        print("INF: Using custom player, no update will take place.")
+        print("INF: Player flagged as custom, no update will take place.")
 
     # Copy or upgrade project files to MelonPan/content.
     contentPaths = {}
