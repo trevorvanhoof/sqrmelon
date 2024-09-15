@@ -10,18 +10,6 @@
     <Filter Include="content">
       <UniqueIdentifier>{0bd5bac9-19ca-46bc-9d46-63f7e8d657e7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="synths">
-      <UniqueIdentifier>{6271fd58-9f4c-4f54-8bed-603c12e5a9c0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="synths\64klang2">
-      <UniqueIdentifier>{60015283-9425-4693-bc58-559fbe2c480c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="synths\64klang2_eidolon">
-      <UniqueIdentifier>{78162a09-8d4f-424c-98be-b06dcf1307d5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="synths\bass">
-      <UniqueIdentifier>{a30c4665-26ed-4b39-bce7-91eea5ba40be}</UniqueIdentifier>
-    </Filter>
     <Filter Include="extensions">
       <UniqueIdentifier>{9a9c368c-9e18-4923-b58c-7f1dcb52ad0f}</UniqueIdentifier>
     </Filter>
@@ -38,24 +26,6 @@
     <ClCompile Include="core\main.cpp">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="synths\64klang2_eidolon\sample_t.cpp">
-      <Filter>synths\64klang2_eidolon</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2_eidolon\Synth.cpp">
-      <Filter>synths\64klang2_eidolon</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2_eidolon\SynthAllocator.cpp">
-      <Filter>synths\64klang2_eidolon</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2_eidolon\SynthNode.cpp">
-      <Filter>synths\64klang2_eidolon</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2_eidolon\SynthPlayer.cpp">
-      <Filter>synths\64klang2_eidolon</Filter>
-    </ClCompile>
-    <ClCompile Include="synths\64klang2_obj0.cpp">
-      <Filter>synths\64klang2</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="content\animationprocessor_eidolon.inl">
@@ -63,18 +33,6 @@
     </ClInclude>
     <ClInclude Include="content\animationprocessor.inl">
       <Filter>content</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\noaudio.hpp">
-      <Filter>synths</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\64klang2.hpp">
-      <Filter>synths</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\bass\bass.h">
-      <Filter>synths\bass</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\bass.hpp">
-      <Filter>synths</Filter>
     </ClInclude>
     <ClInclude Include="core\wglext.h">
       <Filter>core</Filter>
@@ -87,9 +45,6 @@
     </ClInclude>
     <ClInclude Include="extensions\stb_image_write.h">
       <Filter>extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="synths\wavesabre.hpp">
-      <Filter>synths</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

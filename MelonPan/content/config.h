@@ -10,29 +10,6 @@
 // - Song.h (for wavesabre)
 // - soundtrack.mp3 (for bass)
 
-// #define EIDOLON
-// #define BROS_BEFORE_FOES // TODO: This crashes because Song.h seems to be from a much older version.
-
-// Select which audio runtime to use:
-
-#define NO_AUDIO
-
-// #define AUDIO_64KLANG2
-// Requires winmm.lib
-// Requires ole32.lib
-// Requires msacm32.lib
-
-// #define AUDIO_WAVESABRE // TODO: This doesn't build in release because it fails to link memset.
-// Requires synths/WaveSabre_prebuilt/msvcrt.lib
-// Requires synths/WaveSabre_prebuilt/WaveSabreCore.lib
-// Requires dsound.lib
-// Requires msacm32.lib
-// Requires flagging sqrtf.asm to be excluded from the Release build.
-
-// #define AUDIO_BASS
-// #define BASS_FILE_PATH "content/soundtrack.mp3"
-// Requires synths/bass/bass_x86.lib
-
 // Make the player more integrated with windows
 #define ENABLE_WINDOWS_EVENTS
 
@@ -49,7 +26,7 @@
 // Set the window title
 #define WINDOW_TITLE "Made with SqrMelon"
 
-// Enable this to render the demo frame-by-frame, only works in Debug with NO_AUDIO
+// Enable this to render the demo frame-by-frame, only works in Debug.
 // #define EXPORT_FRAMES_FPS 60
 
 // Enable this to print to the Output window in visual studio, only works in Debug.
