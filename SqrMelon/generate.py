@@ -40,6 +40,7 @@ FN_SKIPPLAYERUPDATE = "__skipplayerupdate.txt"
 FN_LOADINGBAR = "loadingbar.glsl"
 FN_CUSTOMPREGENERATESTEP = "custompregeneratestep.py"
 FN_UNIFIEDAUDIOSOURCES = "audio.cpp"
+FN_AUDIOPLAYER = "sqrmelon_audio.cpp"
 
 DIRNAME_MELONPAN = "MelonPan"
 DIRNAME_CONTENT = "content"
@@ -80,6 +81,7 @@ def __processAudioFile(src: str, dst: str) -> str:
     If src is a directory:
         * Create it.
     If src is a file:
+        * If the file is "sqrmelon_audio.cpp", prepend it to the unity build output. Else:
         * If the file is a C/C++ translation unit, add it to cppCode to be persisted as unity build. Else:
         * If the file does not exist in dst, copy it.
         * If the file does exist in dst:
@@ -97,17 +99,20 @@ def __processAudioFile(src: str, dst: str) -> str:
         if not os.path.exists(dst):
             os.makedirs(dst)
     else:
-        if dst.endswith('.c') or dst.endswith('.cpp'):
+        if os.path.basename(dst) == FN_AUDIOPLAYER:
+            with open(src, 'r') as f:
+                fileContents = f.read()
+                cppCode = fileContents + '\n' + cppCode
+        elif dst.endswith('.c') or dst.endswith('.cpp'):
             with open(src, 'r') as f:
                 fileContents = f.read()
                 cppCode = cppCode + fileContents + '\n'
-        else:
-            if not os.path.exists(dst):
+        elif not os.path.exists(dst):
                 os.makedirs(os.path.dirname(dst), exist_ok = True)
                 shutil.copy2(src, dst)
-            else:
-                if (os.path.getmtime(src) != os.path.getmtime(dst)) or (md5FromFile(src) != md5FromFile(dst)):
-                    shutil.copy2(src, dst)
+        else:
+            if (os.path.getmtime(src) != os.path.getmtime(dst)) or (md5FromFile(src) != md5FromFile(dst)):
+                shutil.copy2(src, dst)
     return cppCode
 
 def __unlockAndExit(lockFile: Path, errorMsg: str, exitCode: int) -> None:
