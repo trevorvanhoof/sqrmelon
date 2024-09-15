@@ -1,2 +1,0 @@
-#version 410
-uniform vec2 r;uniform float t;out vec3 c;void main(){vec2 a=(gl_FragCoord.xy*2-r)/r.y,b=abs(a)-vec2(r.x/r.y-.25,.15),d=a;a*=4;float e=max(b.x,b.y),f=floor(a.x),g=sin(f*10)*10;a.x=fract(a.x)-.5;a.y+=floor(g)*.04;d.x*=22;d.x+=1.5;c=vec3(1,.25,.2)*step(e,0)*step(gl_FragCoord.x/r.x,t)*step(.1*fract(g)+.05,length(a))+mix(vec3(.25,.4,.15),vec3(.4,.6,.2),step(sin(d.x+sin(d.y*100+d.x*.5)*.15),.5))*step(abs(e-.08)-.03,0);}
