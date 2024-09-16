@@ -1,2 +1,0 @@
-I do not have the means to re-export the patch and song for the latest version of 64klang, which is why this older version is included here.
-Do not use, get the latest from the official repo at https://github.com/gopher-atz/64klang

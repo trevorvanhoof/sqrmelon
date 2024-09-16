@@ -1,6 +1,7 @@
 import datetime
 import functools
 import os
+from pathlib import Path
 import shutil
 import sys
 import traceback
@@ -228,6 +229,13 @@ class App(QMainWindowState):
         self.__menuBar.addMenu(self.__dockWidgetMenu)
         self.__menuBar.addAction('About').triggered.connect(self.__aboutDialog)
         self.__restoreUiLock(lock)
+
+        # Register installment for MelonPan.
+        sharedDir = Path(os.getenv('ProgramData', 'C:\\ProgramData')) if os.name == 'nt' else Path('/usr/local/share')
+        sharedDir.mkdir(parents = True, exist_ok = True)
+        with open(sharedDir / "SqrMelon-InstallDir.txt", 'w') as file:
+            sqrMelonDir = FilePath(os.path.dirname(os.path.abspath(__file__)))
+            file.write(sqrMelonDir.__str__() + '\n')
 
     def _addDockWidget(self, widget: QWidget, name: Optional[str] = None, where: Qt.DockWidgetArea = Qt.DockWidgetArea.RightDockWidgetArea, direction: Qt.Orientation = Qt.Orientation.Horizontal) -> QDockWidget:
         dockWidget = super(App, self)._addDockWidget(widget, name, where, direction)
