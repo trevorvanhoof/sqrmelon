@@ -27,3 +27,4 @@ MelonPan/Debug
 MelonPan/x64
 CTestAdapter.config
 MelonPan/program_*.glsl
+*.code-workspace
