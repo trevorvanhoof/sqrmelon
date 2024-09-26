@@ -1,14 +1,18 @@
 import datetime
 import functools
+import math
 import os
 import shutil
 import sys
 import traceback
-from typing import Any, cast, Optional, TextIO
+from typing import Any, cast, List, Optional, TextIO
 
 import icons
+import qdarktheme
+
 from animationgraph.curveview import CurveEditor
 from camerawidget import Camera
+from editor_session import EditorSession
 from fileutil import FileDialog, FilePath
 from overlays import Overlays
 from profileui import Profiler
@@ -24,7 +28,6 @@ from timeslider import Timer, TimeSlider
 IGNORED_EXTENSIONS = (PROJ_EXT, '.user')
 DEFAULT_PROJECT = 'defaultproject'
 FFMPEG_PATH = 'ffmpeg.exe'
-
 
 class PyDebugLog:
     """Small utility to reroute the python print output to a QTextEdit."""
@@ -46,16 +49,28 @@ class PyDebugLog:
         return edit
 
 
-class App(QMainWindowState):
-    def __init__(self) -> None:
-        super(App, self).__init__(gSettings)
+class EditorWindow(QMainWindowState):
+
+    __minWidth  = 1280
+    __minHeight =  720
+
+    def __init__(self, session: EditorSession) -> None:
+
+        assert session is not None
+        super().__init__(session.settings())
+        self.__session = session
+        self.__session.registerMainWindow(self)
+
+        self.setMinimumSize(EditorWindow.__minWidth, EditorWindow.__minHeight)
+        session.registerOnExit(self.__onExit)
+
         self.setAnimated(False)
 
         if datetime.datetime.month == '12':
             self.setWindowIcon(icons.get('Candy Cane-48'))
         else:
             self.setWindowIcon(icons.get('SqrMelon'))
-        self.setWindowTitle('SqrMelon')
+        self.refreshWindowTitle()
         self.setDockNestingEnabled(True)
 
         self.__menuBar = QMenuBar()
@@ -229,8 +244,9 @@ class App(QMainWindowState):
         self.__menuBar.addAction('About').triggered.connect(self.__aboutDialog)
         self.__restoreUiLock(lock)
 
+    def refreshWindowTitle(self) -> None: self.setWindowTitle("SqrMelon Fx - {}{}".format(self.__session.projectName(), "*" if self.__session.isProjectDirty() else ""))        
     def _addDockWidget(self, widget: QWidget, name: Optional[str] = None, where: Qt.DockWidgetArea = Qt.DockWidgetArea.RightDockWidgetArea, direction: Qt.Orientation = Qt.Orientation.Horizontal) -> QDockWidget:
-        dockWidget = super(App, self)._addDockWidget(widget, name, where, direction)
+        dockWidget = super()._addDockWidget(widget, name, where, direction)
         self.__dockWidgetMenu.addAction(dockWidget.toggleViewAction())
         return dockWidget
 
@@ -504,27 +520,69 @@ class App(QMainWindowState):
             return
         self.__openProject(res)
 
+    def __onExit(self, session: EditorSession) -> None:
 
-def run() -> None:
-    # We found that not setting a version in Ubuntu didn't work
-    glFormat = QSurfaceFormat()
-    glFormat.setVersion(4, 1)
-    glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
-    glFormat.setDefaultFormat(glFormat)
+        assert session is not None
+        session.unregisterMainWindow()
 
-    # We found that Qt started destroying OpenGL contexts
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+class SqrApp(QApplication):
+        """
+        SqrMelon Ex application.
+        """
 
-    app = QApplication(sys.argv)
-    win = App()
-    win.show()
-    app.exec()
+        def __init__(self, argv: List[str]) -> None:
 
+            super().__init__(argv)
+            self.__session = EditorSession()
+            self.setStyle("Fusion")
+            self.setFont(self.__session.defaultFont())
+            self.__mainWindow  = EditorWindow(self.__session)
+            qdarktheme.setup_theme()
+            self.setStyleSheet(self.styleSheet() +
+                """
+                QDockWidget { 
+                    font-family: "Teko";
+                    font-size: """ + str(int(math.ceil(self.__session.fontPointSize * 1.5))) +  """pt; 
+                }
+                QMenuBar::item { padding: 4px 10px; }                
+                """
+            )
+
+        def __enter__(self) -> None: return self
+        def __exit__ (self, exc_type: Optional[type], exc_value: Optional[Exception], traceback: Optional[traceback.TracebackException]) -> None:
+            if exc_type is not None:
+                return True
+            else:
+                self.__session.finalize() # Free resources.
+                return False
+
+        def exec(self) -> None:
+            self.__mainWindow.show()
+            super().exec()
 
 if __name__ == '__main__':
+
     # import profileutil
     # profileutil.runctx('run()', globals(), locals(), executable=profileutil.QCACHEGRIND)
+    
     try:
-        run()
+        # We found that not setting a version in Ubuntu didn't work.
+        glFormat = QSurfaceFormat()
+        glFormat.setVersion(4, 1)
+        glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+        glFormat.setDefaultFormat(glFormat)
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+
+        appExitCode = None
+        qdarktheme.enable_hi_dpi()
+        with SqrApp(sys.argv) as app:
+            appExitCode = app.exec()
+
     except:
-        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Critical)
+        msgBox.setWindowTitle("Critical error")
+        msgBox.setText("Unhandled exception found running SqrMelon Fx:")
+        msgBox.setInformativeText(traceback.format_exc())
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.exec()
