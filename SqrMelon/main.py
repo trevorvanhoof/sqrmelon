@@ -7,6 +7,7 @@ import sys
 import traceback
 from typing import Any, cast, List, Optional, TextIO
 
+import ctypes
 import icons
 import qdarktheme
 
@@ -561,10 +562,10 @@ class SqrApp(QApplication):
             super().exec()
 
 if __name__ == '__main__':
-
     # import profileutil
     # profileutil.runctx('run()', globals(), locals(), executable=profileutil.QCACHEGRIND)
     
+    appExitCode = None
     try:
         # We found that not setting a version in Ubuntu didn't work.
         glFormat = QSurfaceFormat()
@@ -572,10 +573,10 @@ if __name__ == '__main__':
         glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
         glFormat.setDefaultFormat(glFormat)
         QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
-
-        appExitCode = None
         qdarktheme.enable_hi_dpi()
         with SqrApp(sys.argv) as app:
+            if os.name == 'nt':
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('trevorvanhoof.sqrmelon')
             appExitCode = app.exec()
 
     except:
@@ -586,3 +587,5 @@ if __name__ == '__main__':
         msgBox.setInformativeText(traceback.format_exc())
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec()
+
+    sys.exit(appExitCode)
