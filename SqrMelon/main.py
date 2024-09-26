@@ -49,7 +49,6 @@ class PyDebugLog:
         sys.stderr = PyDebugLog(edit, sys.stderr)  # type: ignore
         return edit
 
-
 class EditorWindow(QMainWindowState):
 
     __minWidth  = 1280
@@ -66,11 +65,7 @@ class EditorWindow(QMainWindowState):
         session.registerOnExit(self.__onExit)
 
         self.setAnimated(False)
-
-        if datetime.datetime.month == '12':
-            self.setWindowIcon(icons.get('Candy Cane-48'))
-        else:
-            self.setWindowIcon(icons.get('SqrMelon'))
+        self.setWindowIcon(icons.get('Candy Cane-48' if datetime.datetime.month == '12' else 'Candy Cane-48'))
         self.refreshWindowTitle()
         self.setDockNestingEnabled(True)
 
@@ -562,6 +557,7 @@ class SqrApp(QApplication):
             super().exec()
 
 if __name__ == '__main__':
+
     # import profileutil
     # profileutil.runctx('run()', globals(), locals(), executable=profileutil.QCACHEGRIND)
     
@@ -572,8 +568,8 @@ if __name__ == '__main__':
         glFormat.setVersion(4, 1)
         glFormat.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
         glFormat.setDefaultFormat(glFormat)
-        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
         qdarktheme.enable_hi_dpi()
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
         with SqrApp(sys.argv) as app:
             if os.name == 'nt':
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('trevorvanhoof.sqrmelon')
@@ -587,5 +583,6 @@ if __name__ == '__main__':
         msgBox.setInformativeText(traceback.format_exc())
         msgBox.setStandardButtons(QMessageBox.Ok)
         msgBox.exec()
+        appExitCode = -1000
 
     sys.exit(appExitCode)
