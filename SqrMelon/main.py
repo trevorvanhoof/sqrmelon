@@ -51,21 +51,21 @@ class PyDebugLog:
 
 class EditorWindow(QMainWindowState):
 
-    __minWidth  = 1280
-    __minHeight =  720
+    __MIN_WIDTH  = 1280
+    __MIN_HEIGHT =  720
 
     def __init__(self, session: EditorSession) -> None:
 
         assert session is not None
         super().__init__(session.settings())
+
         self.__session = session
         self.__session.registerMainWindow(self)
-
-        self.setMinimumSize(EditorWindow.__minWidth, EditorWindow.__minHeight)
+        self.setMinimumSize(EditorWindow.__MIN_WIDTH, EditorWindow.__MIN_HEIGHT)
         session.registerOnExit(self.__onExit)
 
         self.setAnimated(False)
-        self.setWindowIcon(icons.get('Candy Cane-48' if datetime.datetime.month == '12' else 'Candy Cane-48'))
+        self.setWindowIcon(icons.get('Candy Cane-48' if datetime.datetime.month == '12' else 'SqrMelon'))
         self.refreshWindowTitle()
         self.setDockNestingEnabled(True)
 
@@ -523,7 +523,7 @@ class EditorWindow(QMainWindowState):
 
 class SqrApp(QApplication):
         """
-        SqrMelon Ex application.
+        SqrMelon Fx application.
         """
 
         def __init__(self, argv: List[str]) -> None:
@@ -575,14 +575,17 @@ if __name__ == '__main__':
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('trevorvanhoof.sqrmelon')
             appExitCode = app.exec()
 
-    except:
-        msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Critical)
-        msgBox.setWindowTitle("Critical error")
-        msgBox.setText("Unhandled exception found running SqrMelon Fx:")
-        msgBox.setInformativeText(traceback.format_exc())
-        msgBox.setStandardButtons(QMessageBox.Ok)
-        msgBox.exec()
-        appExitCode = -1000
+    except Exception as e:
+        if os.getenv("PYTHON_ENV") != "development":
+            msgBox = QMessageBox()
+            msgBox.setIcon(QMessageBox.Critical)
+            msgBox.setWindowTitle("Critical error")
+            msgBox.setText("Unhandled exception found running SqrMelon Fx:")
+            msgBox.setInformativeText(traceback.format_exc())
+            msgBox.setStandardButtons(QMessageBox.Ok)
+            msgBox.exec()
+            appExitCode = -1000
+        else:
+            raise e
 
     sys.exit(appExitCode)
