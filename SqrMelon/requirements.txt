@@ -4,4 +4,5 @@ Send2Trash
 pyprof2calltree
 python-osc
 pyqtdarktheme==2.1.0
+pyqt-toast-notification
 -e .
