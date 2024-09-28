@@ -246,6 +246,15 @@ class Evaluator:
             glActiveTexture(GL_TEXTURE0 + uniformIndex)
             texture = self._fboCbos[framebufferName][cboIndex]
             glBindTexture(GL_TEXTURE_2D, texture)
+            '''
+            # Debug: check if the buffer has data
+            framebuffer = self._project.framebuffers[framebufferName]
+            width = self._screenWidth // framebuffer.factor if framebuffer.factor else framebuffer.width
+            height = self._screenHeight // framebuffer.factor if framebuffer.factor else framebuffer.height
+            data = (ctypes.c_float * (4 * width * height))()
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, data)
+            print(data[0], data[1], data[2], data[3])
+            '''
             loc = glGetUniformLocation(program, f'uImages[{uniformIndex}]')
             glUniform1i(loc, uniformIndex)
 
