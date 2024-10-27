@@ -1,4 +1,3 @@
-import inspect
 import os
 from plugin_host_app import PluginBase, PluginContext
 
