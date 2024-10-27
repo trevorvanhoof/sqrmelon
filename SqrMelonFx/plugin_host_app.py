@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import cProfile
+from collections import namedtuple
 import ctypes
 import hashlib
 import importlib
@@ -32,6 +33,13 @@ class PluginContext(QApplication):
     mtimeEnabled:       ClassVar[bool]   = True # True if the filesystem supports mtime, false otherwise.
     _asyncExceptions:   ClassVar[list[Exception]] = [] # Uncaught exceptions coming from invokeOnMainThread().
 
+    NotificationPayload = namedtuple("NotificationPayload", [ "title", "details", "userdata" ])
+
+    notifyError      :  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload. 
+    notifyWarning    :  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload.
+    notifySuccess    :  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload.
+    notifyInformation:  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload.
+
     # The following signals are emitted by plugin_host_app._PluginManager.
     pluginActivated:    ClassVar[Signal] = Signal(object, object) # Signal(PluginContext, PluginBase).
     pluginDeactivated:  ClassVar[Signal] = Signal(object, object) # Signal(PluginContext, Pluginbase).
@@ -58,6 +66,11 @@ class PluginContext(QApplication):
 
         # Execute the atexit event chain.
         self.atexit.emit(self)
+
+    def err (self, message: str, payload: Optional[NotificationPayload] = None) -> None: self.notifyError      .emit(self, message, payload)
+    def warn(self, message: str, payload: Optional[NotificationPayload] = None) -> None: self.notifyWarning    .emit(self, message, payload)
+    def done(self, message: str, payload: Optional[NotificationPayload] = None) -> None: self.notifySuccess    .emit(self, message, payload)
+    def inf (self, message: str, payload: Optional[NotificationPayload] = None) -> None: self.notifyInformation.emit(self, message, payload)
 
     @staticmethod
     def dev() -> bool:
