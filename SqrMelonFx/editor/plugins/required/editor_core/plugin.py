@@ -68,5 +68,21 @@ class EditorCore(PluginBase):
             print("Version ID: 0x{:04x}.".format(EditorCore.VERSION))
             print("User data path: \"{}\".".format(EditorCore.DATA_PATH))
 
+        # Forward notifications to the console.
+        self.context.notifyError.connect(self.__errorNotified)
+        self.context.notifyWarning.connect(self.__warningNotified)
+        self.context.notifyInformation.connect(self.__informationNotified)
+        self.context.notifySuccess.connect(self.__successNotified)            
+
     def deactivated(self, isReloading: bool = False) -> Optional[object]: 
-        pass
+
+        # Disconnect console from notifications.
+        self.context.notifyError.disconnect(self.__errorNotified)
+        self.context.notifyWarning.disconnect(self.__warningNotified)
+        self.context.notifyInformation.disconnect(self.__informationNotified)
+        self.context.notifySuccess.disconnect(self.__successNotified)
+
+    def __errorNotified      (self, context: PluginContext, message: str, payload: PluginContext.NotificationPayload) -> None: print(f"[ERR] {payload.title or "Error"      }: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
+    def __warningNotified    (self, context: PluginContext, message: str, payload: PluginContext.NotificationPayload) -> None: print(f"[WRN] {payload.title or "Warning"    }: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
+    def __informationNotified(self, context: PluginContext, message: str, payload: PluginContext.NotificationPayload) -> None: print(f"[INF] {payload.title or "Information"}: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
+    def __successNotified    (self, context: PluginContext, message: str, payload: PluginContext.NotificationPayload) -> None: print(f"[OK ] {payload.title or "Success"    }: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")

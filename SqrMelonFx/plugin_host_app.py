@@ -35,10 +35,10 @@ class PluginContext(QApplication):
 
     NotificationPayload = namedtuple("NotificationPayload", [ "title", "details", "userdata" ])
 
-    notifyError      :  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload. 
-    notifyWarning    :  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload.
-    notifySuccess    :  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload.
-    notifyInformation:  ClassVar[Signal] = Signal(object, str, Optional[NotificationPayload]) # Parameters = PluginContext, message, payload.
+    notifyError      :  ClassVar[Signal] = Signal(object, str, NotificationPayload) # Parameters = PluginContext, message, payload. 
+    notifyWarning    :  ClassVar[Signal] = Signal(object, str, NotificationPayload) # Parameters = PluginContext, message, payload.
+    notifySuccess    :  ClassVar[Signal] = Signal(object, str, NotificationPayload) # Parameters = PluginContext, message, payload.
+    notifyInformation:  ClassVar[Signal] = Signal(object, str, NotificationPayload) # Parameters = PluginContext, message, payload.
 
     # The following signals are emitted by plugin_host_app._PluginManager.
     pluginActivated:    ClassVar[Signal] = Signal(object, object) # Signal(PluginContext, PluginBase).
