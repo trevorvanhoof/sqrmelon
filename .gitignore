@@ -27,3 +27,5 @@ MelonPan/Debug
 MelonPan/x64
 CTestAdapter.config
 MelonPan/program_*.glsl
+*.code-workspace
+/SqrMelonFx/qcachegrind074-x86
