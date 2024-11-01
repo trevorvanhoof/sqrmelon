@@ -1,8 +1,8 @@
 import datetime
 import os
-from typing import Optional
+from typing import Callable, Optional
 
-from qt import QAction, QDockWidget, QHideEvent, QLabel, QMainWindow, QMessageBox, QPixmap, QSettings, QShowEvent, Qt, QWidget
+from qt import QAction, QCloseEvent, QDockWidget, QHBoxLayout, QHideEvent, QLabel, QMainWindow, QPixmap, QProgressBar, QSettings, QShowEvent, Qt, QWidget
 
 from editor_core_ui.style_manager import StyleManager
 
@@ -11,6 +11,8 @@ class EditorWindow(QMainWindow):
     """
     Editor main window.
     """
+
+    beforeCloseEvent: Callable[[QCloseEvent], bool] = None
 
     def __init__(self, styleManager: StyleManager, settings: QSettings, cancellationToken: object, name: Optional[str] = None) -> None:
         """
@@ -32,7 +34,23 @@ class EditorWindow(QMainWindow):
         self.setDockNestingEnabled(True)
         self.setMinimumSize(1280, 720)
         self.setWindowIcon(QPixmap(os.path.join(os.path.dirname(__file__), "resources", 'Candy Cane-48.png' if datetime.datetime.month == '12' else 'SqrMelon.ico')))
-        self.refreshWindowTitle()
+        self.setWindowTitle("SqrMelon Fx")
+
+        # Set up the status bar.
+        self.statusLabel = QLabel("Ready.")
+        self.statusProgressBar = QProgressBar()
+        self.statusProgressBar.setMaximumHeight(16)
+        self.statusProgressBar.setValue(0)
+        self.statusProgressBar.setMaximum(100)
+        self.statusProgressBar.setTextVisible(False)
+        statusBarLayout = QHBoxLayout()
+        statusBarLayout.addWidget(self.statusLabel, 3)
+        statusBarLayout.addWidget(self.statusProgressBar, 1)
+        statusBarLayout.setContentsMargins(12, 4, 4, 4)
+        statusBarWidget = QWidget()
+        statusBarWidget.setLayout(statusBarLayout)
+        self.statusBar().setStyleSheet("* { border: none; background-color: transparent; } *::hover { background-color: transparent; }")         
+        self.statusBar().addWidget(statusBarWidget, 1)
 
         # Set up the menu bar.
         menuBar  = self.menuBar()
@@ -60,9 +78,7 @@ class EditorWindow(QMainWindow):
         viewMenu_appearance.addAction(viewMenu_appearance_darkTheme)
 
         # Handle style changes that involve pixmap updates.
-        def styleChanged(eventSender: StyleManager, darkStyleEnabled: bool, uncommittedIcons: list[tuple[QPixmap, int]]) -> None:
-            if eventSender != styleManager:
-                return
+        def styleChanged(darkStyleEnabled: bool, uncommittedIcons: list[tuple[QPixmap, int]]) -> None:
             uncommittedIconsMap: dict[int, QPixmap] = {key: pixmap for pixmap, key in uncommittedIcons}
             for i in self.findChildren(QWidget, options = Qt.FindChildOption.FindChildrenRecursively):
                 if isinstance(i, QLabel):
@@ -72,12 +88,8 @@ class EditorWindow(QMainWindow):
         styleManager.styleChanged.connect(styleChanged)
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, 'Unsaved changes',
-            "Your project has unsaved local changes. Discard local changes, or save all to continue.",
-            QMessageBox.SaveAll | QMessageBox.Discard | QMessageBox.Cancel,
-            QMessageBox.Cancel)
-
-        if reply in [ QMessageBox.SaveAll, QMessageBox.Discard ]:
+        eventAccepted: bool = self.beforeCloseEvent(event) if self.beforeCloseEvent else True
+        if eventAccepted:
             event.accept()
             self.__cancellationToken.cancel()
         else:
@@ -129,9 +141,3 @@ class EditorWindow(QMainWindow):
         self.addDockWidget(where, dock, direction)
 
         return dock
-
-    def refreshWindowTitle(self) -> None: 
-        """
-        Refresh the window title after the canonical absolute project path and dirty flag.
-        """
-        ...

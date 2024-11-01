@@ -1,4 +1,3 @@
-import gc
 from pyqttoast import Toast, ToastPreset
 from qt import QObject, QWidget
 
@@ -17,17 +16,15 @@ class ToastNotificationManager(QObject):
         """
         assert styleManager is not None
         assert parentWidget is not None
-
         super().__init__()
 
-        Toast.setMaximumOnScreen(5)
+        Toast.setMaximumOnScreen(maxNotificationsOnScreen)
         Toast.setPositionRelativeToWidget(parentWidget)
         self.__parentWidget = parentWidget
         self.__darkStyleEnabled = styleManager.darkStyle
 
-        def styleChanged(emitter: StyleManager, darkStyleEnabled: bool, _) -> None:
-            if emitter == styleManager:
-                self.__darkStyleEnabled = darkStyleEnabled
+        def styleChanged(darkStyleEnabled: bool, _) -> None:
+            self.__darkStyleEnabled = darkStyleEnabled
         styleManager.styleChanged.connect(styleChanged)
 
     def displaySuccessToastNotification(self, title: str, message: str, durationMs: int = 4000) -> None: 
@@ -85,8 +82,7 @@ class ToastNotificationManager(QObject):
         """
 
         toast = Toast(self.__parentWidget)
-        toast.setMinimumWidth(250)
-        toast.setTitle (title)
+        toast.setTitle(title)
         toast.setText(message)
         toast.setBorderRadius(3)
         toast.applyPreset(preset)

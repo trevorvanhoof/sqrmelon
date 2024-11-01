@@ -1,45 +1,24 @@
-from __future__ import annotations
-
 from collections import namedtuple
 import glob
-import hashlib
 import math
 import os
 import threading
-from typing import Callable, ClassVar, Optional
+from typing import ClassVar, Optional
 
 from plugin_host_app import PluginContext
 from qt import QCoreApplication, QFont, QFontDatabase, QObject, QPixmap, Signal
 import qdarktheme
-from watchdog.observers import Observer
-from watchdog.events import EVENT_TYPE_MOVED, FileSystemEvent, FileSystemEventHandler
 
 
 DEFAULT_VARIABLE_WIDTH_FONT: str = "roboto"
 DEFAULT_VARIABLE_WIDTH_VERTICAL_FONT: str = "teko"
 DEFAULT_FIXED_WIDTH_FONT: str = "inconsolata"
+_RESOURCE_INCLUDED_EXTENSIONS: list[str] = [ ".ttf",  ".svg", ".png", ".ico" ]
 
 
 class ResourceAlreadyExistsException(Exception): ...
-class ResourceFormatException(Exception): ...
+class ResourceFormatException (Exception): ...
 class IncompleteStyleException(Exception): ...
-
-
-def _fileHashCode(path: str) -> str:
-    """
-    Compute the MD5 hash for the given file.
-    Parameters:
-        path (str): The absolute path to the file to analyze.
-    Returns:
-        str: MD5 hash.
-    """
-    assert path is not None
-
-    md5Hash = hashlib.md5()
-    with open(path, 'rb') as f:
-        for dataChunk in iter(lambda: f.read(4096), b""):
-            md5Hash.update(dataChunk)
-    return md5Hash.hexdigest()
 
 
 class StyleManager(QObject):
@@ -54,10 +33,10 @@ class StyleManager(QObject):
     This plugin built-in assets have no namespace, while other plugin sources should use a local plugin namespace.
     """
 
-    styleChanged: ClassVar[Signal] = Signal(object, bool, list) # StyleManager, darkStyleEnabled, [[pixmap, prevCacheKey]].
+    styleChanged: ClassVar[Signal] = Signal(bool, list) # darkStyleEnabled, [[pixmap, prevCacheKey]].
 
-    __FontInfo = namedtuple("__FontInfo", [ "source", "fn", "hashCode", "fontFamily", "fontId"   ])
-    __IconInfo = namedtuple("__IconInfo", [ "source", "fn", "hashCode", "pixmap", "prevCacheKey" ])
+    __FontInfo = namedtuple("__FontInfo", [ "source", "fn", "fontFamily", "fontId"   ])
+    __IconInfo = namedtuple("__IconInfo", [ "source", "fn", "pixmap", "prevCacheKey" ])
 
     def __init__(self, minimalResourcesPath: str, darkStyleEnabled: bool = True) -> None:
         """
@@ -67,14 +46,13 @@ class StyleManager(QObject):
             darkStyleEnabled (bool): True to enable dark mode by default; False otherwise.
         """
         assert minimalResourcesPath is not None
-
         super().__init__()
 
         self.__styleManagerLock: threading.Lock = threading.Lock()
         self.__style: str = None
         self.__fontCache: dict[str, StyleManager.__FontInfo] = {}
         self.__iconCache: dict[str, StyleManager.__IconInfo] = {}
-        self.__sources: dict[str, tuple[str, StyleManager.__SourceChangeListener]] = {} # Source -> Namespace, Filesystem watcher.
+        self.__sources: dict[str, str] = {} # Source -> Namespace.
 
         self.__setDarkStyle(darkStyleEnabled)
         self.addSource(minimalResourcesPath, None)
@@ -92,12 +70,12 @@ class StyleManager(QObject):
         Raises:
             ResourceAlreadyExistsException: Font or icon is already present under the same namespace.
             ResourceFormatException: Font or icon file format is not recognized.
-        """
+       """
         assert source is not None
         assert os.path.basename(os.path.dirname(source)) not in [ "light", "dark" ]
         assert os.path.isdir(source)
 
-        source = PluginContext.FileUtils.normalizedPath(source)
+        source = PluginContext.normalizedPath(source)
         namespacePrefix = ((namespace + ".") if namespace is not None else "")
         if os.path.isdir(os.path.join(source, "dark")) != os.path.isdir(os.path.join(source, "light")):
             raise IncompleteStyleException(f'Style data at "{source}" is incomplete.')
@@ -105,20 +83,17 @@ class StyleManager(QObject):
         with self.__styleManagerLock:
 
             for fontPath in glob.glob(os.path.join(source, "*.ttf")):
-                normalizedPath = PluginContext.FileUtils.normalizedPath(fontPath)
+                normalizedPath = PluginContext.normalizedPath(fontPath)
                 self.__loadFont(normalizedPath, namespacePrefix, source)
 
-            for d in [ source, PluginContext.FileUtils.normalizedPath(os.path.join(source, self.__style)) ]:
+            for d in [ source, PluginContext.normalizedPath(os.path.join(source, self.__style)) ]:
                 for i in [ "*.svg", "*.png", "*.ico" ]:
                     for iconPath in glob.glob(os.path.join(d, i)):
-                        normalizedPath = PluginContext.FileUtils.normalizedPath(iconPath)
+                        normalizedPath = PluginContext.normalizedPath(iconPath)
                         self.__loadIcon(normalizedPath, namespacePrefix, source)
 
-            self.__sources[source] = [ namespace, StyleManager.__SourceChangeListener() ]
-            self.__sources[source][1].callback = self.__resourceChanged
-            self.__sources[source][1].observer = Observer()
-            self.__sources[source][1].observer.schedule(self.__sources[source][1], source, recursive = True)
-            self.__sources[source][1].observer.start()
+            self.__sources[source] = namespace
+            PluginContext.instance().watchDirectory(source, self.__styleChanged, [], _RESOURCE_INCLUDED_EXTENSIONS)
 
     def removeSource(self, source: str) -> None:
         """
@@ -129,11 +104,10 @@ class StyleManager(QObject):
         assert source is not None
         assert os.path.basename(os.path.dirname(source)) not in [ "light", "dark" ]
 
-        source = PluginContext.FileUtils.normalizedPath(source)
+        source = PluginContext.normalizedPath(source)
         with self.__styleManagerLock:
-
-            self.__sources[source][1].observer.stop()
-            self.__sources[source][1].observer.join()
+            
+            PluginContext.instance().unwatchDirectory(source)
             del self.__sources[source]
 
             toRemove: list[str] = []
@@ -172,7 +146,7 @@ class StyleManager(QObject):
                 if v.pixmap.cacheKey() != v.prevCacheKey:
                     uncommittedIcons.append([ v.pixmap, v.prevCacheKey ])
                     self.__iconCache[k] = v._replace(prevCacheKey = v.pixmap.cacheKey())
-        self.styleChanged.emit(self, darkStyleEnabled, uncommittedIcons)
+        self.styleChanged.emit(darkStyleEnabled, uncommittedIcons)
 
     def icon(self, canonicalIconName: str) -> QPixmap:
         """
@@ -226,7 +200,7 @@ class StyleManager(QObject):
         fontId = QFontDatabase.addApplicationFont(normalizedFilePath)
         if fontId == -1 or not (fontFamilies := QFontDatabase.applicationFontFamilies(fontId)):
             raise ResourceFormatException(f'Error loading font file "{normalizedFilePath}".')
-        self.__fontCache[namedId] = StyleManager.__FontInfo(source = normalizedSource, fn = normalizedFilePath, hashCode = _fileHashCode(normalizedFilePath), fontFamily = fontFamilies[0], fontId = fontId)
+        self.__fontCache[namedId] = StyleManager.__FontInfo(source = normalizedSource, fn = normalizedFilePath, fontFamily = fontFamilies[0], fontId = fontId)
         if namedId.endswith("-regular"):
             self.__fontCache[namedId.removesuffix("-regular")] = self.__fontCache[namedId]
         return fontFamilies[0]
@@ -254,10 +228,10 @@ class StyleManager(QObject):
             raise ResourceAlreadyExistsException(f'Font "{namedId}" already registered.')
 
         icon: QPixmap = QPixmap(normalizedFilePath)
-        self.__iconCache[namedId] = StyleManager.__IconInfo(source = normalizedSource, fn = normalizedFilePath, hashCode = _fileHashCode(normalizedFilePath), pixmap = icon, prevCacheKey = None)
+        self.__iconCache[namedId] = StyleManager.__IconInfo(source = normalizedSource, fn = normalizedFilePath, pixmap = icon, prevCacheKey = None)
         return icon
 
-    def __resourceChanged(self, resourcePath: str) -> None:
+    def __styleChanged(self, resourcePath: str) -> None:
         """
         If the resource in the given path has changed, reload it.
         Parameters:
@@ -267,10 +241,10 @@ class StyleManager(QObject):
         with self.__styleManagerLock:
             k, v = next(((key, value) for key, value in self.__iconCache.items() if value.fn == resourcePath), None)
             if v:
-                if (hashCode := _fileHashCode(resourcePath)) != v.hashCode:
+                if v.fn == resourcePath:
                     prevCacheKey = v.pixmap.cacheKey()
                     v.pixmap.load(resourcePath)
-                    self.__iconCache[k] = self.__iconCache[k]._replace(fn = resourcePath, hashCode = hashCode, prevCacheKey = prevCacheKey)
+                    self.__iconCache[k] = self.__iconCache[k]._replace(fn = resourcePath, prevCacheKey = prevCacheKey)
 
         self.darkStyle = self.darkStyle # Force update.
 
@@ -287,7 +261,7 @@ class StyleManager(QObject):
             return
         
         def convertPathBetweenStyles(pathToConvert: str) -> str:
-            pathToConvert = PluginContext.FileUtils.normalizedPath(pathToConvert)
+            pathToConvert = PluginContext.normalizedPath(pathToConvert)
             lastDirectory = os.path.basename(os.path.dirname(pathToConvert)).lower()
             fromStyle = "dark" if not darkStyleEnabled else "light"
             toStyle = "dark" if darkStyleEnabled else "light"
@@ -303,10 +277,9 @@ class StyleManager(QObject):
                 if (newPath := convertPathBetweenStyles(v.fn)) == v.fn:
                     continue
 
-                if (hashCode := _fileHashCode(newPath)) != v.hashCode:
-                    prevCacheKey = v.pixmap.cacheKey()
-                    v.pixmap.load(newPath)
-                    self.__iconCache[k] = self.__iconCache[k]._replace(fn = newPath, hashCode = hashCode, prevCacheKey = prevCacheKey)
+                prevCacheKey = v.pixmap.cacheKey()
+                v.pixmap.load(newPath)
+                self.__iconCache[k] = self.__iconCache[k]._replace(fn = newPath, prevCacheKey = prevCacheKey)
 
         qdarktheme.setup_theme(newStyle)
         QCoreApplication.instance().setStyleSheet(QCoreApplication.instance().styleSheet() + """
@@ -316,25 +289,3 @@ class StyleManager(QObject):
             """
         )
         self.__style = newStyle
-
-    class __SourceChangeListener(FileSystemEventHandler):
-        """
-        Filesystem observer for resources.
-        Emits events for each file added, moved and deleted in the corresponding resource folder.
-        """
-        observer: Observer      = None  # type: ignore
-        callback: Callable[[str], None] = None # Callback run when a file is changed.
-
-        def on_any_event(self, event: FileSystemEvent) -> None:
-            """
-            Catch-all event handler.
-            Parameters:
-                event (FileSystemEvent): The event object representing the file system event.
-            """
-            assert self.callback is not None
-
-            npath = PluginContext.FileUtils.normalizedPath(event.src_path if event.event_type is not EVENT_TYPE_MOVED else event.dest_path)
-            if event.is_directory or os.path.isdir(npath):
-                return
-            if os.path.splitext(npath)[1] not in [ ".ttf",  ".svg", ".png", ".ico" ]: return
-            self.callback(npath)

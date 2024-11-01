@@ -1,0 +1,56 @@
+{
+  "draw": [
+    {
+      command: "BindFramebuffer",
+      framebuffer: "example",
+    },
+    {
+      command: "Clear",
+      color: true, // Not necessary but easier to debug because we clear to dark green
+      depth: true
+    },
+    {
+      command: "DrawRect",
+      fragment: [
+        "background.frag.glsl"
+      ]
+    },
+    {
+      command: "DrawMesh",
+      vertex: [
+        "mesh.vert.glsl"
+      ],
+      geometry: [
+        "mesh.geom.glsl"
+      ],
+      fragment: [
+        "mesh.frag.glsl"
+      ],
+      vbo: "vertex",
+      ibo: null,
+      ivbo: null,
+      layout: "default",
+      count: 1000,
+      instanceCount: 0,
+      primitive: "Triangles"
+    },
+    {
+      command: "BindFramebuffer",
+      framebuffer: null
+    },
+    {
+      command: "Clear",
+      color: true, // Not necessary but easier to debug because we clear to dark green
+      depth: true
+    },
+    {
+      command: "DrawRect",
+      fragment: [
+        "blit.frag.glsl"
+      ],
+      textures: [
+        ["example", 0]
+      ]
+    },
+  ]
+}

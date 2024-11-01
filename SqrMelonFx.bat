@@ -21,5 +21,5 @@ if "%LATEST_PYTHON%"=="" (
 )
 
 pushd "%~dp0"
-start "" "%LATEST_PYTHON%\pythonw.exe" "SqrMelonFx\plugin_host_app.py" -p"%~dp0SqrMelonFx\editor\plugins\required"
+start "" "%LATEST_PYTHON%\pythonw.exe" "SqrMelonFx\plugin_host_app.py" -p"%~dp0SqrMelonFx\minimal_plugins" -p"%~dp0SqrMelonFx\editor\plugins"
 popd
