@@ -239,12 +239,18 @@ class StyleManager(QObject):
         """
 
         with self.__styleManagerLock:
-            k, v = next(((key, value) for key, value in self.__iconCache.items() if value.fn == resourcePath), None)
+            resourcePath = PluginContext.normalizedPath(resourcePath)
+            k, v = next(((key, value) for key, value in self.__iconCache.items() if value.fn == resourcePath), (None, None))
             if v:
                 if v.fn == resourcePath:
                     prevCacheKey = v.pixmap.cacheKey()
                     v.pixmap.load(resourcePath)
                     self.__iconCache[k] = self.__iconCache[k]._replace(fn = resourcePath, prevCacheKey = prevCacheKey)
+            else:
+                for k, v in self.__sources.items():
+                    if k == resourcePath[:len(k)]:
+                        self.__loadIcon(resourcePath, v or "", k)
+                        break
 
         self.darkStyle = self.darkStyle # Force update.
 
