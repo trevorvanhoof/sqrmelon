@@ -81,16 +81,16 @@ class EditorCore(PluginBase):
 
     def err (self, message: str, payload: Optional[NotificationPayload] = None) -> None:
         print(f"[ERR] {payload.title or "Error"      }: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
-        self.notifyError      .emit(self, message, payload)
+        self.notifyError      .emit(message, payload)
 
     def warn(self, message: str, payload: Optional[NotificationPayload] = None) -> None: 
         print(f"[WRN] {payload.title or "Warning"    }: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
-        self.notifyWarning    .emit(self, message, payload)
+        self.notifyWarning    .emit(message, payload)
 
     def done(self, message: str, payload: Optional[NotificationPayload] = None) -> None: 
         print(f"[OK ] {payload.title or "Success"    }: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
-        self.notifySuccess    .emit(self, message, payload)
+        self.notifySuccess    .emit(message, payload)
 
     def inf (self, message: str, payload: Optional[NotificationPayload] = None) -> None: 
         print(f"[INF] {payload.title or "Information"}: {message}{'\nDetails:\n' + payload.details if payload.details is not None and isinstance(payload.details, str) else ''}{'\nAdditional user data:\n' + payload.userdata if not None and isinstance(payload.userdata, str) else ''}")
-        self.notifyInformation.emit(self, message, payload)
+        self.notifyInformation.emit(message, payload)

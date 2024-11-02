@@ -42,5 +42,5 @@ class OpenLastProjectOnStart(PluginBase):
             if PluginContext.dev():
                 print(f"Reopening \"{lastOpenedProject}\"...")
             self.editorCore.projectManager.openProject(lastOpenedProject)
-            self.editorCore.notifySuccess.emit(f"Project \"{os.path.basename(lastOpenedProject)}\" loaded.", 
+            self.editorCore.done(f"Project \"{os.path.basename(lastOpenedProject)}\" loaded.", 
                 EditorCore.NotificationPayload(title = "Session reopened", details = None, userdata = None))

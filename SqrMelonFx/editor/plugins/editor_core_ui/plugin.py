@@ -35,7 +35,7 @@ class EditorCoreUi(PluginBase):
         self.editorCore = dependencies["editorCore"]
 
         # Initialize.
-        self.styleManager = StyleManager(PluginContext.normalizedPath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")), self.editorCore.settings.value("darkStyle", "true") == "true")
+        self.styleManager = StyleManager(PluginContext.normalizedPath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")), self.editorCore.settings.value("darkStyle", "true").__str__().lower() == "true")
         self.editorWindow = EditorWindow(self.styleManager, self.editorCore.settings, PluginContext.instance().cancellationToken)
         self.editorWindow.show()
         self.editorWindow.raise_()

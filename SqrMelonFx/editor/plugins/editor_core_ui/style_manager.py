@@ -289,8 +289,8 @@ class StyleManager(QObject):
 
         qdarktheme.setup_theme(newStyle)
         QCoreApplication.instance().setStyleSheet(QCoreApplication.instance().styleSheet() + """
-            *               { font-family: '""" + DEFAULT_VARIABLE_WIDTH_FONT + """'; font-size: """ + str(int(math.ceil(self.fontPointSize * 1.0))) +  """pt; }
-            QDockWidget     { font-family: '""" + DEFAULT_FIXED_WIDTH_FONT    + """'; font-size: """ + str(int(math.ceil(self.fontPointSize * 1.5))) +  """pt; }
+            *               { font-family: '""" + DEFAULT_VARIABLE_WIDTH_FONT          + """'; font-size: """ + str(int(math.ceil(self.fontPointSize * 1.0))) +  """pt; }
+            QDockWidget     { font-family: '""" + DEFAULT_VARIABLE_WIDTH_VERTICAL_FONT + """'; font-size: """ + str(int(math.ceil(self.fontPointSize * 1.4))) +  """pt; }
             QMenuBar::item  { padding: 4px 10px; }                
             """
         )

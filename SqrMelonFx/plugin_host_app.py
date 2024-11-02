@@ -226,12 +226,12 @@ class PluginContext(QApplication):
 
             if PluginContext.mtimeEnabled:
                 mtime: float = self.__mtime(self.path, self.excludedDirs, self.extFilter)
-                if event.event_type == EVENT_TYPE_MOVED and mtime  == self.mtime:
+                if mtime == self.mtime:
                     return # Discard if no changes were detected.
                 self.mtime = mtime
 
             hashCode: str = self.__hashCode(self.path, self.excludedDirs, self.extFilter)
-            if event.event_type == EVENT_TYPE_MOVED and hashCode  == self.hashCode:
+            if hashCode  == self.hashCode:
                 return # Discard if no changes were detected.
             self.hashCode = hashCode
             
@@ -613,7 +613,7 @@ class PluginContext(QApplication):
                         if thatPath == thisPath: break
                         thisPath = thatPath
                     return None
-                
+
                 pluginSourcePath = pluginPath.removesuffix(moduleBasename(pluginPath))
                 for i in range(len(pyFilesInPlugin)):
                     pyFilesInPlugin[i] = os.path.splitext(pyFilesInPlugin[i])[0].removeprefix(pluginSourcePath).replace('/', '.')
@@ -869,8 +869,9 @@ def _runPluginHostApp() -> None:
         if PluginContext.gfx() and os.name == 'nt':
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('trevorvanhoof.sqrmelonfx')
 
-       # Execute the application.
+        # Execute the application.
         pluginContext = PluginContext(pluginSources)
+        pluginContext.setStyle("Fusion")
         pluginContext.exec_()
 
     except Exception as e:
