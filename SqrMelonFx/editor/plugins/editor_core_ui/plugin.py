@@ -1,8 +1,9 @@
 import os
 from typing import Optional
 
+from qt import QCloseEvent, QMessageBox
+
 from editor_core.plugin import EditorCore
-from editor_core.project_manager import ProjectManager
 from editor_core_ui.editor_window import EditorWindow
 from editor_core_ui.style_manager import StyleManager
 from editor_core_ui.toast_notification_manager import ToastNotificationManager
@@ -53,7 +54,8 @@ class EditorCoreUi(PluginBase):
 
         # Update window title after project is open.
         self.editorCore.projectManager.projectLoaded.connect(self.__projectLoaded)
-
+        self.editorWindow.beforeCloseEvent = self.__beforeCloseEvent
+#
         if PluginContext.dev():
             print("Editor core UI plugin activated.")
 
@@ -109,3 +111,15 @@ class EditorCoreUi(PluginBase):
     def __projectLoaded      (self) -> None:
         self.editorWindow.setWindowTitle("SqrMelon Fx - {}{}".format(self.editorCore.projectManager.projectPath or self.editorCore.projectManager.projectName, 
             "*" if self.editorCore.projectManager.projectDirtyFlag else ""))
+
+    def __beforeCloseEvent   (self, event: QCloseEvent) -> bool:
+        if self.editorCore.projectManager.projectDirtyFlag:
+            reply = QMessageBox.question(self, 'Unsaved changes',
+                "Your project has unsaved local changes. Discard local changes, or save all to continue.",
+            QMessageBox.SaveAll | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Cancel)
+
+            # TODO dc QMessageBox.SaveAll must save the project.
+            return reply in [ QMessageBox.SaveAll, QMessageBox.Discard ]
+        else:
+            return True
